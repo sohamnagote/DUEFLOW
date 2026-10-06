@@ -4,12 +4,16 @@
   "version": "0.0.0",
   "type": "module",
   "scripts": {
-    "dev": "tsx server.ts",
-    "start": "tsx server.ts",
-    "build": "vite build",
-    "preview": "vite preview",
-    "test:backend": "tsx scripts/test-e2e.ts",
-    "clean": "rm -rf dist server.js",
+    "dev": "vite dev frontend --config frontend/vite.config.ts",
+    "frontend:dev": "vite dev frontend --config frontend/vite.config.ts",
+    "frontend:build": "vite build frontend --config frontend/vite.config.ts",
+    "backend:dev": "mvn -f backend/pom.xml spring-boot:run",
+    "backend:build": "mvn -f backend/pom.xml clean package",
+    "backend:test": "mvn -f backend/pom.xml test",
+    "start": "mvn -f backend/pom.xml spring-boot:run",
+    "build": "vite build frontend --config frontend/vite.config.ts",
+    "preview": "vite preview frontend --config frontend/vite.config.ts",
+    "clean": "rm -rf frontend/dist backend/target dist server.js",
     "lint": "tsc --noEmit"
   },
   "dependencies": {

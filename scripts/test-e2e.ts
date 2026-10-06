@@ -5,11 +5,11 @@
  * and Cross-Tenant Data Isolation (RLS).
  */
 
-import { db } from '../server/db';
-import { deriveOperationalStatus } from '../server/services/statusService';
-import { calculateReminderRules, recomputeRulesForUnpaid } from '../server/services/schedulerService';
-import { generateAiReminder } from '../server/services/aiService';
-import { sendEmail } from '../server/services/emailService';
+import { db } from '../backend/db';
+import { deriveOperationalStatus } from '../backend/services/statusService';
+import { calculateReminderRules, recomputeRulesForUnpaid } from '../backend/services/schedulerService';
+import { generateAiReminder } from '../backend/services/aiService';
+import { sendEmail } from '../backend/services/emailService';
 
 let passCount = 0;
 let failCount = 0;

@@ -4,7 +4,7 @@
     "experimentalDecorators": true,
     "useDefineForClassFields": false,
     "module": "ESNext",
-    "types": ["vite/client", "node"],
+    "types": ["vite/client"],
     "lib": [
       "ES2022",
       "DOM",
@@ -18,12 +18,11 @@
     "jsx": "react-jsx",
     "paths": {
       "@/*": [
-        "./frontend/src/*"
+        "./src/*"
       ]
     },
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["frontend/**/*", "backend/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "dist", "frontend/dist", "supabase"]
+  "include": ["src/**/*", "vite.config.ts"]
 }

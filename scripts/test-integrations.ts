@@ -1,8 +1,8 @@
-import { db } from '../server/db';
-import { encryptToken, decryptToken } from '../server/services/cryptoService';
-import { getEmailProviderForUser } from '../server/services/email/providerFactory';
-import { getWhatsAppProviderForUser } from '../server/services/whatsapp/providerFactory';
-import { calculateReminderRules, recomputeRulesForUnpaid } from '../server/services/schedulerService';
+import { db } from '../backend/db';
+import { encryptToken, decryptToken } from '../backend/services/cryptoService';
+import { getEmailProviderForUser } from '../backend/services/email/providerFactory';
+import { getWhatsAppProviderForUser } from '../backend/services/whatsapp/providerFactory';
+import { calculateReminderRules, recomputeRulesForUnpaid } from '../backend/services/schedulerService';
 
 async function testIntegrations() {
   console.log('\n--- Testing Integrations Architecture & Security ---');

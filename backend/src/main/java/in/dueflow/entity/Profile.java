@@ -1,0 +1,123 @@
+package in.dueflow.entity;
+
+import jakarta.persistence.*;
+import java.time.Instant;
+import java.util.UUID;
+
+@Entity
+@Table(name = "profiles")
+public class Profile {
+
+    @Id
+    private UUID id;
+
+    @Column(nullable = false)
+    private String email;
+
+    @Column(name = "full_name")
+    private String fullName = "";
+
+    @Column(name = "business_name")
+    private String businessName = "";
+
+    @Column
+    private String phone = "";
+
+    @Column(nullable = false)
+    private String timezone = "Asia/Kolkata";
+
+    @Column(name = "upi_id")
+    private String upiId = "";
+
+    @Column(name = "bank_account")
+    private String bankAccount = "";
+
+    @Column(name = "bank_ifsc")
+    private String bankIfsc = "";
+
+    @Column(name = "reminder_default")
+    private String reminderDefault = "cadence_default";
+
+    @Column(name = "default_reminder_channel")
+    private String defaultReminderChannel = "email";
+
+    @Column(name = "email_reminders_enabled")
+    private Boolean emailRemindersEnabled = true;
+
+    @Column(name = "whatsapp_reminders_enabled")
+    private Boolean whatsappRemindersEnabled = false;
+
+    @Column(name = "created_at", nullable = false, updatable = false)
+    private Instant createdAt = Instant.now();
+
+    @Column(name = "updated_at", nullable = false)
+    private Instant updatedAt = Instant.now();
+
+    public Profile() {}
+
+    public Profile(UUID id, String email) {
+        this.id = id;
+        this.email = email;
+    }
+
+    @PrePersist
+    protected void onCreate() {
+        if (createdAt == null) createdAt = Instant.now();
+        if (updatedAt == null) updatedAt = Instant.now();
+        if (timezone == null) timezone = "Asia/Kolkata";
+        if (reminderDefault == null) reminderDefault = "cadence_default";
+        if (defaultReminderChannel == null) defaultReminderChannel = "email";
+        if (emailRemindersEnabled == null) emailRemindersEnabled = true;
+        if (whatsappRemindersEnabled == null) whatsappRemindersEnabled = false;
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        updatedAt = Instant.now();
+    }
+
+    public UUID getId() { return id; }
+    public void setId(UUID id) { this.id = id; }
+
+    public String getEmail() { return email; }
+    public void setEmail(String email) { this.email = email; }
+
+    public String getFullName() { return fullName; }
+    public void setFullName(String fullName) { this.fullName = fullName; }
+
+    public String getBusinessName() { return businessName; }
+    public void setBusinessName(String businessName) { this.businessName = businessName; }
+
+    public String getPhone() { return phone; }
+    public void setPhone(String phone) { this.phone = phone; }
+
+    public String getTimezone() { return timezone; }
+    public void setTimezone(String timezone) { this.timezone = timezone; }
+
+    public String getUpiId() { return upiId; }
+    public void setUpiId(String upiId) { this.upiId = upiId; }
+
+    public String getBankAccount() { return bankAccount; }
+    public void setBankAccount(String bankAccount) { this.bankAccount = bankAccount; }
+
+    public String getBankIfsc() { return bankIfsc; }
+    public void setBankIfsc(String bankIfsc) { this.bankIfsc = bankIfsc; }
+
+    public String getReminderDefault() { return reminderDefault; }
+    public void setReminderDefault(String reminderDefault) { this.reminderDefault = reminderDefault; }
+
+    public String getDefaultReminderChannel() { return defaultReminderChannel; }
+    public void setDefaultReminderChannel(String defaultReminderChannel) { this.defaultReminderChannel = defaultReminderChannel; }
+
+    public Boolean getEmailRemindersEnabled() { return emailRemindersEnabled; }
+    public void setEmailRemindersEnabled(Boolean emailRemindersEnabled) { this.emailRemindersEnabled = emailRemindersEnabled; }
+
+    public Boolean getWhatsappRemindersEnabled() { return whatsappRemindersEnabled; }
+    public void setWhatsappRemindersEnabled(Boolean whatsappRemindersEnabled) { this.whatsappRemindersEnabled = whatsappRemindersEnabled; }
+
+    public Instant getCreatedAt() { return createdAt; }
+    public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }
+
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
+}
