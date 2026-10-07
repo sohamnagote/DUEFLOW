@@ -1,0 +1,6 @@
+backend/
+target/
+.git/
+node_modules/
+.env*
+scripts/
