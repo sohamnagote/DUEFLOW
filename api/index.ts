@@ -19,31 +19,38 @@ const app = express();
 app.use(express.json({ limit: '5mb' }));
 app.use(express.urlencoded({ extended: true }));
 
-// API Routes — exact same mounts as backend-ts/server.ts
-app.use('/api/auth', authRoutes);
-app.use('/api/profile', profileRoutes);
-app.use('/api/integrations', integrationRoutes);
-app.use('/api/invoices', invoiceRoutes);
-app.use('/api/clients', clientRoutes);
-app.use('/api/dashboard', dashboardRoutes);
-app.use('/api/reminders', reminderRoutes);
-app.use('/api/ai', aiRoutes);
-app.use('/api/cron', cronRoutes);
-app.use('/api/webhooks', webhookRoutes);
+// Create common API Router
+const apiRouter = express.Router();
 
-// Health check endpoint
-app.get('/api/health', (req, res) => {
+apiRouter.use('/auth', authRoutes);
+apiRouter.use('/profile', profileRoutes);
+apiRouter.use('/integrations', integrationRoutes);
+apiRouter.use('/invoices', invoiceRoutes);
+apiRouter.use('/clients', clientRoutes);
+apiRouter.use('/dashboard', dashboardRoutes);
+apiRouter.use('/reminders', reminderRoutes);
+apiRouter.use('/ai', aiRoutes);
+apiRouter.use('/cron', cronRoutes);
+apiRouter.use('/webhooks', webhookRoutes);
+
+const healthHandler = (req: express.Request, res: express.Response) => {
   res.json({
     status: 'ok',
     service: 'DueFlow API',
     version: '1.0.0',
-    environment: config.NODE_ENV,
+    environment: config.NODE_ENV || 'production',
     timestamp: new Date().toISOString(),
   });
-});
+};
+
+apiRouter.get('/health', healthHandler);
+
+// Mount router on both '/api' and '/' to handle either URL style in Vercel serverless
+app.use('/api', apiRouter);
+app.use('/', apiRouter);
 
 // Global API error handler
-app.use('/api', (err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
+app.use((err: any, req: express.Request, res: express.Response, next: express.NextFunction) => {
   console.error('[API Exception]', err);
   res.status(err.status || 500).json({
     error: config.NODE_ENV === 'production' ? 'Internal server error' : err.message || 'Server error',

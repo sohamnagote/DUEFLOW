@@ -24,6 +24,6 @@
     "allowImportingTsExtensions": true,
     "noEmit": true
   },
-  "include": ["frontend/**/*", "backend/**/*", "scripts/**/*"],
-  "exclude": ["node_modules", "dist", "frontend/dist", "supabase"]
+  "include": ["frontend/**/*", "backend-ts/**/*", "api/**/*"],
+  "exclude": ["node_modules", "dist", "frontend/dist", "supabase", "backend"]
 }

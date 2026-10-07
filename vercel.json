@@ -5,7 +5,9 @@
   "installCommand": "npm install",
   "framework": null,
   "rewrites": [
-    { "source": "/api/(.*)", "destination": "/api" }
+    { "source": "/api", "destination": "/api" },
+    { "source": "/api/(.*)", "destination": "/api" },
+    { "source": "/((?!api/|assets/|favicon.ico).*)", "destination": "/index.html" }
   ],
   "crons": [
     {
