@@ -1,17 +1,17 @@
 import express from 'express';
-import { config } from '../backend-ts/config';
+import { config } from './config';
 
-// Import route handlers from existing backend-ts
-import authRoutes from '../backend-ts/routes/auth';
-import invoiceRoutes from '../backend-ts/routes/invoices';
-import clientRoutes from '../backend-ts/routes/clients';
-import dashboardRoutes from '../backend-ts/routes/dashboard';
-import reminderRoutes from '../backend-ts/routes/reminders';
-import aiRoutes from '../backend-ts/routes/ai';
-import cronRoutes from '../backend-ts/routes/cron';
-import webhookRoutes from '../backend-ts/routes/webhooks';
-import profileRoutes from '../backend-ts/routes/profile';
-import integrationRoutes from '../backend-ts/routes/integrations';
+// Import route handlers from backend-ts
+import authRoutes from './routes/auth';
+import invoiceRoutes from './routes/invoices';
+import clientRoutes from './routes/clients';
+import dashboardRoutes from './routes/dashboard';
+import reminderRoutes from './routes/reminders';
+import aiRoutes from './routes/ai';
+import cronRoutes from './routes/cron';
+import webhookRoutes from './routes/webhooks';
+import profileRoutes from './routes/profile';
+import integrationRoutes from './routes/integrations';
 
 const app = express();
 
