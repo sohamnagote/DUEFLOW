@@ -33,6 +33,40 @@ async function startServer() {
   app.use(express.json({ limit: '5mb' }));
   app.use(express.urlencoded({ extended: true }));
 
+  // CORS Configuration
+  app.use((req, res, next) => {
+    const origin = req.headers.origin;
+    const allowedOrigins = [
+      'https://dueflow-kappa.vercel.app',
+      'http://localhost:3000',
+      'http://localhost:5173',
+      'http://127.0.0.1:3000',
+      'http://127.0.0.1:5173',
+    ];
+
+    if (origin && (allowedOrigins.includes(origin) || origin.endsWith('.vercel.app'))) {
+      res.setHeader('Access-Control-Allow-Origin', origin);
+      res.setHeader('Access-Control-Allow-Credentials', 'true');
+    } else {
+      res.setHeader('Access-Control-Allow-Origin', '*');
+    }
+
+    res.setHeader(
+      'Access-Control-Allow-Methods',
+      'GET, POST, PUT, DELETE, PATCH, OPTIONS, HEAD'
+    );
+    res.setHeader(
+      'Access-Control-Allow-Headers',
+      'Origin, X-Requested-With, Content-Type, Accept, Authorization, Cookie'
+    );
+    res.setHeader('Access-Control-Expose-Headers', 'Authorization');
+
+    if (req.method === 'OPTIONS') {
+      return res.sendStatus(204);
+    }
+    next();
+  });
+
   // API Routes
   app.use('/api/auth', authRoutes);
   app.use('/api/profile', profileRoutes);

@@ -28,6 +28,7 @@ async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise
   const targetUrl = endpoint.startsWith('http') ? endpoint : `${baseUrl}${endpoint}`;
 
   const response = await fetch(targetUrl, {
+    credentials: 'include',
     ...options,
     headers,
   });
