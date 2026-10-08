@@ -10,4 +10,10 @@ router.get('/', requireAuth, async (req: Request, res: Response) => {
   return res.json(stats);
 });
 
+// GET /api/dashboard/stats
+router.get('/stats', requireAuth, async (req: Request, res: Response) => {
+  const stats = await db.getDashboardAggregates(req.user!.id);
+  return res.json(stats);
+});
+
 export default router;

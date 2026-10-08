@@ -182,9 +182,25 @@ if (isSupabaseConfigured) {
   }
 }
 
+let cloudTablesAvailable = false;
+
+if (isSupabaseConfigured && supabaseAdmin) {
+  supabaseAdmin.from('profiles').select('id').limit(1).then(({ error }) => {
+    if (!error) {
+      cloudTablesAvailable = true;
+      console.log('✓ [Supabase DB] Cloud database schema active and verified.');
+    } else {
+      cloudTablesAvailable = false;
+      console.log('ℹ [Supabase DB] Schema not yet found in Supabase project (PGRST205). Using resilient memory store for complete local operations.');
+    }
+  }).catch(() => {
+    cloudTablesAvailable = false;
+  });
+}
+
 export const db = {
   isCloudConnected(): boolean {
-    return isSupabaseConfigured && !!supabaseAdmin;
+    return isSupabaseConfigured && !!supabaseAdmin && cloudTablesAvailable;
   },
 
   getSupabaseAdmin(): SupabaseClient | null {

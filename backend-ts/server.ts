@@ -19,6 +19,13 @@ import integrationRoutes from './routes/integrations';
 const __filename = fileURLToPath(import.meta.url);
 const __dirname = path.dirname(__filename);
 
+process.on('unhandledRejection', (reason) => {
+  console.error('[Unhandled Rejection at Promise]:', reason);
+});
+process.on('uncaughtException', (err) => {
+  console.error('[Uncaught Exception]:', err);
+});
+
 async function startServer() {
   const app = express();
 
