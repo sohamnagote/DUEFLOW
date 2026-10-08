@@ -56,12 +56,15 @@ export function generateInvoicePDF(invoice: Invoice, user?: UserProfile): void {
   y += 5;
   doc.setFontSize(9);
   doc.setFont('helvetica', 'normal');
-  doc.setTextColor(68, 71, 72); // #444748
-  doc.text(user?.full_name || 'Billing Admin', margin, y);
+  if (user?.full_name) {
+    doc.text(user.full_name, margin, y);
+  }
   doc.text(`Issue Date: ${invoice.issue_date}`, pageWidth - margin, y, { align: 'right' });
 
   y += 4.5;
-  doc.text(user?.email || 'billing@dueflow.in', margin, y);
+  if (user?.email) {
+    doc.text(user.email, margin, y);
+  }
   doc.setFont('helvetica', 'bold');
   doc.setTextColor(invoice.status === 'overdue' ? 186 : 26, invoice.status === 'overdue' ? 26 : 27, invoice.status === 'overdue' ? 26 : 34);
   doc.text(`Due Date: ${invoice.due_date}`, pageWidth - margin, y, { align: 'right' });

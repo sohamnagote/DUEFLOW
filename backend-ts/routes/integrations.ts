@@ -115,14 +115,11 @@ router.post('/email/google/start', requireAuth, async (req: Request, res: Respon
   const clientId = process.env.GOOGLE_CLIENT_ID;
   const state = Buffer.from(JSON.stringify({ userId, nonce: crypto.randomUUID() })).toString('base64');
 
-  if (!clientId) {
-    // If client ID is not configured yet in environment, provide sandbox start URL with direct callback simulation
-    const mockAuthUrl = `${baseUrl}/api/integrations/email/google/callback?code=mock_google_code_${Date.now()}&state=${encodeURIComponent(state)}&sandbox=true`;
-    return res.json({
-      url: mockAuthUrl,
-      mode: 'sandbox_dev',
-      redirect_uri: redirectUri,
-      message: 'Connecting via Google OAuth developer sandbox mode.',
+  if (!clientId || !process.env.GOOGLE_CLIENT_SECRET) {
+    return res.status(400).json({
+      success: false,
+      code: 'GOOGLE_CREDENTIALS_MISSING',
+      message: 'Google Cloud credentials (GOOGLE_CLIENT_ID, GOOGLE_CLIENT_SECRET) are not configured in the server environment.',
     });
   }
 
@@ -147,7 +144,7 @@ router.post('/email/google/start', requireAuth, async (req: Request, res: Respon
 
 // GET /api/integrations/email/google/callback
 router.get(['/email/google/callback', '/email/google/callback/'], async (req: Request, res: Response) => {
-  const { code, state, error, sandbox } = req.query;
+  const { code, state, error } = req.query;
 
   if (error) {
     return res.send(renderOAuthCallbackHtml({ success: false, provider: 'google', error: String(error) }));
@@ -176,61 +173,75 @@ router.get(['/email/google/callback', '/email/google/callback/'], async (req: Re
   const baseUrl = getBaseUrl(req);
   const redirectUri = `${baseUrl}/api/integrations/email/google/callback`;
 
-  let userEmail = 'user@gmail.com';
-  let accessToken = `sim_gmail_access_${Date.now()}`;
-  let refreshToken = `sim_gmail_refresh_${Date.now()}`;
+  if (!clientId || !clientSecret || !code) {
+    return res.send(
+      renderOAuthCallbackHtml({
+        success: false,
+        provider: 'google',
+        error: 'Missing Google credentials or authorization code.',
+      })
+    );
+  }
+
+  let userEmail = '';
+  let accessToken = '';
+  let refreshToken = '';
   let expiresIn = 3600;
 
-  if (clientId && clientSecret && !sandbox) {
-    try {
-      const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code: String(code),
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-        }),
-      });
+  try {
+    const tokenRes = await fetch('https://oauth2.googleapis.com/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+      }),
+    });
 
-      const tokenData = await tokenRes.json();
-      if (!tokenRes.ok || tokenData.error) {
-        return res.send(
-          renderOAuthCallbackHtml({
-            success: false,
-            provider: 'google',
-            error: tokenData.error_description || tokenData.error || 'Token exchange failed',
-          })
-        );
-      }
-
-      accessToken = tokenData.access_token;
-      refreshToken = tokenData.refresh_token || refreshToken;
-      expiresIn = tokenData.expires_in || 3600;
-
-      // Fetch user profile from Google to get real verified email address
-      const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (userRes.ok) {
-        const userInfo = await userRes.json();
-        userEmail = userInfo.email || userEmail;
-      }
-    } catch (err: any) {
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok || tokenData.error) {
       return res.send(
         renderOAuthCallbackHtml({
           success: false,
           provider: 'google',
-          error: err.message,
+          error: tokenData.error_description || tokenData.error || 'Token exchange failed',
         })
       );
     }
-  } else {
-    // In sandbox mode, fetch user profile email from DB or fallback
-    const userProfile = await db.getProfile(userId);
-    userEmail = userProfile?.email || 'user@gmail.com';
+
+    accessToken = tokenData.access_token;
+    refreshToken = tokenData.refresh_token || '';
+    expiresIn = tokenData.expires_in || 3600;
+
+    // Fetch user profile from Google to get real verified email address
+    const userRes = await fetch('https://www.googleapis.com/oauth2/v2/userinfo', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (userRes.ok) {
+      const userInfo = await userRes.json();
+      userEmail = userInfo.email || '';
+    }
+
+    if (!userEmail) {
+      return res.send(
+        renderOAuthCallbackHtml({
+          success: false,
+          provider: 'google',
+          error: 'Could not retrieve email address for this Google account.',
+        })
+      );
+    }
+  } catch (err: any) {
+    return res.send(
+      renderOAuthCallbackHtml({
+        success: false,
+        provider: 'google',
+        error: err.message || 'Authorization failed',
+      })
+    );
   }
 
   const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
@@ -288,13 +299,11 @@ router.post('/email/microsoft/start', requireAuth, async (req: Request, res: Res
   const clientId = process.env.MICROSOFT_CLIENT_ID;
   const state = Buffer.from(JSON.stringify({ userId, nonce: crypto.randomUUID() })).toString('base64');
 
-  if (!clientId) {
-    const mockAuthUrl = `${baseUrl}/api/integrations/email/microsoft/callback?code=mock_ms_code_${Date.now()}&state=${encodeURIComponent(state)}&sandbox=true`;
-    return res.json({
-      url: mockAuthUrl,
-      mode: 'sandbox_dev',
-      redirect_uri: redirectUri,
-      message: 'Connecting via Microsoft Graph OAuth developer sandbox mode.',
+  if (!clientId || !process.env.MICROSOFT_CLIENT_SECRET) {
+    return res.status(400).json({
+      success: false,
+      code: 'MICROSOFT_CREDENTIALS_MISSING',
+      message: 'Microsoft Azure credentials (MICROSOFT_CLIENT_ID, MICROSOFT_CLIENT_SECRET) are not configured in the server environment.',
     });
   }
 
@@ -314,7 +323,7 @@ router.post('/email/microsoft/start', requireAuth, async (req: Request, res: Res
 
 // GET /api/integrations/email/microsoft/callback
 router.get(['/email/microsoft/callback', '/email/microsoft/callback/'], async (req: Request, res: Response) => {
-  const { code, state, error, sandbox } = req.query;
+  const { code, state, error } = req.query;
 
   if (error) {
     return res.send(renderOAuthCallbackHtml({ success: false, provider: 'microsoft', error: String(error) }));
@@ -343,61 +352,76 @@ router.get(['/email/microsoft/callback', '/email/microsoft/callback/'], async (r
   const baseUrl = getBaseUrl(req);
   const redirectUri = `${baseUrl}/api/integrations/email/microsoft/callback`;
 
-  let userEmail = 'user@outlook.com';
-  let accessToken = `sim_ms_access_${Date.now()}`;
-  let refreshToken = `sim_ms_refresh_${Date.now()}`;
+  if (!clientId || !clientSecret || !code) {
+    return res.send(
+      renderOAuthCallbackHtml({
+        success: false,
+        provider: 'microsoft',
+        error: 'Missing Microsoft credentials or authorization code.',
+      })
+    );
+  }
+
+  let userEmail = '';
+  let accessToken = '';
+  let refreshToken = '';
   let expiresIn = 3600;
 
-  if (clientId && clientSecret && !sandbox) {
-    try {
-      const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
-        method: 'POST',
-        headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
-        body: new URLSearchParams({
-          code: String(code),
-          client_id: clientId,
-          client_secret: clientSecret,
-          redirect_uri: redirectUri,
-          grant_type: 'authorization_code',
-          scope: 'offline_access Mail.Send User.Read',
-        }),
-      });
+  try {
+    const tokenRes = await fetch('https://login.microsoftonline.com/common/oauth2/v2.0/token', {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/x-www-form-urlencoded' },
+      body: new URLSearchParams({
+        code: String(code),
+        client_id: clientId,
+        client_secret: clientSecret,
+        redirect_uri: redirectUri,
+        grant_type: 'authorization_code',
+        scope: 'offline_access Mail.Send User.Read openid email profile',
+      }),
+    });
 
-      const tokenData = await tokenRes.json();
-      if (!tokenRes.ok || tokenData.error) {
-        return res.send(
-          renderOAuthCallbackHtml({
-            success: false,
-            provider: 'microsoft',
-            error: tokenData.error_description || tokenData.error || 'Token exchange failed',
-          })
-        );
-      }
-
-      accessToken = tokenData.access_token;
-      refreshToken = tokenData.refresh_token || refreshToken;
-      expiresIn = tokenData.expires_in || 3600;
-
-      // Fetch user profile from Microsoft Graph /me
-      const graphRes = await fetch('https://graph.microsoft.com/v1.0/me', {
-        headers: { Authorization: `Bearer ${accessToken}` },
-      });
-      if (graphRes.ok) {
-        const graphData = await graphRes.json();
-        userEmail = graphData.mail || graphData.userPrincipalName || userEmail;
-      }
-    } catch (err: any) {
+    const tokenData = await tokenRes.json();
+    if (!tokenRes.ok || tokenData.error) {
       return res.send(
         renderOAuthCallbackHtml({
           success: false,
           provider: 'microsoft',
-          error: err.message,
+          error: tokenData.error_description || tokenData.error || 'Token exchange failed',
         })
       );
     }
-  } else {
-    const userProfile = await db.getProfile(userId);
-    userEmail = userProfile?.email ? userProfile.email.replace(/@.*$/, '@outlook.com') : 'user@outlook.com';
+
+    accessToken = tokenData.access_token;
+    refreshToken = tokenData.refresh_token || '';
+    expiresIn = tokenData.expires_in || 3600;
+
+    // Fetch user profile from Microsoft Graph /me
+    const graphRes = await fetch('https://graph.microsoft.com/v1.0/me', {
+      headers: { Authorization: `Bearer ${accessToken}` },
+    });
+    if (graphRes.ok) {
+      const graphData = await graphRes.json();
+      userEmail = graphData.mail || graphData.userPrincipalName || '';
+    }
+
+    if (!userEmail) {
+      return res.send(
+        renderOAuthCallbackHtml({
+          success: false,
+          provider: 'microsoft',
+          error: 'Could not retrieve email address from Microsoft Graph.',
+        })
+      );
+    }
+  } catch (err: any) {
+    return res.send(
+      renderOAuthCallbackHtml({
+        success: false,
+        provider: 'microsoft',
+        error: err.message || 'Authorization failed',
+      })
+    );
   }
 
   const expiresAt = new Date(Date.now() + expiresIn * 1000).toISOString();
@@ -577,7 +601,65 @@ router.post('/whatsapp/callback', requireAuth, async (req: Request, res: Respons
     return res.status(400).json({
       success: false,
       code: 'INTEGRATION_SAVE_FAILED',
-      message: 'Phone Number ID and Access Token are required to connect WhatsApp Business.',
+      message: 'CONNECTION FAILED: Phone Number ID and Permanent Access Token are required.',
+    });
+  }
+
+  const cleanPhoneId = phone_number_id.trim();
+  const cleanToken = access_token.trim();
+  const cleanWabaId = business_account_id ? business_account_id.trim() : '';
+
+  // 1. Live verification against Meta Cloud API (Graph API)
+  let verifiedName = business_name || '';
+  let verifiedPhone = sender_phone || '';
+
+  try {
+    const metaPhoneUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(cleanPhoneId)}?fields=id,verified_name,display_phone_number,quality_rating,code_verification_status`;
+    const metaRes = await fetch(metaPhoneUrl, {
+      headers: { Authorization: `Bearer ${cleanToken}` },
+    });
+
+    const metaData = await metaRes.json().catch(() => ({}));
+    if (!metaRes.ok || metaData.error) {
+      const errDetail = metaData.error?.message || `Meta returned HTTP ${metaRes.status}`;
+      return res.status(400).json({
+        success: false,
+        code: 'META_VERIFICATION_FAILED',
+        message: `CONNECTION FAILED: ${errDetail}`,
+      });
+    }
+
+    if (metaData.verified_name) {
+      verifiedName = metaData.verified_name;
+    }
+    if (metaData.display_phone_number) {
+      verifiedPhone = metaData.display_phone_number;
+    }
+
+    // 2. If WABA ID provided, verify WABA ID with Meta
+    if (cleanWabaId) {
+      const wabaUrl = `https://graph.facebook.com/v20.0/${encodeURIComponent(cleanWabaId)}?fields=id,name`;
+      const wabaRes = await fetch(wabaUrl, {
+        headers: { Authorization: `Bearer ${cleanToken}` },
+      });
+      const wabaData = await wabaRes.json().catch(() => ({}));
+      if (!wabaRes.ok || wabaData.error) {
+        const wabaErr = wabaData.error?.message || `Meta WABA verification returned HTTP ${wabaRes.status}`;
+        return res.status(400).json({
+          success: false,
+          code: 'META_VERIFICATION_FAILED',
+          message: `CONNECTION FAILED: ${wabaErr}`,
+        });
+      }
+      if (wabaData.name && !verifiedName) {
+        verifiedName = wabaData.name;
+      }
+    }
+  } catch (netErr: any) {
+    return res.status(400).json({
+      success: false,
+      code: 'META_VERIFICATION_FAILED',
+      message: `CONNECTION FAILED: Could not reach Meta Graph API (${netErr.message || 'Network error'})`,
     });
   }
 
@@ -590,9 +672,9 @@ router.post('/whatsapp/callback', requireAuth, async (req: Request, res: Respons
     provider: 'whatsapp_business',
     channel: 'whatsapp',
     status: 'CONNECTED',
-    provider_business_id: business_account_id || business_name || 'WhatsApp Business',
-    provider_phone_id: phone_number_id.trim(),
-    access_token_encrypted: encryptToken(access_token.trim()),
+    provider_business_id: cleanWabaId || verifiedName || 'WhatsApp Business',
+    provider_phone_id: cleanPhoneId,
+    access_token_encrypted: encryptToken(cleanToken),
     connected_at: now,
     updated_at: now,
     created_at: existing?.created_at || now,
@@ -600,13 +682,13 @@ router.post('/whatsapp/callback', requireAuth, async (req: Request, res: Respons
 
   await db.upsertIntegration(integrationRecord);
 
-  // Update profile phone if provided
-  if (sender_phone) {
+  // Update profile phone if verified phone is present
+  if (verifiedPhone) {
     const profile = await db.getProfile(userId);
     await db.upsertProfile({
       id: userId,
       email: profile?.email || req.user!.email,
-      phone: sender_phone.trim(),
+      phone: verifiedPhone,
       whatsapp_reminders_enabled: true,
     });
   }

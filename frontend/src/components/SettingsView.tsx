@@ -265,7 +265,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             SETTINGS
           </h1>
           <p className="text-[#444748] text-sm sm:text-base mt-2">
-            Configure your profile, notification channels, and automated reminder schedules.
+            Manage your account and reminder settings.
           </p>
         </div>
 
@@ -303,15 +303,15 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       )}
 
       <form onSubmit={handleSubmit} className="border-t border-[#e3e1ea] pt-6 sm:pt-8 space-y-8 sm:space-y-10">
-        {/* 1. Dedicated Real Integrations Architecture Section */}
+        {/* Simplified Integrations Section */}
         <div>
           <div className="mb-4">
             <h3 className="font-label-caps text-[12px] font-bold uppercase tracking-[0.16em] text-[#1a1b22] flex items-center gap-2">
               <Zap size={14} className="text-[#5b598b]" />
-              <span>INTEGRATIONS (EMAIL &amp; WHATSAPP BUSINESS)</span>
+              <span>EMAIL &amp; WHATSAPP</span>
             </h3>
             <p className="text-xs text-[#747878] mt-1">
-              Connect your accounts. DueFlow sends reminder messages on your behalf using your email and phone.
+              Connect your channels to send reminders to clients.
             </p>
           </div>
 
@@ -322,10 +322,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     <Mail size={18} className="text-[#5b598b]" />
-                    <span className="font-bold text-base text-[#1a1b22]">Email</span>
+                    <span className="font-bold text-base text-[#1a1b22]">EMAIL</span>
                   </div>
 
-                  {/* Real Status Badge from Database */}
+                  {/* Real Verified Status */}
                   {isEmailConnected ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#d1fae5] text-[#065f46]">
                       <CheckCircle2 size={12} />
@@ -344,7 +344,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <p className="text-xs text-[#444748] leading-relaxed">
-                  Connect your Google Gmail or Microsoft 365 / Outlook account via OAuth 2.0. Follow-ups will be sent directly from your own authenticated mailbox and saved to your Sent folder.
+                  Connect your email to send reminders.
                 </p>
 
                 {/* Connected Account Display */}
@@ -352,14 +352,14 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="mt-3.5 p-3 rounded-lg bg-white border border-[#e3e1ea] flex items-center justify-between text-xs">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-[#747878] block">
-                        Authenticated via {activeEmailIntegration.provider === 'google' ? 'Google Gmail' : 'Microsoft Graph'}
+                        Connected Email
                       </span>
                       <span className="font-mono font-bold text-[#1a1b22] text-sm">
                         {activeEmailIntegration.display_email}
                       </span>
                     </div>
                     <span className="text-[10px] text-[#059669] font-semibold bg-[#ecfdf5] px-2 py-0.5 rounded">
-                      Verified
+                      Active
                     </span>
                   </div>
                 )}
@@ -375,24 +375,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       disabled={isConnectingEmail}
                       className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-[#e3e1ea] rounded-lg text-xs font-bold text-[#1a1b22] flex items-center gap-2 cursor-pointer shadow-2xs active:scale-[0.98]"
                     >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 24 24">
-                        <path
-                          fill="#4285F4"
-                          d="M23.745 12.27c0-.7-.06-1.4-.19-2.07H12v4.51h6.6c-.29 1.52-1.14 2.82-2.4 3.68v3.05h3.88c2.27-2.09 3.665-5.17 3.665-9.17z"
-                        />
-                        <path
-                          fill="#34A853"
-                          d="M12 24c3.24 0 5.95-1.08 7.93-2.91l-3.88-3.05c-1.08.72-2.45 1.16-4.05 1.16-3.12 0-5.77-2.1-6.72-4.93H1.26v3.15C3.26 21.36 7.34 24 12 24z"
-                        />
-                        <path
-                          fill="#FBBC05"
-                          d="M5.28 14.27c-.25-.72-.38-1.49-.38-2.27s.13-1.55.38-2.27V6.58H1.26C.46 8.16 0 9.94 0 12c0 2.06.46 3.84 1.26 5.42l4.02-3.15z"
-                        />
-                        <path
-                          fill="#EA4335"
-                          d="M12 4.75c1.77 0 3.35.61 4.6 1.8l3.42-3.42C17.95 1.19 15.24 0 12 0 7.34 0 3.26 2.64 1.26 6.58l4.02 3.15c.95-2.83 3.6-4.98 6.72-4.98z"
-                        />
-                      </svg>
                       <span>Connect Gmail</span>
                     </button>
 
@@ -402,12 +384,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                       disabled={isConnectingEmail}
                       className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-[#e3e1ea] rounded-lg text-xs font-bold text-[#1a1b22] flex items-center gap-2 cursor-pointer shadow-2xs active:scale-[0.98]"
                     >
-                      <svg className="w-3.5 h-3.5" viewBox="0 0 23 23">
-                        <path fill="#f35325" d="M1 1h10v10H1z" />
-                        <path fill="#81bc06" d="M12 1h10v10H12z" />
-                        <path fill="#05a6f0" d="M1 12h10v10H1z" />
-                        <path fill="#ffba08" d="M12 12h10v10H12z" />
-                      </svg>
                       <span>Connect Outlook</span>
                     </button>
                   </>
@@ -441,10 +417,10 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <div className="flex items-center justify-between gap-2 mb-2">
                   <div className="flex items-center gap-2">
                     <MessageSquare size={18} className="text-[#059669]" />
-                    <span className="font-bold text-base text-[#1a1b22]">WhatsApp Business</span>
+                    <span className="font-bold text-base text-[#1a1b22]">WHATSAPP</span>
                   </div>
 
-                  {/* Real Status Badge from Database */}
+                  {/* Real Verified Status */}
                   {isWhatsAppConnected ? (
                     <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#d1fae5] text-[#065f46]">
                       <CheckCircle2 size={12} />
@@ -468,7 +444,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 </div>
 
                 <p className="text-xs text-[#444748] leading-relaxed">
-                  Requires official WhatsApp Business Platform credentials (Meta Cloud API). Personal WhatsApp accounts cannot be used as an automated transactional messaging API.
+                  Connect WhatsApp Business to send reminders.
                 </p>
 
                 {/* Connected WhatsApp Account Display */}
@@ -476,19 +452,19 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   <div className="mt-3.5 p-3 rounded-lg bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-between text-xs">
                     <div>
                       <span className="text-[10px] uppercase font-bold text-[#166534] block">
-                        Verified Business Account
+                        Connected Account
                       </span>
                       <span className="font-mono font-bold text-[#14532d] text-sm">
                         {whatsappIntegration?.business_name || 'WhatsApp Business'}
                       </span>
                       {whatsappIntegration?.display_phone && (
                         <span className="text-[11px] text-[#15803d] font-mono block">
-                          Phone ID: {whatsappIntegration.display_phone}
+                          Phone: {whatsappIntegration.display_phone}
                         </span>
                       )}
                     </div>
                     <span className="text-[10px] text-[#059669] font-bold bg-white px-2 py-0.5 rounded border border-[#bbf7d0]">
-                      Active Platform
+                      Active
                     </span>
                   </div>
                 )}

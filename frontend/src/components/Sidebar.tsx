@@ -131,10 +131,10 @@ export const Sidebar: React.FC<SidebarProps> = ({
                 </div>
                 <div className="flex flex-col overflow-hidden text-left min-w-0">
                   <span className="font-semibold text-xs text-[#1a1b22] truncate">
-                    {user.full_name || 'Freelancer'}
+                    {user.full_name || (user.email ? user.email.split('@')[0] : 'User')}
                   </span>
-                  <span className="font-label-caps text-[9px] text-[#747878] uppercase tracking-wider font-semibold truncate">
-                    {user.business_name || 'WORKSPACE'}
+                  <span className="text-[11px] text-[#747878] truncate font-normal lowercase" title={user.email}>
+                    {user.email || ''}
                   </span>
                 </div>
               </div>

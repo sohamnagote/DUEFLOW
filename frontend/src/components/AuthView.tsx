@@ -28,7 +28,7 @@ export const AuthView: React.FC<AuthViewProps> = ({
     setSuccessMessage('');
     try {
       if (!supabase) {
-        setErrorMessage('Google authentication requires Supabase environment credentials (VITE_SUPABASE_URL and VITE_SUPABASE_ANON_KEY).');
+        setErrorMessage('Google authentication requires Supabase environment credentials (VITE_SUPABASE_URL and VITE_SUPABASE_PUBLISHABLE_KEY).');
         return;
       }
       const { error } = await supabase.auth.signInWithOAuth({
@@ -38,6 +38,9 @@ export const AuthView: React.FC<AuthViewProps> = ({
         },
       });
       if (error) {
+        if (error.message?.includes('provider is not enabled') || error.message?.includes('Unsupported provider')) {
+          throw new Error('Google provider is not enabled in your Supabase dashboard. Enable Google under Authentication > Providers in the Supabase Dashboard.');
+        }
         throw error;
       }
     } catch (err: any) {
@@ -84,12 +87,18 @@ export const AuthView: React.FC<AuthViewProps> = ({
           full_name: name.trim() || undefined,
           business_name: businessName.trim() || undefined,
         });
+        if (supabase && res.token) {
+          await supabase.auth.signInWithPassword({ email: email.trim(), password }).catch(() => {});
+        }
         onLoginSuccess(res.user);
       } else {
         const res = await api.login({
           email: email.trim(),
           password,
         });
+        if (supabase && res.token) {
+          await supabase.auth.signInWithPassword({ email: email.trim(), password }).catch(() => {});
+        }
         onLoginSuccess(res.user);
       }
     } catch (err: any) {

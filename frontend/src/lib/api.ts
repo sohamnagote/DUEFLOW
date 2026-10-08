@@ -16,11 +16,11 @@ export function clearStoredToken(): void {
 
 // Request helper attaching Bearer authorization
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
-  const token = getStoredToken() || 'dueflow_dev_default_session';
+  const token = getStoredToken();
   const headers = new Headers(options.headers || {});
 
   headers.set('Content-Type', 'application/json');
-  if (!headers.has('Authorization')) {
+  if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
 

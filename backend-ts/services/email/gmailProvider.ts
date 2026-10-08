@@ -138,16 +138,14 @@ export class GmailProvider implements EmailProvider {
       .replace(/\//g, '_')
       .replace(/=+$/, '');
 
-    // If sandbox / simulated token
-    if (token.startsWith('sim_') || !process.env.GOOGLE_CLIENT_ID) {
-      console.log(`[Gmail Simulation] Sent message to ${options.to} from ${fromAddress}`);
-      const mockMsgId = `gmail_sim_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      await db.recordIntegrationSuccess(this.integration.id);
+    if (!token || token.startsWith('sim_')) {
       return {
-        success: true,
+        success: false,
         provider: 'google',
-        providerMessageId: mockMsgId,
-        status: 'sent',
+        status: 'failed',
+        errorCode: 'INVALID_TOKEN',
+        errorMessage: 'Gmail connection is not authenticated. Please connect your Google account in Settings.',
+        retryable: false,
       };
     }
 

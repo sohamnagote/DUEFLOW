@@ -24,12 +24,18 @@ import {
 import { Invoice, Client, ActivityItem, ReminderLog, UserProfile, CadenceStage, ReminderRule, DispatchChannel, IntegrationsConfig } from './types';
 import { generateCadenceRules } from './utils/reminderEngine';
 import { buildWhatsAppUrl, generateWhatsAppReminderMessage, ReminderTone } from './utils/whatsappEngine';
-import { api, setStoredToken } from './lib/api';
+import { api, setStoredToken, clearStoredToken } from './lib/api';
 import { supabase } from './lib/supabaseClient';
 
 export default function App() {
-  // Landing page is first by default
-  const [viewMode, setViewMode] = useState<'landing' | 'app'>('landing');
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean>(() => {
+    return Boolean(localStorage.getItem('dueflow_auth_token'));
+  });
+
+  // Landing page by default unless already authenticated
+  const [viewMode, setViewMode] = useState<'landing' | 'app'>(() => {
+    return localStorage.getItem('dueflow_auth_token') ? 'app' : 'landing';
+  });
 
   // Navigation & View state inside App
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'invoices' | 'clients' | 'reminders' | 'settings'>('dashboard');
@@ -191,7 +197,7 @@ export default function App() {
     refreshBackendData();
   }, [refreshBackendData]);
 
-  // Handle Supabase Google OAuth state
+  // Handle Supabase Google OAuth state and session persistence
   useEffect(() => {
     if (!supabase) return;
 
@@ -201,6 +207,7 @@ export default function App() {
         if (session.access_token) {
           setStoredToken(session.access_token);
         }
+        setIsAuthenticated(true);
         setUser((prev) => ({
           ...prev,
           id: session.user.id,
@@ -208,6 +215,9 @@ export default function App() {
           full_name: session.user.user_metadata?.full_name || session.user.user_metadata?.name || prev.full_name,
           business_name: session.user.user_metadata?.business_name || prev.business_name,
         }));
+        if (window.location.hash.includes('access_token=')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
         refreshBackendData();
       }
     });
@@ -217,6 +227,7 @@ export default function App() {
         if (session.access_token) {
           setStoredToken(session.access_token);
         }
+        setIsAuthenticated(true);
         setUser((prev) => ({
           ...prev,
           id: session.user.id,
@@ -225,10 +236,18 @@ export default function App() {
           business_name: session.user.user_metadata?.business_name || prev.business_name,
         }));
         setShowAuthScreen(false);
+        setViewMode('app');
+        if (window.location.hash.includes('access_token=')) {
+          window.history.replaceState(null, '', window.location.pathname);
+        }
         refreshBackendData();
         if (event === 'SIGNED_IN') {
           addToast('success', 'Signed In', `Welcome back, ${session.user.user_metadata?.full_name || session.user.email || ''}!`);
         }
+      } else if (event === 'SIGNED_OUT') {
+        setIsAuthenticated(false);
+        clearStoredToken();
+        setViewMode('landing');
       }
     });
 
@@ -236,6 +255,13 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [refreshBackendData]);
+
+  // Guard protected dashboard routes
+  useEffect(() => {
+    if (viewMode === 'app' && !isAuthenticated && !localStorage.getItem('dueflow_auth_token')) {
+      setShowAuthScreen(true);
+    }
+  }, [viewMode, isAuthenticated]);
 
   // Sync state to local storage as fallback
   useEffect(() => {
@@ -503,12 +529,15 @@ export default function App() {
     }
   };
 
-  const handleSaveIntegrations = (config: IntegrationsConfig) => {
-    setUser((prev) => ({
-      ...prev,
-      phone: config.whatsapp.sender_phone || prev.phone,
-      integrations: config,
-    }));
+  const handleSaveIntegrations = (config?: IntegrationsConfig) => {
+    if (config) {
+      setUser((prev) => ({
+        ...prev,
+        phone: config.whatsapp.sender_phone || prev.phone,
+        integrations: config,
+      }));
+    }
+    refreshBackendData();
     addToast('success', 'Channels Connected', 'Email & WhatsApp integrations saved.');
   };
 
@@ -668,8 +697,13 @@ export default function App() {
   };
 
   const handleLogout = async () => {
-    await api.logout();
+    if (supabase) {
+      await supabase.auth.signOut().catch(() => {});
+    }
+    await api.logout().catch(() => {});
+    clearStoredToken();
     localStorage.clear();
+    setIsAuthenticated(false);
     setInvoices([]);
     setClients([]);
     setActivities([]);
@@ -678,6 +712,7 @@ export default function App() {
     setSelectedInvoiceId(null);
     setCurrentTab('dashboard');
     setViewMode('landing');
+    setShowAuthScreen(false);
     addToast('info', 'Signed Out', 'You have been logged out.');
   };
 
@@ -686,6 +721,7 @@ export default function App() {
     return (
       <AuthView
         onLoginSuccess={(loggedInUser) => {
+          setIsAuthenticated(true);
           setUser((prev) => ({ ...prev, ...loggedInUser }));
           setShowAuthScreen(false);
           setViewMode('app');
@@ -703,6 +739,10 @@ export default function App() {
       <>
         <LandingView
           onEnterApp={(targetTab = 'dashboard') => {
+            if (!isAuthenticated && !localStorage.getItem('dueflow_auth_token')) {
+              setShowAuthScreen(true);
+              return;
+            }
             setCurrentTab(targetTab);
             setSelectedInvoiceId(null);
             setViewMode('app');
@@ -741,7 +781,7 @@ export default function App() {
           onAddInvoice={handleOpenAddInvoice}
           onToggleMobileSidebar={() => setMobileMenuOpen(!mobileMenuOpen)}
           onOpenConnectChannels={() => setIsChannelConnectOpen(true)}
-          whatsappConnected={!!(user.integrations?.whatsapp?.connected || user.phone)}
+          whatsappConnected={Boolean(user.integrations?.whatsapp?.connected)}
         />
 
         {/* Dynamic Workspace Views: offset by top header height */}

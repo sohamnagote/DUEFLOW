@@ -119,16 +119,14 @@ export class MicrosoftGraphProvider implements EmailProvider {
 
     const token = this.getAccessToken();
 
-    // If sandbox / simulation
-    if (token.startsWith('sim_') || !process.env.MICROSOFT_CLIENT_ID) {
-      console.log(`[Microsoft Simulation] Sent message to ${options.to} via Graph API`);
-      const mockMsgId = `ms_graph_sim_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
-      await db.recordIntegrationSuccess(this.integration.id);
+    if (!token || token.startsWith('sim_')) {
       return {
-        success: true,
+        success: false,
         provider: 'microsoft',
-        providerMessageId: mockMsgId,
-        status: 'sent',
+        status: 'failed',
+        errorCode: 'INVALID_TOKEN',
+        errorMessage: 'Microsoft Outlook connection is not authenticated. Please connect your Microsoft account in Settings.',
+        retryable: false,
       };
     }
 

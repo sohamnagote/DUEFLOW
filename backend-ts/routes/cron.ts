@@ -11,11 +11,20 @@ const router = Router();
 router.post('/process-reminders', async (req: Request, res: Response) => {
   const authHeader = req.headers.authorization;
   const isCronSecret = authHeader === `Bearer ${config.CRON_SECRET}`;
-  const isDevToken = authHeader?.startsWith('Bearer dueflow_dev_');
+  let isAuthenticatedUser = false;
+
+  if (authHeader?.startsWith('Bearer ') && !isCronSecret) {
+    const token = authHeader.split(' ')[1].trim();
+    const supabaseAdmin = db.getSupabaseAdmin();
+    if (supabaseAdmin) {
+      const { data: { user } } = await supabaseAdmin.auth.getUser(token);
+      if (user) isAuthenticatedUser = true;
+    }
+  }
 
   // Allow either CRON_SECRET or authenticated user session (for manual test runner trigger in UI)
-  if (!isCronSecret && !isDevToken && config.NODE_ENV === 'production') {
-    return res.status(401).json({ error: 'Unauthorized cron invocation' });
+  if (!isCronSecret && !isAuthenticatedUser) {
+    return res.status(401).json({ error: 'Unauthorized invocation' });
   }
 
   const nowIso = new Date().toISOString();

@@ -24,69 +24,53 @@ router.post('/signup', validateRequest({ body: signupSchema }), async (req: Requ
   const { email, password, full_name, business_name } = req.body;
   const normalizedEmail = email.toLowerCase().trim();
 
-  if (db.isCloudConnected()) {
-    const supabaseAdmin = db.getSupabaseAdmin();
-    const supabaseAnon = db.getSupabaseAnonClient();
-    if (supabaseAdmin) {
-      const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
-        email: normalizedEmail,
-        password,
-        email_confirm: true,
-        user_metadata: {
-          full_name: full_name || '',
-          business_name: business_name || '',
-        },
-      });
+  const supabaseAdmin = db.getSupabaseAdmin();
+  const supabaseAnon = db.getSupabaseAnonClient();
 
-      if (authErr) {
-        return res.status(400).json({ error: authErr.message });
-      }
-
-      const userId = authData.user.id;
-      let profile = await db.getProfile(userId);
-      if (!profile) {
-        profile = await db.upsertProfile({
-          id: userId,
-          email: normalizedEmail,
-          full_name: full_name || '',
-          business_name: business_name || '',
-        });
-      }
-
-      let token = `dueflow_dev_${userId}_${Buffer.from(normalizedEmail).toString('base64')}`;
-      if (supabaseAnon) {
-        const { data: signInData } = await supabaseAnon.auth.signInWithPassword({
-          email: normalizedEmail,
-          password,
-        });
-        if (signInData?.session?.access_token) {
-          token = signInData.session.access_token;
-        }
-      }
-
-      return res.status(201).json({
-        token,
-        user: profile,
-      });
-    }
+  if (!supabaseAdmin || !supabaseAnon) {
+    return res.status(500).json({ error: 'Supabase Auth is not configured on server' });
   }
 
-  // Generate deterministic/unique user ID for local mode
-  const userId = crypto.randomUUID();
-
-  // Create profile in database
-  const profile = await db.upsertProfile({
-    id: userId,
+  // 1. Create user in Supabase Auth via admin (with email_confirm: true to avoid email provider rate limits)
+  const { data: authData, error: authErr } = await supabaseAdmin.auth.admin.createUser({
     email: normalizedEmail,
-    full_name: full_name || '',
-    business_name: business_name || '',
+    password,
+    email_confirm: true,
+    user_metadata: {
+      full_name: full_name || '',
+      business_name: business_name || '',
+    },
   });
 
-  // Generate bearer session token
-  const token = `dueflow_dev_${userId}_${Buffer.from(normalizedEmail).toString('base64')}`;
+  if (authErr) {
+    return res.status(400).json({ error: authErr.message });
+  }
+
+  const userId = authData.user.id;
+
+  // 2. Provision / upsert profile
+  let profile = await db.getProfile(userId);
+  if (!profile) {
+    profile = await db.upsertProfile({
+      id: userId,
+      email: normalizedEmail,
+      full_name: full_name || '',
+      business_name: business_name || '',
+    });
+  }
+
+  // 3. Obtain real Supabase JWT session
+  const { data: signInData, error: signInErr } = await supabaseAnon.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
+
+  if (signInErr || !signInData.session) {
+    return res.status(400).json({ error: signInErr?.message || 'Could not authenticate new user' });
+  }
 
   return res.status(201).json({
-    token,
+    token: signInData.session.access_token,
     user: profile,
   });
 });
@@ -96,60 +80,47 @@ router.post('/login', validateRequest({ body: loginSchema }), async (req: Reques
   const { email, password } = req.body;
   const normalizedEmail = email.toLowerCase().trim();
 
-  if (db.isCloudConnected()) {
-    const supabaseAnon = db.getSupabaseAnonClient();
-    if (supabaseAnon) {
-      const { data: signInData, error: signInErr } = await supabaseAnon.auth.signInWithPassword({
-        email: normalizedEmail,
-        password,
-      });
-
-      if (signInErr || !signInData.user || !signInData.session) {
-        return res.status(401).json({ error: signInErr?.message || 'Invalid login credentials' });
-      }
-
-      let profile = await db.getProfile(signInData.user.id);
-      if (!profile) {
-        profile = await db.upsertProfile({
-          id: signInData.user.id,
-          email: normalizedEmail,
-          full_name: signInData.user.user_metadata?.full_name || '',
-          business_name: signInData.user.user_metadata?.business_name || '',
-        });
-      }
-
-      return res.json({
-        token: signInData.session.access_token,
-        user: profile,
-      });
-    }
+  const supabaseAnon = db.getSupabaseAnonClient();
+  if (!supabaseAnon) {
+    return res.status(500).json({ error: 'Supabase Auth is not configured on server' });
   }
 
-  // Find or provision user in local mode
-  let profile = await db.findProfileByEmail(normalizedEmail);
+  const { data: signInData, error: signInErr } = await supabaseAnon.auth.signInWithPassword({
+    email: normalizedEmail,
+    password,
+  });
 
-  let userId = profile?.id;
-  if (!userId) {
-    userId = crypto.randomUUID();
+  if (signInErr || !signInData.user || !signInData.session) {
+    return res.status(401).json({ error: signInErr?.message || 'Invalid login credentials' });
+  }
+
+  let profile = await db.getProfile(signInData.user.id);
+  if (!profile) {
     profile = await db.upsertProfile({
-      id: userId,
+      id: signInData.user.id,
       email: normalizedEmail,
-      full_name: 'Freelancer Professional',
-      business_name: 'Agency Studio',
+      full_name: signInData.user.user_metadata?.full_name || '',
+      business_name: signInData.user.user_metadata?.business_name || '',
     });
   }
 
-  const token = `dueflow_dev_${userId}_${Buffer.from(normalizedEmail).toString('base64')}`;
-
   return res.json({
-    token,
+    token: signInData.session.access_token,
     user: profile,
   });
 });
 
 // GET /api/auth/me
 router.get('/me', requireAuth, async (req: Request, res: Response) => {
-  const profile = await db.getProfile(req.user!.id);
+  let profile = await db.getProfile(req.user!.id);
+  if (!profile) {
+    profile = await db.upsertProfile({
+      id: req.user!.id,
+      email: req.user!.email,
+      full_name: req.user!.full_name || '',
+      business_name: req.user!.business_name || '',
+    });
+  }
   return res.json({ user: profile });
 });
 

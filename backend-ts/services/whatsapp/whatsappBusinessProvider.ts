@@ -60,16 +60,14 @@ export class WhatsAppBusinessProvider implements WhatsAppProvider {
       };
     }
 
-    // Simulation / Sandbox dev mode
-    if (token.startsWith('sim_') || !process.env.WHATSAPP_ACCESS_TOKEN) {
-      console.log(`[WhatsApp Business Sandbox] Sent transactional invoice reminder to ${cleanToPhone}`);
-      const mockMsgId = `wamid_sim_${Date.now()}_${Math.random().toString(36).substring(2, 9)}`;
-      await db.recordIntegrationSuccess(this.integration.id);
+    if (!token || token.startsWith('sim_')) {
       return {
-        success: true,
+        success: false,
         provider: 'whatsapp_business',
-        providerMessageId: mockMsgId,
-        status: 'sent',
+        status: 'failed',
+        errorCode: 'INVALID_TOKEN',
+        errorMessage: 'WhatsApp Business access token is not verified or expired. Please reconnect in Settings.',
+        retryable: false,
       };
     }
 

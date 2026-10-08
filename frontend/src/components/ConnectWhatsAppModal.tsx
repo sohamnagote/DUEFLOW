@@ -1,5 +1,5 @@
 import React, { useState } from 'react';
-import { X, MessageSquare, ShieldCheck, Sparkles, AlertCircle, CheckCircle2, ArrowRight } from 'lucide-react';
+import { X, MessageSquare, ShieldCheck, AlertCircle } from 'lucide-react';
 import { api } from '../lib/api';
 
 interface ConnectWhatsAppModalProps {
@@ -30,7 +30,7 @@ export const ConnectWhatsAppModal: React.FC<ConnectWhatsAppModalProps> = ({
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!phoneNumberId.trim() || !accessToken.trim()) {
-      setError('Please provide both Phone Number ID and Permanent Access Token.');
+      setError('CONNECTION FAILED: Please provide both Phone Number ID and Permanent Access Token.');
       return;
     }
 
@@ -47,30 +47,7 @@ export const ConnectWhatsAppModal: React.FC<ConnectWhatsAppModalProps> = ({
       onSuccess();
       onClose();
     } catch (err: any) {
-      setError(err.message || 'Failed to connect WhatsApp Business account.');
-    } finally {
-      setIsLoading(false);
-    }
-  };
-
-  const handleQuickSandboxConnect = async () => {
-    setIsLoading(true);
-    setError(null);
-    try {
-      const mockPhoneId = `109283746501928`;
-      const mockWabaId = `waba_prod_9981726`;
-      const mockToken = `sim_meta_waba_tok_${Date.now()}`;
-      await api.connectWhatsAppBusiness({
-        phone_number_id: mockPhoneId,
-        business_account_id: mockWabaId,
-        access_token: mockToken,
-        business_name: businessName || 'Studio Vertex Official',
-        sender_phone: senderPhone || '+91 98765 43210',
-      });
-      onSuccess();
-      onClose();
-    } catch (err: any) {
-      setError(err.message || 'Failed to connect developer sandbox.');
+      setError(err.message || 'CONNECTION FAILED: Verification failed.');
     } finally {
       setIsLoading(false);
     }
@@ -89,7 +66,7 @@ export const ConnectWhatsAppModal: React.FC<ConnectWhatsAppModalProps> = ({
                 Connect WhatsApp Business
               </h2>
               <p className="text-xs text-[#747878]">
-                Official Meta WhatsApp Business Platform Cloud API
+                Meta WhatsApp Business Platform Cloud API
               </p>
             </div>
           </div>
@@ -104,30 +81,12 @@ export const ConnectWhatsAppModal: React.FC<ConnectWhatsAppModalProps> = ({
         {error && (
           <div className="mt-4 p-3 bg-[#fff1f2] border border-[#fecdd3] rounded-lg text-xs text-[#be123c] flex items-start gap-2">
             <AlertCircle size={15} className="shrink-0 mt-0.5" />
-            <span>{error}</span>
+            <div className="flex flex-col">
+              <span className="font-bold uppercase tracking-wider text-[10px]">Verification Error</span>
+              <span className="mt-0.5 font-medium">{error.startsWith('CONNECTION FAILED') ? error : `CONNECTION FAILED: ${error}`}</span>
+            </div>
           </div>
         )}
-
-        {/* Quick Sandbox option banner */}
-        <div className="mt-4 p-3.5 bg-[#f0fdf4] border border-[#bbf7d0] rounded-lg">
-          <div className="flex items-center justify-between gap-3">
-            <div className="flex items-center gap-2">
-              <Sparkles size={16} className="text-[#059669]" />
-              <span className="text-xs font-bold text-[#14532d]">Developer Quick Connect</span>
-            </div>
-            <button
-              type="button"
-              onClick={handleQuickSandboxConnect}
-              disabled={isLoading}
-              className="px-3 py-1.5 bg-[#059669] hover:bg-[#047857] text-white text-[11px] font-bold rounded-md transition-colors cursor-pointer"
-            >
-              Connect Sandbox
-            </button>
-          </div>
-          <p className="text-[11px] text-[#166534] mt-1.5 leading-relaxed">
-            Connect a test WhatsApp environment to test sending payment reminders.
-          </p>
-        </div>
 
         {/* Production Credentials Form */}
         <form onSubmit={handleSubmit} className="mt-5 space-y-4">
@@ -215,7 +174,7 @@ export const ConnectWhatsAppModal: React.FC<ConnectWhatsAppModalProps> = ({
               className="bg-[#059669] hover:bg-[#047857] text-white px-5 py-2.5 rounded-lg text-xs font-bold transition-all flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
             >
               <ShieldCheck size={14} />
-              <span>{isLoading ? 'Connecting...' : 'Connect & Verify'}</span>
+              <span>{isLoading ? 'Verifying...' : 'Connect & Verify'}</span>
             </button>
           </div>
         </form>

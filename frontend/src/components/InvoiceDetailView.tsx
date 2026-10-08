@@ -529,8 +529,8 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
           isOpen={showChannelConnectModal}
           onClose={() => setShowChannelConnectModal(false)}
           user={user}
-          onSaveIntegrations={(cfg) => {
-            if (onSaveIntegrations) onSaveIntegrations(cfg);
+          onSaveIntegrations={(cfg?: any) => {
+            if (onSaveIntegrations && cfg) onSaveIntegrations(cfg);
           }}
         />
       )}
