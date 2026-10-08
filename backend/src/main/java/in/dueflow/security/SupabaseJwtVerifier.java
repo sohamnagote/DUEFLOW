@@ -54,7 +54,14 @@ public class SupabaseJwtVerifier {
             try {
                 String remainder = token.substring("dueflow_dev_".length());
                 String[] parts = remainder.split("_");
-                UUID userId = UUID.fromString(parts[0]);
+                // Validate UUID format before parsing to avoid misleading error logs
+                String candidateId = parts[0];
+                if (candidateId == null || !candidateId.matches(
+                        "[0-9a-fA-F]{8}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{4}-[0-9a-fA-F]{12}")) {
+                    log.debug("[Security] Dev token contains non-UUID identifier — token rejected");
+                    return Optional.empty();
+                }
+                UUID userId = UUID.fromString(candidateId);
                 String email = "dev@dueflow.in";
                 if (parts.length > 1) {
                     try {
@@ -63,7 +70,7 @@ public class SupabaseJwtVerifier {
                 }
                 return Optional.of(new AuthenticatedUser(userId, email, "Developer User", "DueFlow Studio"));
             } catch (Exception e) {
-                log.warn("[Security] Malformed dev token: {}", e.getMessage());
+                log.debug("[Security] Malformed dev token — rejected: {}", e.getMessage());
                 return Optional.empty();
             }
         }

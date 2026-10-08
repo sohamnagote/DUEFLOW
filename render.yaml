@@ -10,6 +10,8 @@ services:
     envVars:
       - key: PORT
         value: 8080
+      - key: NODE_ENV
+        value: production
       - key: APP_BASE_URL
         value: https://dueflow-kappa.vercel.app
       - key: RESEND_API_KEY

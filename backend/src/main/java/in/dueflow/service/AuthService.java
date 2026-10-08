@@ -95,9 +95,11 @@ public class AuthService {
                     if (req.getBusiness_name() != null) profile.setBusinessName(req.getBusiness_name());
                     profile = profileRepository.save(profile);
 
-                    // Login to get access token
+                    // Login to get access token — must succeed since Supabase is configured.
+                    // Never fall back to a dev token in a configured production environment.
                     String token = loginSupabase(normalizedEmail, req.getPassword())
-                            .orElse("dueflow_dev_" + userId + "_" + Base64.getEncoder().encodeToString(normalizedEmail.getBytes(StandardCharsets.UTF_8)));
+                            .orElseThrow(() -> new BadRequestException(
+                                    "Account created but sign-in failed. Please try logging in manually."));
 
                     return new AuthResponse(token, profile);
                 } else {
