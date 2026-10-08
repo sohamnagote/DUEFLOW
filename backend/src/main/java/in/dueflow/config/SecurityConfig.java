@@ -51,6 +51,9 @@ public class SecurityConfig {
                 .requestMatchers(HttpMethod.GET, "/api/health").permitAll()
                 .requestMatchers("/api/webhooks/**").permitAll()
                 .requestMatchers("/api/cron/**").permitAll()
+                .requestMatchers("/api/integrations/email/google/callback", "/api/integrations/email/google/callback/**").permitAll()
+                .requestMatchers("/api/integrations/email/microsoft/callback", "/api/integrations/email/microsoft/callback/**").permitAll()
+                .requestMatchers("/api/integrations/email/google/start", "/api/integrations/email/microsoft/start").permitAll()
                 // All other /api routes require authentication
                 .requestMatchers("/api/**").authenticated()
                 .anyRequest().permitAll()
