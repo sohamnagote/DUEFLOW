@@ -182,6 +182,8 @@ public class IntegrationController {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "google", null, "Invalid state parameter in OAuth callback."));
         }
 
+        final UUID targetUserId = userId;
+
         if (googleClientId == null || googleClientId.isBlank() || googleClientSecret == null || googleClientSecret.isBlank() || code == null || code.isBlank()) {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "google", null, "Missing Google credentials or authorization code."));
         }
@@ -240,14 +242,14 @@ public class IntegrationController {
             }
 
             // Upsert integration
-            Integration integration = integrationRepository.findByUserIdAndProvider(userId, "google")
-                    .orElseGet(() -> {
-                        Integration i = new Integration();
-                        i.setUserId(userId);
-                        i.setProvider("google");
-                        i.setChannel("email");
-                        return i;
-                    });
+            Integration integration = integrationRepository.findByUserIdAndProvider(targetUserId, "google")
+                    .orElse(null);
+            if (integration == null) {
+                integration = new Integration();
+                integration.setUserId(targetUserId);
+                integration.setProvider("google");
+                integration.setChannel("email");
+            }
 
             integration.setStatus("CONNECTED");
             integration.setProviderAccountId(userEmail);
@@ -265,7 +267,7 @@ public class IntegrationController {
 
             integrationRepository.save(integration);
 
-            profileRepository.findById(userId).ifPresent(p -> {
+            profileRepository.findById(targetUserId).ifPresent(p -> {
                 if (p.getDefaultReminderChannel() == null || p.getDefaultReminderChannel().isBlank()) {
                     p.setDefaultReminderChannel("email");
                     p.setEmailRemindersEnabled(true);
@@ -361,6 +363,8 @@ public class IntegrationController {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, "Invalid state parameter in OAuth callback."));
         }
 
+        final UUID targetUserId = userId;
+
         if (microsoftClientId == null || microsoftClientId.isBlank() || microsoftClientSecret == null || microsoftClientSecret.isBlank() || code == null || code.isBlank()) {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, "Missing Microsoft credentials or authorization code."));
         }
@@ -417,14 +421,14 @@ public class IntegrationController {
                 return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, "Could not retrieve email address for this Microsoft account."));
             }
 
-            Integration integration = integrationRepository.findByUserIdAndProvider(userId, "microsoft")
-                    .orElseGet(() -> {
-                        Integration i = new Integration();
-                        i.setUserId(userId);
-                        i.setProvider("microsoft");
-                        i.setChannel("email");
-                        return i;
-                    });
+            Integration integration = integrationRepository.findByUserIdAndProvider(targetUserId, "microsoft")
+                    .orElse(null);
+            if (integration == null) {
+                integration = new Integration();
+                integration.setUserId(targetUserId);
+                integration.setProvider("microsoft");
+                integration.setChannel("email");
+            }
 
             integration.setStatus("CONNECTED");
             integration.setProviderAccountId(userEmail);
@@ -442,7 +446,7 @@ public class IntegrationController {
 
             integrationRepository.save(integration);
 
-            profileRepository.findById(userId).ifPresent(p -> {
+            profileRepository.findById(targetUserId).ifPresent(p -> {
                 if (p.getDefaultReminderChannel() == null || p.getDefaultReminderChannel().isBlank()) {
                     p.setDefaultReminderChannel("email");
                     p.setEmailRemindersEnabled(true);
