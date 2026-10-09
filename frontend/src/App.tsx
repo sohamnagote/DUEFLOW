@@ -396,8 +396,8 @@ export default function App() {
         stage_name: 'Instant Reminder',
         status: res.success ? 'sent' : 'failed',
         timestamp: 'Just now',
-        provider_message_id: res.providerMessageId || `resend_${Date.now()}`,
-        details: 'Payment reminder email sent via Resend.',
+        provider_message_id: res.providerMessageId || `email_${Date.now()}`,
+        details: res.message || 'Payment reminder email dispatched successfully.',
       };
 
       setReminderLogs((prev) => [newLog, ...prev]);
@@ -679,7 +679,7 @@ export default function App() {
   };
 
   const handleRetryFailedLog = async (logId: string) => {
-    addToast('info', 'Retrying Delivery', 'Resending reminder...');
+    addToast('info', 'Retrying Delivery', 'Retrying reminder dispatch...');
     await refreshBackendData();
   };
 
@@ -865,6 +865,8 @@ export default function App() {
                   onRunScheduler={handleRunScheduler}
                   isSchedulerRunning={isSchedulerRunning}
                   onRetryFailed={handleRetryFailedLog}
+                  onNavigateToSettings={() => setCurrentTab('settings')}
+                  onUpdateUser={handleUpdateProfile}
                 />
               )}
 

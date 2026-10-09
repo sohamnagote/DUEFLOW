@@ -68,6 +68,13 @@ public class ProfileController {
 
         try {
             byte[] bytes = file.getBytes();
+            if (!isValidImageMagicBytes(bytes)) {
+                return ResponseEntity.badRequest().body(Map.of(
+                        "success", false,
+                        "error", "Uploaded file content is not a valid PNG, JPEG, or WEBP image."
+                ));
+            }
+
             String base64 = java.util.Base64.getEncoder().encodeToString(bytes);
             String dataUrl = "data:" + contentType.toLowerCase() + ";base64," + base64;
 
@@ -109,5 +116,23 @@ public class ProfileController {
                 "success", true,
                 "payment_qr_url", profile.getPaymentQrUrl() != null ? profile.getPaymentQrUrl() : ""
         ));
+    }
+
+    public static boolean isValidImageMagicBytes(byte[] bytes) {
+        if (bytes == null || bytes.length < 12) return false;
+        // PNG: 89 50 4E 47 0D 0A 1A 0A
+        if ((bytes[0] & 0xFF) == 0x89 && bytes[1] == 'P' && bytes[2] == 'N' && bytes[3] == 'G') {
+            return true;
+        }
+        // JPEG: FF D8 FF
+        if ((bytes[0] & 0xFF) == 0xFF && (bytes[1] & 0xFF) == 0xD8 && (bytes[2] & 0xFF) == 0xFF) {
+            return true;
+        }
+        // WEBP: "RIFF" .... "WEBP"
+        if (bytes[0] == 'R' && bytes[1] == 'I' && bytes[2] == 'F' && bytes[3] == 'F'
+                && bytes[8] == 'W' && bytes[9] == 'E' && bytes[10] == 'B' && bytes[11] == 'P') {
+            return true;
+        }
+        return false;
     }
 }

@@ -199,6 +199,10 @@ public class AuthService {
         if (req.getPayment_notes() != null) profile.setPaymentNotes(req.getPayment_notes().trim());
         if (req.getPayment_qr_url() != null) profile.setPaymentQrUrl(req.getPayment_qr_url().trim());
         if (req.getReminder_default() != null) profile.setReminderDefault(req.getReminder_default().trim());
+        if (req.getReminder_schedule_rules() != null) profile.setReminderScheduleRules(req.getReminder_schedule_rules().trim());
+        if (req.getCustom_email_subject() != null) profile.setCustomEmailSubject(req.getCustom_email_subject().trim());
+        if (req.getCustom_email_body() != null) profile.setCustomEmailBody(req.getCustom_email_body().trim());
+        if (req.getEmail_tone() != null) profile.setEmailTone(req.getEmail_tone().trim());
 
         return profileRepository.save(profile);
     }

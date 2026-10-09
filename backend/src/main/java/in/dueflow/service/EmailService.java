@@ -22,6 +22,11 @@ import java.time.Duration;
 import java.time.Instant;
 import java.util.*;
 
+/**
+ * Production Email Service supporting user-authenticated Gmail and Microsoft Outlook
+ * with RFC-compliant MIME messages, real transactional reminder templates,
+ * INR currency formatting, and real PDF invoice attachments.
+ */
 @Service
 public class EmailService {
 
@@ -41,15 +46,6 @@ public class EmailService {
 
     @Value("${MICROSOFT_CLIENT_SECRET:}")
     private String microsoftClientSecret;
-
-    @Value("${RESEND_API_KEY:}")
-    private String resendApiKey;
-
-    @Value("${RESEND_FROM_EMAIL:DueFlow Reminders <reminders@dueflow.in>}")
-    private String resendFromEmail;
-
-    @Value("${RESEND_WEBHOOK_SECRET:}")
-    private String resendWebhookSecret;
 
     @Autowired(required = false)
     private EncryptionService encryptionService;
@@ -122,7 +118,10 @@ public class EmailService {
         public String customSubject;
         public String customBody;
         public String stageName;
-        public String tone = "professional"; // gentle, professional, firm, urgent
+        public String tone = "professional"; // gentle / friendly, professional, firm
+        public byte[] pdfAttachmentBytes;
+        public String pdfFilename;
+        public String pdfAttachmentFilename;
     }
 
     public static class RenderedEmail {
@@ -141,7 +140,7 @@ public class EmailService {
         public final boolean success;
         public final String providerMessageId;
         public final String error;
-        public final String provider; // google, microsoft, resend, none
+        public final String provider; // google, microsoft, none
         public final boolean retryable;
 
         public SendResult(boolean success, String providerMessageId, String error, String provider, boolean retryable) {
@@ -173,15 +172,17 @@ public class EmailService {
     }
 
     public String encodePersonal(String name) {
-        if (name == null || name.isBlank()) return "DueFlow";
+        if (name == null || name.isBlank()) return "DueFlow Reminders";
         return encodeRfc2047(name.trim());
     }
 
     /**
-     * Builds standard RFC 2822 MIME message with multipart/alternative (plain text & HTML).
+     * Builds standard RFC 2822 MIME message.
+     * When pdfBytes is provided, wraps in multipart/mixed with the PDF attachment.
      */
-    public String buildRfc2822MimeMessage(String fromName, String fromEmail, String to, String replyTo, String subject, String htmlBody, String textBody) {
-        String boundary = "----=_Part_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+    public String buildRfc2822MimeMessage(String fromName, String fromEmail, String to, String replyTo,
+                                          String subject, String htmlBody, String textBody,
+                                          byte[] pdfBytes, String pdfFilename) {
         StringBuilder sb = new StringBuilder();
         sb.append("From: ").append(encodePersonal(fromName)).append(" <").append(fromEmail.trim()).append(">\r\n");
         sb.append("To: ").append(to.trim()).append("\r\n");
@@ -190,187 +191,254 @@ public class EmailService {
         }
         sb.append("Subject: ").append(encodeRfc2047(subject)).append("\r\n");
         sb.append("MIME-Version: 1.0\r\n");
-        sb.append("Content-Type: multipart/alternative; boundary=\"").append(boundary).append("\"\r\n");
-        sb.append("\r\n");
+
+        boolean hasAttachment = (pdfBytes != null && pdfBytes.length > 0);
+        String mixedBoundary = "----=_Part_Mixed_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+        String altBoundary = "----=_Part_Alt_" + System.currentTimeMillis() + "_" + UUID.randomUUID().toString().substring(0, 8);
+
+        if (hasAttachment) {
+            sb.append("Content-Type: multipart/mixed; boundary=\"").append(mixedBoundary).append("\"\r\n\r\n");
+            sb.append("--").append(mixedBoundary).append("\r\n");
+            sb.append("Content-Type: multipart/alternative; boundary=\"").append(altBoundary).append("\"\r\n\r\n");
+        } else {
+            sb.append("Content-Type: multipart/alternative; boundary=\"").append(altBoundary).append("\"\r\n\r\n");
+        }
 
         // Plain text part
-        sb.append("--").append(boundary).append("\r\n");
+        sb.append("--").append(altBoundary).append("\r\n");
         sb.append("Content-Type: text/plain; charset=UTF-8\r\n");
         sb.append("Content-Transfer-Encoding: base64\r\n\r\n");
         sb.append(Base64.getMimeEncoder().encodeToString((textBody != null ? textBody : "").getBytes(StandardCharsets.UTF_8))).append("\r\n\r\n");
 
         // HTML part
-        sb.append("--").append(boundary).append("\r\n");
+        sb.append("--").append(altBoundary).append("\r\n");
         sb.append("Content-Type: text/html; charset=UTF-8\r\n");
         sb.append("Content-Transfer-Encoding: base64\r\n\r\n");
         sb.append(Base64.getMimeEncoder().encodeToString((htmlBody != null ? htmlBody : "").getBytes(StandardCharsets.UTF_8))).append("\r\n\r\n");
 
-        sb.append("--").append(boundary).append("--\r\n");
+        sb.append("--").append(altBoundary).append("--\r\n");
+
+        // Attachment part
+        if (hasAttachment) {
+            String filename = (pdfFilename != null && !pdfFilename.isBlank()) ? pdfFilename : "Invoice.pdf";
+            sb.append("\r\n--").append(mixedBoundary).append("\r\n");
+            sb.append("Content-Type: application/pdf; name=\"").append(filename).append("\"\r\n");
+            sb.append("Content-Disposition: attachment; filename=\"").append(filename).append("\"\r\n");
+            sb.append("Content-Transfer-Encoding: base64\r\n\r\n");
+            sb.append(Base64.getMimeEncoder().encodeToString(pdfBytes)).append("\r\n\r\n");
+            sb.append("--").append(mixedBoundary).append("--\r\n");
+        }
+
         return sb.toString();
     }
 
     /**
-     * Minimal, professional HTML reminder email design.
+     * Backward-compatible overload without attachment.
+     */
+    public String buildRfc2822MimeMessage(String fromName, String fromEmail, String to, String replyTo,
+                                          String subject, String htmlBody, String textBody) {
+        return buildRfc2822MimeMessage(fromName, fromEmail, to, replyTo, subject, htmlBody, textBody, null, null);
+    }
+
+    /**
+     * Replaces supported dynamic template placeholders safely.
+     */
+    public String interpolatePlaceholders(String template, EmailRenderData data, String formattedAmount) {
+        if (template == null) return "";
+        return template
+                .replace("{{client_name}}", data.clientName != null ? data.clientName : "Client")
+                .replace("{{invoice_number}}", data.invoiceNumber != null ? data.invoiceNumber : "")
+                .replace("{{invoice_amount}}", formattedAmount)
+                .replace("{{due_date}}", data.dueDate != null ? data.dueDate : "")
+                .replace("{{business_name}}", data.businessName != null ? data.businessName : "Our Team")
+                .replace("{{sender_name}}", data.senderName != null ? data.senderName : "Billing Team")
+                .replace("{{upi_id}}", data.upiId != null ? data.upiId : "");
+    }
+
+    /**
+     * Professional, responsive transactional invoice reminder email design.
+     * Implements DueFlow 2.0 single-greeting, clean table, and payment card layout.
      */
     public RenderedEmail renderReminderEmail(EmailRenderData data) {
         String formattedAmount = formatINR(data.amount);
-        String subject = data.customSubject;
-        String bodyText = data.customBody;
-
-        if (subject == null || subject.isBlank()) {
-            if ("gentle".equalsIgnoreCase(data.tone)) {
-                subject = "Friendly check-in: Invoice #" + data.invoiceNumber + " (" + formattedAmount + ")";
-            } else if ("firm".equalsIgnoreCase(data.tone)) {
-                subject = "ACTION REQUIRED: Overdue invoice #" + data.invoiceNumber + " (" + formattedAmount + ")";
-            } else if ("urgent".equalsIgnoreCase(data.tone)) {
-                subject = "FINAL NOTICE: Immediate settlement required for invoice #" + data.invoiceNumber;
-            } else {
-                subject = "Payment reminder: Invoice #" + data.invoiceNumber + " due " + (data.dueDate != null ? data.dueDate : "");
-            }
-        }
-
-        if (bodyText == null || bodyText.isBlank()) {
-            if ("gentle".equalsIgnoreCase(data.tone)) {
-                bodyText = "Hi " + (data.clientName != null ? data.clientName : "there") + ",\n\nI hope you're having a productive week! Just sending a gentle reminder regarding invoice #" +
-                        data.invoiceNumber + " for " + formattedAmount + ", due on " + data.dueDate + ".\n\nPlease let us know if you need any additional invoice copies or settlement details. Thank you!";
-            } else if ("firm".equalsIgnoreCase(data.tone)) {
-                bodyText = "Dear " + (data.clientName != null ? data.clientName : "Client") + ",\n\nOur records show that invoice #" + data.invoiceNumber + " for " +
-                        formattedAmount + " was due on " + data.dueDate + " and remains unsettled.\n\nPrompt payment is required to maintain good standing and uninterrupted service delivery. Please remit payment via bank transfer or UPI today.";
-            } else if ("urgent".equalsIgnoreCase(data.tone)) {
-                bodyText = "Dear " + (data.clientName != null ? data.clientName : "Client") + ",\n\nInvoice #" + data.invoiceNumber + " (" + formattedAmount + ") is now significantly past due. Despite prior reminders, payment has not been received.\n\nPlease process this payment immediately or contact us directly today to confirm transaction details.";
-            } else {
-                bodyText = "Dear " + (data.clientName != null ? data.clientName : "Client") + ",\n\nThis is a courtesy reminder regarding invoice #" + data.invoiceNumber +
-                        " for the amount of " + formattedAmount + ", due on " + data.dueDate + ".\n\nThank you for your prompt attention to this matter.";
-            }
-        }
-
-        String senderTitle = (data.businessName != null && !data.businessName.isBlank()) ? data.businessName :
+        String clientDisplayName = (data.clientName != null && !data.clientName.isBlank()) ? data.clientName : "Client";
+        String businessTitle = (data.businessName != null && !data.businessName.isBlank()) ? data.businessName :
                 ((data.senderName != null && !data.senderName.isBlank()) ? data.senderName : "DueFlow");
+        String senderDisplayName = (data.senderName != null && !data.senderName.isBlank()) ? data.senderName : businessTitle;
 
+        // 1. Subject Resolution
+        String subject;
+        if (data.customSubject != null && !data.customSubject.isBlank()) {
+            subject = interpolatePlaceholders(data.customSubject, data, formattedAmount);
+        } else {
+            subject = "Payment reminder: Invoice #" + data.invoiceNumber + " | " + formattedAmount + " due " + (data.dueDate != null ? data.dueDate : "");
+        }
+
+        // 2. Message Body Resolution
+        String messageBody;
+        if (data.customBody != null && !data.customBody.isBlank()) {
+            messageBody = interpolatePlaceholders(data.customBody, data, formattedAmount);
+        } else {
+            String toneStr = (data.tone != null) ? data.tone.toLowerCase() : "professional";
+            if (toneStr.contains("gentle") || toneStr.contains("friendly")) {
+                messageBody = "This is a friendly payment reminder from " + businessTitle +
+                        " regarding invoice #" + data.invoiceNumber + " for " + formattedAmount +
+                        ", due on " + (data.dueDate != null ? data.dueDate : "the agreed date") + ".\n\n" +
+                        "Please find the invoice attached for your reference. Payment details are included below.";
+            } else if (toneStr.contains("firm") || toneStr.contains("direct")) {
+                messageBody = "This is an important reminder from " + businessTitle +
+                        " that invoice #" + data.invoiceNumber + " for " + formattedAmount +
+                        " is due on " + (data.dueDate != null ? data.dueDate : "the agreed date") + ".\n\n" +
+                        "Please ensure prompt settlement using the attached invoice and payment details below.";
+            } else {
+                messageBody = "This is a courtesy payment reminder from " + businessTitle +
+                        " regarding invoice #" + data.invoiceNumber + " for " + formattedAmount +
+                        ", due on " + (data.dueDate != null ? data.dueDate : "the agreed date") + ".\n\n" +
+                        "Please find the invoice attached for your reference. Payment details are included below.";
+            }
+        }
+
+        // 3. Build Responsive HTML
         StringBuilder html = new StringBuilder();
         html.append("<!DOCTYPE html>\n<html lang=\"en\">\n<head>\n<meta charset=\"utf-8\">\n")
             .append("<meta name=\"viewport\" content=\"width=device-width, initial-scale=1.0\">\n")
             .append("<title>").append(escapeHtml(subject)).append("</title>\n")
             .append("<style>\n")
-            .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #0f172a; margin: 0; padding: 24px; -webkit-font-smoothing: antialiased; }\n")
-            .append(".wrapper { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 12px; border: 1px solid #e2e8f0; overflow: hidden; box-shadow: 0 1px 3px rgba(0,0,0,0.04); }\n")
-            .append(".header { padding: 28px 32px 20px; border-bottom: 1px solid #f1f5f9; }\n")
-            .append(".brand { font-size: 18px; font-weight: 700; color: #0f172a; letter-spacing: -0.02em; margin: 0; }\n")
-            .append(".content { padding: 28px 32px; }\n")
-            .append(".greeting { font-size: 15px; font-weight: 600; color: #0f172a; margin-bottom: 14px; }\n")
-            .append(".message { font-size: 14px; line-height: 1.65; color: #334155; white-space: pre-line; margin-bottom: 24px; }\n")
-            .append(".invoice-box { background: #f8fafc; border: 1px solid #e2e8f0; border-radius: 10px; padding: 20px; margin-bottom: 24px; }\n")
-            .append(".item-row { display: flex; justify-content: space-between; margin-bottom: 8px; font-size: 13px; }\n")
-            .append(".item-label { color: #64748b; font-weight: 500; }\n")
-            .append(".item-val { color: #0f172a; font-weight: 600; text-align: right; }\n")
-            .append(".total-row { display: flex; justify-content: space-between; align-items: baseline; border-top: 1px solid #e2e8f0; padding-top: 12px; margin-top: 12px; font-size: 14px; }\n")
-            .append(".total-label { font-weight: 600; color: #0f172a; }\n")
-            .append(".total-val { font-size: 20px; font-weight: 700; color: #0f172a; }\n")
-            .append(".pay-box { background: #fdf2f8; border: 1px solid #fbcfe8; border-radius: 10px; padding: 20px; margin-bottom: 24px; }\n")
-            .append(".pay-title { font-size: 12px; font-weight: 700; color: #9d174d; text-transform: uppercase; letter-spacing: 0.05em; margin: 0 0 12px; }\n")
-            .append(".pay-detail { font-size: 13px; line-height: 1.6; color: #831843; margin-bottom: 4px; }\n")
-            .append(".qr-card { text-align: center; padding: 16px; background: #ffffff; border: 1px solid #e2e8f0; border-radius: 8px; margin-top: 16px; }\n")
-            .append(".qr-img { max-width: 160px; max-height: 160px; display: inline-block; border-radius: 6px; }\n")
-            .append(".footer { padding: 20px 32px; background: #f8fafc; border-top: 1px solid #f1f5f9; font-size: 12px; color: #64748b; text-align: center; line-height: 1.5; }\n")
+            .append("body { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, Helvetica, Arial, sans-serif; background-color: #f8fafc; color: #1e293b; margin: 0; padding: 24px; -webkit-font-smoothing: antialiased; }\n")
+            .append(".container { max-width: 580px; margin: 0 auto; background: #ffffff; border-radius: 10px; border: 1px solid #e2e8f0; overflow: hidden; }\n")
+            .append(".content { padding: 32px 32px 24px; }\n")
+            .append(".greeting { font-size: 16px; font-weight: 600; color: #0f172a; margin-bottom: 16px; }\n")
+            .append(".body-text { font-size: 14px; line-height: 1.65; color: #334155; margin-bottom: 24px; white-space: pre-line; }\n")
+            .append(".section-title { font-size: 12px; font-weight: 700; color: #64748b; text-transform: uppercase; letter-spacing: 0.05em; margin: 20px 0 10px; }\n")
+            .append(".summary-table { width: 100%; border-collapse: collapse; margin-bottom: 24px; font-size: 13px; }\n")
+            .append(".summary-table td { padding: 8px 12px; border-bottom: 1px solid #f1f5f9; }\n")
+            .append(".summary-table tr:last-child td { border-bottom: none; }\n")
+            .append(".field-label { color: #64748b; width: 40%; font-weight: 500; }\n")
+            .append(".field-val { color: #0f172a; font-weight: 600; text-align: right; }\n")
+            .append(".amount-highlight { font-size: 16px; font-weight: 700; color: #5b598b; }\n")
+            .append(".pay-card { background: #fbf8ff; border: 1px solid #e3e1ea; border-radius: 8px; padding: 18px; margin-bottom: 24px; }\n")
+            .append(".pay-row { font-size: 13px; margin-bottom: 6px; color: #334155; line-height: 1.5; }\n")
+            .append(".pay-row strong { color: #1a1b22; }\n")
+            .append(".qr-container { text-align: center; margin-top: 14px; padding-top: 14px; border-top: 1px solid #e3e1ea; }\n")
+            .append(".qr-img { max-width: 140px; max-height: 140px; border-radius: 6px; border: 1px solid #e3e1ea; display: inline-block; }\n")
+            .append(".closing-text { font-size: 13px; line-height: 1.6; color: #64748b; margin-top: 20px; }\n")
+            .append(".sign-off { margin-top: 16px; font-size: 14px; font-weight: 500; color: #0f172a; line-height: 1.5; }\n")
+            .append(".footer { padding: 16px 32px; background: #f8fafc; border-top: 1px solid #e2e8f0; font-size: 12px; color: #94a3b8; text-align: center; }\n")
             .append("</style>\n</head>\n<body>\n")
-            .append("<div class=\"wrapper\">\n")
-            .append("<div class=\"header\"><h1 class=\"brand\">").append(escapeHtml(senderTitle)).append("</h1></div>\n")
+            .append("<div class=\"container\">\n")
             .append("<div class=\"content\">\n")
-            .append("<div class=\"greeting\">Dear ").append(escapeHtml(data.clientName != null ? data.clientName : "Client")).append(",</div>\n")
-            .append("<div class=\"message\">").append(escapeHtml(bodyText)).append("</div>\n")
-            .append("<div class=\"invoice-box\">\n")
-            .append("<table width=\"100%\" cellpadding=\"0\" cellspacing=\"0\" border=\"0\" style=\"font-size: 13px;\">\n")
-            .append("<tr><td style=\"color: #64748b; padding-bottom: 6px;\">Invoice Number</td><td align=\"right\" style=\"font-weight: 600; color: #0f172a;\">").append(escapeHtml(data.invoiceNumber)).append("</td></tr>\n");
+            .append("<div class=\"greeting\">Hi ").append(escapeHtml(clientDisplayName)).append(",</div>\n")
+            .append("<div class=\"body-text\">").append(escapeHtml(messageBody)).append("</div>\n")
+            .append("<div class=\"section-title\">Invoice Summary</div>\n")
+            .append("<table class=\"summary-table\">\n")
+            .append("<tr><td class=\"field-label\">Invoice number</td><td class=\"field-val\">").append(escapeHtml(data.invoiceNumber)).append("</td></tr>\n");
 
-        if (data.dueDate != null && !data.dueDate.isBlank()) {
-            html.append("<tr><td style=\"color: #64748b; padding-bottom: 6px;\">Due Date</td><td align=\"right\" style=\"font-weight: 600; color: #0f172a;\">").append(escapeHtml(data.dueDate)).append("</td></tr>\n");
+        if (data.issueDate != null && !data.issueDate.isBlank()) {
+            html.append("<tr><td class=\"field-label\">Invoice date</td><td class=\"field-val\">").append(escapeHtml(data.issueDate)).append("</td></tr>\n");
         }
+        if (data.dueDate != null && !data.dueDate.isBlank()) {
+            html.append("<tr><td class=\"field-label\">Due date</td><td class=\"field-val\">").append(escapeHtml(data.dueDate)).append("</td></tr>\n");
+        }
+        html.append("<tr><td class=\"field-label\">Amount due</td><td class=\"field-val amount-highlight\">").append(escapeHtml(formattedAmount)).append("</td></tr>\n")
+            .append("<tr><td class=\"field-label\">Status</td><td class=\"field-val\" style=\"color: #ba1a1a;\">Unpaid</td></tr>\n")
+            .append("</table>\n");
 
-        html.append("<tr><td colspan=\"2\" style=\"border-top: 1px solid #e2e8f0; padding-top: 10px;\">")
-            .append("<table width=\"100%\"><tr>")
-            .append("<td style=\"font-weight: 600; color: #0f172a; font-size: 14px;\">Amount Due</td>")
-            .append("<td align=\"right\" style=\"font-size: 20px; font-weight: 700; color: #0f172a;\">").append(escapeHtml(formattedAmount)).append("</td>")
-            .append("</tr></table></td></tr>\n")
-            .append("</table>\n</div>\n");
-
-        boolean hasPaymentInfo = (data.upiId != null && !data.upiId.isBlank()) ||
+        // Payment Details Box
+        boolean hasPaymentDetails = (data.upiId != null && !data.upiId.isBlank()) ||
                 (data.bankAccount != null && !data.bankAccount.isBlank()) ||
                 (data.paymentNotes != null && !data.paymentNotes.isBlank()) ||
                 (data.paymentQrUrl != null && !data.paymentQrUrl.isBlank());
 
-        if (hasPaymentInfo) {
-            html.append("<div class=\"pay-box\">\n")
-                .append("<p class=\"pay-title\">Payment Instructions</p>\n");
+        if (hasPaymentDetails) {
+            html.append("<div class=\"section-title\">Payment Details</div>\n")
+                .append("<div class=\"pay-card\">\n");
 
             if (data.upiId != null && !data.upiId.isBlank()) {
-                html.append("<div class=\"pay-detail\"><strong>UPI ID:</strong> ").append(escapeHtml(data.upiId)).append("</div>\n");
+                html.append("<div class=\"pay-row\"><strong>UPI ID:</strong> ").append(escapeHtml(data.upiId)).append("</div>\n");
             }
+            String beneficiary = (data.senderName != null && !data.senderName.isBlank()) ? data.senderName : businessTitle;
+            html.append("<div class=\"pay-row\"><strong>Beneficiary:</strong> ").append(escapeHtml(beneficiary)).append("</div>\n");
+
             if (data.bankName != null && !data.bankName.isBlank()) {
-                html.append("<div class=\"pay-detail\"><strong>Bank:</strong> ").append(escapeHtml(data.bankName)).append("</div>\n");
+                html.append("<div class=\"pay-row\"><strong>Bank:</strong> ").append(escapeHtml(data.bankName)).append("</div>\n");
             }
             if (data.bankAccount != null && !data.bankAccount.isBlank()) {
-                html.append("<div class=\"pay-detail\"><strong>Account Number:</strong> ").append(escapeHtml(data.bankAccount)).append("</div>\n");
+                html.append("<div class=\"pay-row\"><strong>Account:</strong> ").append(escapeHtml(data.bankAccount)).append("</div>\n");
             }
             if (data.bankIfsc != null && !data.bankIfsc.isBlank()) {
-                html.append("<div class=\"pay-detail\"><strong>IFSC Code:</strong> ").append(escapeHtml(data.bankIfsc)).append("</div>\n");
+                html.append("<div class=\"pay-row\"><strong>IFSC:</strong> ").append(escapeHtml(data.bankIfsc)).append("</div>\n");
             }
             if (data.paymentNotes != null && !data.paymentNotes.isBlank()) {
-                html.append("<div class=\"pay-detail\" style=\"margin-top: 8px; font-style: italic;\">").append(escapeHtml(data.paymentNotes)).append("</div>\n");
+                html.append("<div class=\"pay-row\" style=\"font-style: italic; margin-top: 6px;\">").append(escapeHtml(data.paymentNotes)).append("</div>\n");
             }
 
-            // Embed Payment QR code image if present
+            // Optional Payment QR Image
             if (data.paymentQrUrl != null && !data.paymentQrUrl.isBlank()) {
-                html.append("<div class=\"qr-card\">\n")
-                    .append("<div style=\"font-size: 12px; font-weight: 600; color: #334155; margin-bottom: 8px;\">Scan with any UPI app to pay</div>\n")
-                    .append("<img class=\"qr-img\" src=\"").append(data.paymentQrUrl.trim()).append("\" alt=\"Payment QR Code\" />\n")
+                html.append("<div class=\"qr-container\">\n")
+                    .append("<div style=\"font-size: 11px; font-weight: 600; color: #747878; margin-bottom: 6px;\">Scan with any UPI app</div>\n")
+                    .append("<img class=\"qr-img\" src=\"").append(data.paymentQrUrl.trim()).append("\" alt=\"Payment QR\" />\n")
                     .append("</div>\n");
             }
 
             html.append("</div>\n");
         }
 
-        html.append("</div>\n") // end content
-            .append("<div class=\"footer\">\n")
-            .append("Sent by ").append(escapeHtml(senderTitle));
+        // Closing & Sign-off
+        html.append("<div class=\"closing-text\">")
+            .append("Please arrange payment at your convenience. If you have already made the payment, kindly disregard this reminder or let us know so we can update the invoice status.")
+            .append("</div>\n")
+            .append("<div class=\"sign-off\">")
+            .append("Regards,<br><strong>").append(escapeHtml(senderDisplayName)).append("</strong><br>")
+            .append(escapeHtml(businessTitle));
 
         if (data.senderEmail != null && !data.senderEmail.isBlank()) {
-            html.append(" (").append(escapeHtml(data.senderEmail)).append(")");
+            html.append("<br><span style=\"color: #64748b; font-size: 12px;\">").append(escapeHtml(data.senderEmail)).append("</span>");
         }
         if (data.senderPhone != null && !data.senderPhone.isBlank()) {
-            html.append(" • ").append(escapeHtml(data.senderPhone));
+            html.append("<span style=\"color: #64748b; font-size: 12px;\"> • ").append(escapeHtml(data.senderPhone)).append("</span>");
         }
 
-        html.append("<br><span style=\"color: #94a3b8; font-size: 11px;\">Invoice reminder notification</span>\n")
+        html.append("</div>\n")
+            .append("</div>\n") // end content
+            .append("<div class=\"footer\">")
+            .append("Payment reminder for invoice #").append(escapeHtml(data.invoiceNumber)).append(".")
             .append("</div>\n</div>\n</body>\n</html>");
 
-        // Text representation
+        // 4. Plain-text Fallback
         StringBuilder text = new StringBuilder();
-        text.append("Dear ").append(data.clientName != null ? data.clientName : "Client").append(",\n\n")
-            .append(bodyText).append("\n\n")
-            .append("--- INVOICE DETAILS ---\n")
-            .append("Invoice: ").append(data.invoiceNumber).append("\n")
-            .append("Due Date: ").append(data.dueDate).append("\n")
-            .append("Amount Due: ").append(formattedAmount).append("\n\n");
+        text.append("Hi ").append(clientDisplayName).append(",\n\n")
+            .append(messageBody).append("\n\n")
+            .append("INVOICE SUMMARY\n")
+            .append("Invoice number: ").append(data.invoiceNumber).append("\n");
+        if (data.issueDate != null) text.append("Invoice date: ").append(data.issueDate).append("\n");
+        if (data.dueDate != null) text.append("Due date: ").append(data.dueDate).append("\n");
+        text.append("Amount due: ").append(formattedAmount).append("\n")
+            .append("Status: Unpaid\n\n");
 
-        if (hasPaymentInfo) {
-            text.append("--- PAYMENT INSTRUCTIONS ---\n");
+        if (hasPaymentDetails) {
+            text.append("PAYMENT DETAILS\n");
             if (data.upiId != null && !data.upiId.isBlank()) text.append("UPI ID: ").append(data.upiId).append("\n");
+            text.append("Beneficiary: ").append((data.senderName != null && !data.senderName.isBlank()) ? data.senderName : businessTitle).append("\n");
             if (data.bankName != null && !data.bankName.isBlank()) text.append("Bank: ").append(data.bankName).append("\n");
             if (data.bankAccount != null && !data.bankAccount.isBlank()) text.append("Account: ").append(data.bankAccount).append("\n");
             if (data.bankIfsc != null && !data.bankIfsc.isBlank()) text.append("IFSC: ").append(data.bankIfsc).append("\n");
-            if (data.paymentNotes != null && !data.paymentNotes.isBlank()) text.append("Note: ").append(data.paymentNotes).append("\n");
+            if (data.paymentNotes != null && !data.paymentNotes.isBlank()) text.append("Notes: ").append(data.paymentNotes).append("\n");
             text.append("\n");
         }
 
-        text.append("---\n").append(senderTitle);
-        if (data.senderEmail != null && !data.senderEmail.isBlank()) text.append(" (").append(data.senderEmail).append(")");
-        text.append("\n");
+        text.append("Please arrange payment at your convenience. If you have already made the payment, kindly disregard this reminder.\n\n")
+            .append("Regards,\n")
+            .append(senderDisplayName).append("\n")
+            .append(businessTitle);
+        if (data.senderEmail != null) text.append("\n").append(data.senderEmail);
+        text.append("\n\nFooter: Payment reminder for invoice #").append(data.invoiceNumber).append(".\n");
 
         return new RenderedEmail(subject, html.toString(), text.toString());
     }
 
     /**
-     * Primary dispatch method resolving user's connected integration.
+     * Primary dispatch method resolving user's connected integration (Gmail / Outlook).
+     * Zero Resend fallback.
      */
     public SendResult sendEmail(UUID userId, String to, String replyTo, EmailRenderData data) {
         if (to == null || to.isBlank() || !to.contains("@")) {
@@ -400,43 +468,28 @@ public class EmailService {
             }
         }
 
-        // 2. Fallback to Resend if configured
-        if (resendApiKey != null && !resendApiKey.isBlank() && !resendApiKey.contains("your_api_key") && !resendApiKey.contains("re_your_api_key")) {
-            log.info("[EmailService] Sending email to {} using Resend delivery provider", to);
-            return sendViaResend(to, replyTo, rendered, data);
-        }
-
-        log.warn("[EmailService] No personal integration (Gmail/Outlook) or Resend API key configured for dispatch to {}", to);
+        log.warn("[EmailService] No personal integration (Gmail/Outlook) connected for dispatch to {}", to);
         return new SendResult(
                 false,
                 null,
-                "No active email provider. Please connect your Gmail or Outlook account in Settings to send emails.",
+                "No connected email account (Gmail or Outlook) found. Please connect your Gmail or Outlook account in Settings to send reminders.",
                 "none",
                 false
         );
     }
 
-    /**
-     * Backward-compatible overload.
-     */
     public SendResult sendEmail(String to, String replyTo, EmailRenderData data) {
         return sendEmail(null, to, replyTo, data);
     }
 
     /**
-     * Sends message via Gmail API (users.messages.send) using RFC 2822 MIME format.
+     * Outbound delivery via user's connected Gmail integration.
      */
     public SendResult sendViaGmail(Integration integration, String to, String replyTo, RenderedEmail rendered, EmailRenderData data) {
-        // Ensure access token is valid; refresh if expired
-        boolean tokenValid = ensureValidGoogleToken(integration);
-        if (!tokenValid) {
-            return new SendResult(
-                    false,
-                    null,
-                    "Gmail connection expired or revoked. Please reconnect your Google account in Settings.",
-                    "google",
-                    false
-            );
+        boolean valid = ensureValidGoogleToken(integration);
+        if (!valid) {
+            log.warn("[Gmail] Token invalid and refresh failed for user {}", integration.getUserId());
+            return new SendResult(false, null, "Google authorization expired. Please reconnect in Settings.", "google", false);
         }
 
         String accessToken = getDecryptedAccessToken(integration);
@@ -449,7 +502,14 @@ public class EmailService {
                 : (data.senderName != null ? data.senderName : "DueFlow");
 
         try {
-            String mimeString = buildRfc2822MimeMessage(fromName, fromEmail, to, replyTo, rendered.subject, rendered.html, rendered.text);
+            String effectiveFilename = (data.pdfAttachmentFilename != null && !data.pdfAttachmentFilename.isBlank())
+                    ? data.pdfAttachmentFilename
+                    : ((data.pdfFilename != null && !data.pdfFilename.isBlank()) ? data.pdfFilename : "Invoice.pdf");
+            String mimeString = buildRfc2822MimeMessage(
+                    fromName, fromEmail, to, replyTo,
+                    rendered.subject, rendered.html, rendered.text,
+                    data.pdfAttachmentBytes, effectiveFilename
+            );
             String rawBase64Url = Base64.getUrlEncoder().withoutPadding().encodeToString(mimeString.getBytes(StandardCharsets.UTF_8));
 
             Map<String, String> payload = Map.of("raw", rawBase64Url);
@@ -466,7 +526,6 @@ public class EmailService {
             HttpResponse<String> resp = httpClient.send(req, HttpResponse.BodyHandlers.ofString());
 
             if (resp.statusCode() == 401) {
-                // Token might have just expired, try single refresh & retry
                 log.info("[Gmail] Received 401, refreshing token and retrying dispatch...");
                 boolean refreshed = refreshGoogleToken(integration);
                 if (refreshed) {
@@ -512,26 +571,18 @@ public class EmailService {
         }
     }
 
-    /**
-     * Checks if Google token is valid and refreshes if expiring soon.
-     */
     public boolean ensureValidGoogleToken(Integration integration) {
         Instant expiresAt = integration.getTokenExpiresAt();
         if (expiresAt == null || expiresAt.isBefore(Instant.now().plusSeconds(60))) {
-            log.info("[Gmail] Token expired or expiring soon, refreshing...");
             return refreshGoogleToken(integration);
         }
         String token = getDecryptedAccessToken(integration);
         return token != null && !token.isBlank();
     }
 
-    /**
-     * Refreshes Google OAuth access token using refresh token.
-     */
     public boolean refreshGoogleToken(Integration integration) {
         String refreshToken = getDecryptedRefreshToken(integration);
         if (refreshToken == null || refreshToken.isBlank()) {
-            log.warn("[Gmail] No refresh token on record for user {}", integration.getUserId());
             integration.setStatus("RECONNECT_REQUIRED");
             integration.setLastErrorCode("NO_REFRESH_TOKEN");
             integration.setLastErrorMessage("No refresh token available. Please reconnect Google in Settings.");
@@ -540,7 +591,6 @@ public class EmailService {
         }
 
         if (googleClientId == null || googleClientId.isBlank() || googleClientSecret == null || googleClientSecret.isBlank()) {
-            log.warn("[Gmail] GOOGLE_CLIENT_ID or GOOGLE_CLIENT_SECRET not configured on server");
             return false;
         }
 
@@ -561,52 +611,35 @@ public class EmailService {
             JsonNode data = objectMapper.readTree(resp.body());
 
             if (resp.statusCode() < 200 || resp.statusCode() >= 300 || data.has("error")) {
-                String errCode = data.path("error").asText("REFRESH_FAILED");
-                String errDesc = data.path("error_description").asText("Refresh token expired or revoked");
-                log.warn("[Gmail] Token refresh failed: {} - {}", errCode, errDesc);
-
                 integration.setStatus("RECONNECT_REQUIRED");
-                integration.setLastErrorCode(errCode);
-                integration.setLastErrorMessage(errDesc);
                 if (integrationRepository != null) integrationRepository.save(integration);
                 return false;
             }
 
             String newAccessToken = data.path("access_token").asText(null);
             long expiresIn = data.path("expires_in").asLong(3599);
-
             if (newAccessToken != null && !newAccessToken.isBlank()) {
                 integration.setAccessTokenEncrypted(encryptToken(newAccessToken));
                 integration.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
                 integration.setStatus("CONNECTED");
-                integration.setLastErrorCode(null);
-                integration.setLastErrorMessage(null);
                 if (integrationRepository != null) integrationRepository.save(integration);
-                log.info("[Gmail] Successfully refreshed access token for user {}", integration.getUserId());
                 return true;
             }
-        } catch (Exception e) {
-            log.error("[Gmail] Token refresh exception: {}", e.getMessage(), e);
-        }
+        } catch (Exception ignored) {}
         return false;
     }
 
     /**
-     * Sends message via Microsoft Graph API.
+     * Outbound delivery via user's connected Microsoft Outlook / Microsoft Graph integration.
      */
     public SendResult sendViaMicrosoft(Integration integration, String to, String replyTo, RenderedEmail rendered, EmailRenderData data) {
-        boolean tokenValid = ensureValidMicrosoftToken(integration);
-        if (!tokenValid) {
-            return new SendResult(
-                    false,
-                    null,
-                    "Microsoft Outlook connection expired. Please reconnect your account in Settings.",
-                    "microsoft",
-                    false
-            );
+        boolean valid = ensureValidMicrosoftToken(integration);
+        if (!valid) {
+            return new SendResult(false, null, "Microsoft authorization expired. Please reconnect in Settings.", "microsoft", false);
         }
 
         String accessToken = getDecryptedAccessToken(integration);
+
         try {
             Map<String, Object> message = new HashMap<>();
             message.put("subject", rendered.subject);
@@ -624,6 +657,20 @@ public class EmailService {
 
             if (replyTo != null && !replyTo.isBlank()) {
                 message.put("replyTo", List.of(Map.of("emailAddress", Map.of("address", replyTo.trim()))));
+            }
+
+            // Real PDF Attachment for Microsoft Graph
+            if (data.pdfAttachmentBytes != null && data.pdfAttachmentBytes.length > 0) {
+                String filename = (data.pdfAttachmentFilename != null && !data.pdfAttachmentFilename.isBlank())
+                        ? data.pdfAttachmentFilename
+                        : ((data.pdfFilename != null && !data.pdfFilename.isBlank()) ? data.pdfFilename : "Invoice.pdf");
+                Map<String, Object> attachment = Map.of(
+                        "@odata.type", "#microsoft.graph.fileAttachment",
+                        "name", filename,
+                        "contentType", "application/pdf",
+                        "contentBytes", Base64.getEncoder().encodeToString(data.pdfAttachmentBytes)
+                );
+                message.put("attachments", List.of(attachment));
             }
 
             Map<String, Object> payload = Map.of(
@@ -716,116 +763,7 @@ public class EmailService {
         return false;
     }
 
-    /**
-     * Outbound delivery via Resend.
-     */
-    public SendResult sendViaResend(String to, String replyTo, RenderedEmail rendered, EmailRenderData data) {
-        if (resendApiKey == null || resendApiKey.isBlank() || resendApiKey.contains("your_api_key") || resendApiKey.contains("re_your_api_key")) {
-            log.error("[Resend] Delivery rejected: RESEND_API_KEY is not configured with real credentials.");
-            return new SendResult(false, null, "Resend API key is not configured with valid credentials", "resend", false);
-        }
-
-        try {
-            Map<String, Object> payload = new HashMap<>();
-            payload.put("from", resendFromEmail != null && !resendFromEmail.isBlank() ? resendFromEmail : "DueFlow Reminders <reminders@dueflow.in>");
-            payload.put("to", List.of(to));
-            if (replyTo != null && !replyTo.isBlank()) {
-                payload.put("reply_to", replyTo);
-            }
-            payload.put("subject", rendered.subject);
-            payload.put("html", rendered.html);
-            payload.put("text", rendered.text);
-
-            String requestBody = objectMapper.writeValueAsString(payload);
-
-            HttpRequest request = HttpRequest.newBuilder()
-                    .uri(URI.create("https://api.resend.com/emails"))
-                    .header("Authorization", "Bearer " + resendApiKey.trim())
-                    .header("Content-Type", "application/json")
-                    .timeout(Duration.ofSeconds(15))
-                    .POST(HttpRequest.BodyPublishers.ofString(requestBody, StandardCharsets.UTF_8))
-                    .build();
-
-            HttpResponse<String> response = httpClient.send(request, HttpResponse.BodyHandlers.ofString());
-
-            if (response.statusCode() >= 200 && response.statusCode() < 300) {
-                JsonNode resJson = objectMapper.readTree(response.body());
-                String messageId = resJson.path("id").asText(null);
-                log.info("[Resend] Successfully accepted email delivery. Message ID: {}", messageId);
-                return new SendResult(true, messageId, null, "resend", false);
-            } else {
-                log.warn("[Resend] API returned HTTP {}: {}", response.statusCode(), response.body());
-                String errorMsg = "Resend API error " + response.statusCode();
-                try {
-                    JsonNode errJson = objectMapper.readTree(response.body());
-                    if (errJson.has("message")) errorMsg = errJson.get("message").asText();
-                } catch (Exception ignored) {}
-                boolean retryable = response.statusCode() >= 500 || response.statusCode() == 429;
-                return new SendResult(false, null, errorMsg, "resend", retryable);
-            }
-        } catch (Exception e) {
-            log.error("[Resend] Exception occurred during email dispatch: {}", e.getMessage(), e);
-            return new SendResult(false, null, e.getMessage(), "resend", true);
-        }
-    }
-
-    /**
-     * Verifies Svix signature for Resend Webhooks using HMAC-SHA256.
-     */
-    public boolean verifyWebhookSignature(String rawBody, String svixId, String svixTimestamp, String svixSignature) {
-        if (resendWebhookSecret == null || resendWebhookSecret.isBlank()) {
-            return false;
-        }
-
-        if (svixSignature == null || svixTimestamp == null || svixId == null) {
-            return false;
-        }
-
-        try {
-            long ts = Long.parseLong(svixTimestamp);
-            long now = Instant.now().getEpochSecond();
-            if (Math.abs(now - ts) > 300) {
-                log.warn("[Svix] Webhook timestamp skew too large: {} vs now {}", ts, now);
-                return false;
-            }
-
-            String cleanSecret = resendWebhookSecret.trim();
-            if (cleanSecret.startsWith("whsec_")) {
-                cleanSecret = cleanSecret.substring("whsec_".length());
-            }
-
-            byte[] secretBytes;
-            try {
-                secretBytes = Base64.getDecoder().decode(cleanSecret);
-            } catch (IllegalArgumentException e) {
-                secretBytes = cleanSecret.getBytes(StandardCharsets.UTF_8);
-            }
-
-            String signedPayload = svixId + "." + svixTimestamp + "." + rawBody;
-
-            javax.crypto.Mac mac = javax.crypto.Mac.getInstance("HmacSHA256");
-            mac.init(new javax.crypto.spec.SecretKeySpec(secretBytes, "HmacSHA256"));
-            byte[] hash = mac.doFinal(signedPayload.getBytes(StandardCharsets.UTF_8));
-            String expectedSig = Base64.getEncoder().encodeToString(hash);
-
-            String[] passedSignatures = svixSignature.split(" ");
-            for (String sigPart : passedSignatures) {
-                String sig = sigPart.trim();
-                if (sig.startsWith("v1,")) {
-                    sig = sig.substring(3);
-                }
-                if (java.security.MessageDigest.isEqual(expectedSig.getBytes(StandardCharsets.UTF_8), sig.getBytes(StandardCharsets.UTF_8))) {
-                    return true;
-                }
-            }
-            return false;
-        } catch (Exception e) {
-            log.error("[Svix] Error verifying signature: {}", e.getMessage());
-            return false;
-        }
-    }
-
-    private String escapeHtml(String text) {
+    public String escapeHtml(String text) {
         if (text == null) return "";
         return text.replace("&", "&amp;")
                 .replace("<", "&lt;")

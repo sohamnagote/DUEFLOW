@@ -260,8 +260,31 @@ export const api = {
     return apiFetch<{ logs: ReminderLog[] }>('/api/reminders/logs');
   },
 
+  async saveReminderSchedule(data: { rules_json: string; timezone?: string }) {
+    return apiFetch<{ message: string; schedule_rules: string; timezone: string }>('/api/reminders/schedule', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  async getReminderTemplate() {
+    return apiFetch<{ tone: string; subject: string; body: string; placeholders: string[] }>('/api/reminders/template');
+  },
+
+  async saveReminderTemplate(data: { tone?: string; subject?: string; body?: string }) {
+    return apiFetch<{ message: string; tone: string; subject: string; body: string }>('/api/reminders/template', {
+      method: 'POST',
+      body: JSON.stringify(data),
+    });
+  },
+
+  getInvoicePdfUrl(id: string): string {
+    const baseUrl = (import.meta.env.VITE_API_URL || '').replace(/\/$/, '');
+    return `${baseUrl}/api/invoices/${id}/pdf`;
+  },
+
   async runSchedulerWorker() {
-    return apiFetch<{ processed_count: number; results: any[] }>('/api/cron/process-reminders', {
+    return apiFetch<{ processed_count: number; results: any[] }>('/api/reminders/process', {
       method: 'POST',
     });
   },

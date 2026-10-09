@@ -26,7 +26,7 @@ public class ReminderLog {
     private String channel = "email";
 
     @Column
-    private String provider = "resend";
+    private String provider = "gmail";
 
     @Column(name = "occurrence_key", nullable = false)
     private String occurrenceKey;
@@ -72,7 +72,7 @@ public class ReminderLog {
         if (attemptedAt == null) attemptedAt = Instant.now();
         if (createdAt == null) createdAt = Instant.now();
         if (channel == null) channel = "email";
-        if (provider == null) provider = "resend";
+        if (provider == null) provider = "gmail";
         if (retryable == null) retryable = false;
         if (recipient == null) {
             recipient = recipientEmail != null ? recipientEmail : (recipientPhone != null ? recipientPhone : "recipient");

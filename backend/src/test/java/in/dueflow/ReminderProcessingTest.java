@@ -35,6 +35,7 @@ public class ReminderProcessingTest {
     @Mock
     private EmailService emailService;
 
+    private in.dueflow.service.PdfInvoiceService pdfInvoiceService = new in.dueflow.service.PdfInvoiceService();
     private ReminderService reminderService;
 
     @BeforeEach
@@ -44,7 +45,8 @@ public class ReminderProcessingTest {
                 reminderLogRepository,
                 invoiceRepository,
                 profileRepository,
-                emailService
+                emailService,
+                pdfInvoiceService
         );
     }
 

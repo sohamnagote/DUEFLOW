@@ -30,6 +30,7 @@ import in.dueflow.entity.Profile;
 import in.dueflow.service.EmailService;
 import in.dueflow.service.OAuthStateService;
 import in.dueflow.service.EncryptionService;
+import in.dueflow.service.PdfInvoiceService;
 import java.math.BigDecimal;
 import java.time.LocalDate;
 import java.util.*;
@@ -47,6 +48,7 @@ public class IntegrationController {
     private final EmailService emailService;
     private final OAuthStateService oauthStateService;
     private final EncryptionService encryptionService;
+    private final PdfInvoiceService pdfInvoiceService;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -74,7 +76,8 @@ public class IntegrationController {
             ObjectMapper objectMapper,
             EmailService emailService,
             OAuthStateService oauthStateService,
-            EncryptionService encryptionService
+            EncryptionService encryptionService,
+            PdfInvoiceService pdfInvoiceService
     ) {
         this.integrationService = integrationService;
         this.integrationRepository = integrationRepository;
@@ -83,6 +86,7 @@ public class IntegrationController {
         this.emailService = emailService;
         this.oauthStateService = oauthStateService;
         this.encryptionService = encryptionService;
+        this.pdfInvoiceService = pdfInvoiceService;
     }
 
     private String getBaseUrl(HttpServletRequest req) {
@@ -539,7 +543,7 @@ public class IntegrationController {
 
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "provider", "resend",
+                "provider", "none",
                 "is_user_connected", false,
                 "status", "NOT_CONNECTED",
                 "message", "No user email provider connected"
@@ -590,6 +594,28 @@ public class IntegrationController {
         data.customSubject = "Test Invoice Reminder from " + businessName;
         data.customBody = "This test email confirms that your email integration is successfully connected and capable of sending invoice reminders directly to your clients.";
 
+        // Attach sample invoice PDF
+        if (pdfInvoiceService != null) {
+            try {
+                in.dueflow.entity.Invoice sampleInvoice = new in.dueflow.entity.Invoice();
+                sampleInvoice.setInvoiceNumber("TEST-VERIFY");
+                sampleInvoice.setAmount(new BigDecimal("12500.00"));
+                sampleInvoice.setCurrency("INR");
+                sampleInvoice.setIssueDate(LocalDate.now());
+                sampleInvoice.setDueDate(LocalDate.now().plusDays(5));
+                sampleInvoice.setClientNameSnapshot("Valued Client (Test)");
+                sampleInvoice.setClientEmailSnapshot(recipient);
+                sampleInvoice.setNotes("Integration test invoice.");
+                sampleInvoice.setStatus("unpaid");
+
+                PdfInvoiceService.PdfGenerationResult pdf = pdfInvoiceService.generateInvoicePdf(sampleInvoice, profile);
+                data.pdfAttachmentBytes = pdf.pdfBytes;
+                data.pdfFilename = pdf.filename;
+            } catch (Exception e) {
+                log.warn("[IntegrationController] Failed to generate test invoice PDF: {}", e.getMessage());
+            }
+        }
+
         EmailService.SendResult result = emailService.sendEmail(userId, recipient, profile.getEmail(), data);
 
         if (!result.success) {
@@ -621,7 +647,6 @@ public class IntegrationController {
         } else {
             integrationService.deleteIntegration(userId, "google");
             integrationService.deleteIntegration(userId, "microsoft");
-            integrationService.deleteIntegration(userId, "resend");
         }
         return ResponseEntity.ok(Map.of(
                 "success", true,

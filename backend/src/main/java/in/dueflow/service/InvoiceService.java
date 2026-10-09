@@ -37,6 +37,7 @@ public class InvoiceService {
     private final SchedulerService schedulerService;
     private final EmailService emailService;
     private final AiService aiService;
+    private final PdfInvoiceService pdfInvoiceService;
 
     public InvoiceService(InvoiceRepository invoiceRepository,
                           ReminderRuleRepository reminderRuleRepository,
@@ -45,7 +46,8 @@ public class InvoiceService {
                           StatusService statusService,
                           SchedulerService schedulerService,
                           EmailService emailService,
-                          AiService aiService) {
+                          AiService aiService,
+                          PdfInvoiceService pdfInvoiceService) {
         this.invoiceRepository = invoiceRepository;
         this.reminderRuleRepository = reminderRuleRepository;
         this.reminderLogRepository = reminderLogRepository;
@@ -54,6 +56,7 @@ public class InvoiceService {
         this.schedulerService = schedulerService;
         this.emailService = emailService;
         this.aiService = aiService;
+        this.pdfInvoiceService = pdfInvoiceService;
     }
 
     public InvoiceListResponse listInvoices(UUID userId, String search, String status, String sort, int page, int limit) {
@@ -124,13 +127,13 @@ public class InvoiceService {
 
         Invoice saved = invoiceRepository.save(invoice);
 
-        // Fetch user timezone for reminder calculation
-        String timezone = profileRepository.findById(userId)
-                .map(Profile::getTimezone)
-                .orElse("Asia/Kolkata");
+        // Fetch user profile and custom schedule rules for reminder calculation
+        Profile profile = profileRepository.findById(userId).orElse(null);
+        String timezone = profile != null ? profile.getTimezone() : "Asia/Kolkata";
+        String customRulesJson = profile != null ? profile.getReminderScheduleRules() : null;
 
         List<ReminderRule> generatedRules = schedulerService.calculateReminderRules(
-                saved.getId(), saved.getDueDate(), timezone, "unpaid", List.of("email")
+                saved.getId(), saved.getDueDate(), timezone, "unpaid", List.of("email"), customRulesJson
         );
         List<ReminderRule> savedRules = reminderRuleRepository.saveAll(generatedRules);
 
@@ -162,7 +165,9 @@ public class InvoiceService {
 
         // If due date changed, rebuild only unsent future reminders and preserve sent history
         if (dueDateChanged && !"paid".equalsIgnoreCase(saved.getStatus())) {
-            String timezone = profileRepository.findById(userId).map(Profile::getTimezone).orElse("Asia/Kolkata");
+            Profile prof = profileRepository.findById(userId).orElse(null);
+            String tz = prof != null ? prof.getTimezone() : "Asia/Kolkata";
+            String cRules = prof != null ? prof.getReminderScheduleRules() : null;
             List<ReminderLog> existingLogs = reminderLogRepository.findByInvoiceIdOrderByCreatedAtDesc(invoiceId);
             Set<String> sentKeys = existingLogs.stream()
                     .filter(l -> "sent".equalsIgnoreCase(l.getStatus()) || "delivered".equalsIgnoreCase(l.getStatus()))
@@ -172,7 +177,7 @@ public class InvoiceService {
             reminderRuleRepository.deleteByInvoiceId(invoiceId);
             reminderRuleRepository.flush();
             List<ReminderRule> recomputed = schedulerService.recomputeRulesForUnpaid(
-                    invoiceId, saved.getDueDate(), sentKeys, timezone, List.of("email")
+                    invoiceId, saved.getDueDate(), sentKeys, tz, List.of("email"), cRules
             );
             reminderRuleRepository.saveAll(recomputed);
         }
@@ -326,6 +331,17 @@ public class InvoiceService {
         emailData.customSubject = subject;
         emailData.customBody = body;
 
+        // Generate actual invoice PDF and attach it to the email
+        try {
+            PdfInvoiceService.PdfGenerationResult pdfResult = pdfInvoiceService.generateInvoicePdf(invoice, profile);
+            if (pdfResult != null && pdfResult.pdfBytes != null) {
+                emailData.pdfAttachmentBytes = pdfResult.pdfBytes;
+                emailData.pdfAttachmentFilename = pdfResult.filename;
+            }
+        } catch (Exception e) {
+            throw new RuntimeException("Failed to generate invoice PDF attachment: " + e.getMessage(), e);
+        }
+
         EmailService.SendResult sendRes = emailService.sendEmail(
                 userId, invoice.getClientEmailSnapshot(), profile.getEmail(), emailData
         );
@@ -355,7 +371,7 @@ public class InvoiceService {
         response.put("results", Map.of("email", sendRes));
         response.put("logs", List.of(savedLog));
         response.put("message", sendRes.success
-                ? ("Reminder dispatched successfully via " + sendRes.provider + ".")
+                ? ("Reminder dispatched successfully via " + sendRes.provider + " with invoice PDF attached.")
                 : ("Email delivery failed: " + sendRes.error));
         return response;
     }
@@ -386,8 +402,45 @@ public class InvoiceService {
         emailData.paymentQrUrl = profile.getPaymentQrUrl();
         emailData.notes = invoice.getNotes();
         emailData.stageName = "Stage " + stage;
-        emailData.tone = (tone != null && !tone.isBlank()) ? tone : "professional";
+        emailData.tone = (tone != null && !tone.isBlank()) ? tone : (profile.getEmailTone() != null ? profile.getEmailTone() : "professional");
+        emailData.customSubject = profile.getCustomEmailSubject();
+        emailData.customBody = profile.getCustomEmailBody();
 
         return emailService.renderReminderEmail(emailData);
+    }
+
+    public PdfInvoiceService.PdfGenerationResult getInvoicePdf(UUID userId, UUID invoiceId) {
+        Invoice invoice = invoiceRepository.findByUserIdAndId(userId, invoiceId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found"));
+        Profile profile = profileRepository.findById(userId).orElse(new Profile(userId, ""));
+        return pdfInvoiceService.generateInvoicePdf(invoice, profile);
+    }
+
+    @Transactional
+    public void rebuildSchedulesForUser(UUID userId) {
+        Profile profile = profileRepository.findById(userId).orElse(null);
+        if (profile == null) return;
+        String tz = profile.getTimezone() != null ? profile.getTimezone() : "Asia/Kolkata";
+        String customRulesJson = profile.getReminderScheduleRules();
+
+        List<Invoice> unpaidInvoices = invoiceRepository.findByUserIdOrderByCreatedAtDesc(userId)
+                .stream()
+                .filter(inv -> !"paid".equalsIgnoreCase(inv.getStatus()) && Boolean.TRUE.equals(inv.getRemindersEnabled()))
+                .collect(Collectors.toList());
+
+        for (Invoice invoice : unpaidInvoices) {
+            List<ReminderLog> existingLogs = reminderLogRepository.findByInvoiceIdOrderByCreatedAtDesc(invoice.getId());
+            Set<String> sentKeys = existingLogs.stream()
+                    .filter(l -> "sent".equalsIgnoreCase(l.getStatus()) || "delivered".equalsIgnoreCase(l.getStatus()))
+                    .map(ReminderLog::getOccurrenceKey)
+                    .collect(Collectors.toSet());
+
+            reminderRuleRepository.deleteByInvoiceId(invoice.getId());
+            reminderRuleRepository.flush();
+            List<ReminderRule> recomputed = schedulerService.recomputeRulesForUnpaid(
+                    invoice.getId(), invoice.getDueDate(), sentKeys, tz, List.of("email"), customRulesJson
+            );
+            reminderRuleRepository.saveAll(recomputed);
+        }
     }
 }

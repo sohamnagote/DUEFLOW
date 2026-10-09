@@ -31,17 +31,20 @@ public class ReminderService {
     private final InvoiceRepository invoiceRepository;
     private final ProfileRepository profileRepository;
     private final EmailService emailService;
+    private final PdfInvoiceService pdfInvoiceService;
 
     public ReminderService(ReminderRuleRepository reminderRuleRepository,
                            ReminderLogRepository reminderLogRepository,
                            InvoiceRepository invoiceRepository,
                            ProfileRepository profileRepository,
-                           EmailService emailService) {
+                           EmailService emailService,
+                           PdfInvoiceService pdfInvoiceService) {
         this.reminderRuleRepository = reminderRuleRepository;
         this.reminderLogRepository = reminderLogRepository;
         this.invoiceRepository = invoiceRepository;
         this.profileRepository = profileRepository;
         this.emailService = emailService;
+        this.pdfInvoiceService = pdfInvoiceService;
     }
 
     public List<EnrichedRuleDto> getRulesForUser(UUID userId) {
@@ -246,8 +249,51 @@ public class ReminderService {
             emailData.paymentQrUrl = profile != null ? profile.getPaymentQrUrl() : null;
             emailData.notes = invoice.getNotes();
             emailData.stageName = rule.getOccurrenceKey();
+            emailData.customSubject = profile != null ? profile.getCustomEmailSubject() : null;
+            emailData.customBody = profile != null ? profile.getCustomEmailBody() : null;
+            emailData.tone = (profile != null && profile.getEmailTone() != null) ? profile.getEmailTone() : "professional";
 
-            // 9. Real email dispatch through connected provider (Gmail/Outlook/fallback)
+            // Attach actual invoice PDF with safe failure policy
+            try {
+                PdfInvoiceService.PdfGenerationResult pdfRes = pdfInvoiceService.generateInvoicePdf(invoice, profile);
+                if (pdfRes != null && pdfRes.pdfBytes != null) {
+                    emailData.pdfAttachmentBytes = pdfRes.pdfBytes;
+                    emailData.pdfAttachmentFilename = pdfRes.filename;
+                }
+            } catch (Exception e) {
+                log.error("[Scheduler Worker] Failed to generate PDF for rule {}: {}", rule.getId(), e.getMessage());
+                // Safe failure policy: do not silently send an email claiming attachment is included if PDF generation fails
+                rule.setStatus("failed");
+                rule.setEnabled(false);
+                rule.setLastAttemptedAt(now);
+                reminderRuleRepository.save(rule);
+                totalFailed.incrementAndGet();
+
+                ReminderLog failLog = new ReminderLog();
+                failLog.setInvoiceId(invoice.getId());
+                failLog.setRuleId(rule.getId());
+                failLog.setChannel("email");
+                failLog.setProvider("none");
+                failLog.setOccurrenceKey(rule.getOccurrenceKey());
+                failLog.setRecipientEmail(invoice.getClientEmailSnapshot());
+                failLog.setRecipient(invoice.getClientEmailSnapshot());
+                failLog.setSubject("Invoice " + invoice.getInvoiceNumber() + " reminder");
+                failLog.setStatus("failed");
+                failLog.setErrorCode("PDF_GENERATION_FAILED: " + e.getMessage());
+                failLog.setRetryable(false);
+                failLog.setAttemptedAt(now);
+                reminderLogRepository.save(failLog);
+
+                outcomeList.add(Map.of(
+                        "rule_id", rule.getId(),
+                        "invoice_number", invNum,
+                        "status", "failed",
+                        "error", "Failed to generate invoice PDF attachment: " + e.getMessage()
+                ));
+                continue;
+            }
+
+            // 9. Real email dispatch through connected provider (Gmail/Outlook)
             EmailService.SendResult sendResult = emailService.sendEmail(
                     invoice.getUserId(),
                     invoice.getClientEmailSnapshot(),

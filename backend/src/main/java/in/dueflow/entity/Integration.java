@@ -18,7 +18,7 @@ public class Integration {
     private UUID userId;
 
     @Column(nullable = false)
-    private String provider; // google, microsoft, resend, whatsapp_business
+    private String provider; // google, microsoft, whatsapp_business
 
     @Column(nullable = false)
     private String channel; // email, whatsapp

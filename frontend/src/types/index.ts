@@ -98,7 +98,7 @@ export type IntegrationStatus = 'NOT_CONNECTED' | 'CONNECTED' | 'SETUP_REQUIRED'
 
 export interface SafeIntegration {
   id?: string;
-  provider: 'google' | 'microsoft' | 'resend' | 'whatsapp_business';
+  provider: 'google' | 'microsoft' | 'whatsapp_business';
   channel: 'email' | 'whatsapp';
   status: IntegrationStatus;
   display_email?: string;
@@ -123,7 +123,7 @@ export interface IntegrationsConfig {
   email: {
     enabled: boolean;
     connected: boolean;
-    provider: 'dueflow_mailer' | 'custom_smtp' | 'resend';
+    provider: 'google' | 'microsoft' | 'custom_smtp';
     sender_name: string;
     sender_email: string;
   };

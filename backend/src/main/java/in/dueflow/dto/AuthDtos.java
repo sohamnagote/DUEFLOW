@@ -116,5 +116,22 @@ public class AuthDtos {
 
         public String getReminder_default() { return reminder_default; }
         public void setReminder_default(String reminder_default) { this.reminder_default = reminder_default; }
+
+        private String reminder_schedule_rules;
+        private String custom_email_subject;
+        private String custom_email_body;
+        private String email_tone;
+
+        public String getReminder_schedule_rules() { return reminder_schedule_rules; }
+        public void setReminder_schedule_rules(String reminder_schedule_rules) { this.reminder_schedule_rules = reminder_schedule_rules; }
+
+        public String getCustom_email_subject() { return custom_email_subject; }
+        public void setCustom_email_subject(String custom_email_subject) { this.custom_email_subject = custom_email_subject; }
+
+        public String getCustom_email_body() { return custom_email_body; }
+        public void setCustom_email_body(String custom_email_body) { this.custom_email_body = custom_email_body; }
+
+        public String getEmail_tone() { return email_tone; }
+        public void setEmail_tone(String email_tone) { this.email_tone = email_tone; }
     }
 }

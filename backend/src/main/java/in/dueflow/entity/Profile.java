@@ -50,6 +50,18 @@ public class Profile {
     @Column(name = "payment_qr_url", columnDefinition = "TEXT")
     private String paymentQrUrl = "";
 
+    @Column(name = "reminder_schedule_rules", columnDefinition = "TEXT")
+    private String reminderScheduleRules = "[]";
+
+    @Column(name = "custom_email_subject", columnDefinition = "TEXT")
+    private String customEmailSubject = "";
+
+    @Column(name = "custom_email_body", columnDefinition = "TEXT")
+    private String customEmailBody = "";
+
+    @Column(name = "email_tone")
+    private String emailTone = "professional";
+
     @Column(name = "reminder_default")
     private String reminderDefault = "cadence_default";
 
@@ -144,6 +156,18 @@ public class Profile {
 
     public String getPaymentQrUrl() { return paymentQrUrl; }
     public void setPaymentQrUrl(String paymentQrUrl) { this.paymentQrUrl = paymentQrUrl; }
+
+    public String getReminderScheduleRules() { return reminderScheduleRules; }
+    public void setReminderScheduleRules(String reminderScheduleRules) { this.reminderScheduleRules = reminderScheduleRules; }
+
+    public String getCustomEmailSubject() { return customEmailSubject; }
+    public void setCustomEmailSubject(String customEmailSubject) { this.customEmailSubject = customEmailSubject; }
+
+    public String getCustomEmailBody() { return customEmailBody; }
+    public void setCustomEmailBody(String customEmailBody) { this.customEmailBody = customEmailBody; }
+
+    public String getEmailTone() { return emailTone; }
+    public void setEmailTone(String emailTone) { this.emailTone = emailTone; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

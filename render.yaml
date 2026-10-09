@@ -14,10 +14,6 @@ services:
         value: production
       - key: APP_BASE_URL
         value: https://dueflow-kappa.vercel.app
-      - key: RESEND_API_KEY
-        sync: false
-      - key: RESEND_FROM_EMAIL
-        sync: false
       - key: CRON_SECRET
         sync: false
       - key: NEXT_PUBLIC_SUPABASE_URL

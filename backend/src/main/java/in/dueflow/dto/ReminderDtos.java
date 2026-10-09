@@ -131,4 +131,46 @@ public class ReminderDtos {
         public String getClient_name() { return client_name; }
         public BigDecimal getAmount() { return amount; }
     }
+
+    public static class SaveScheduleRequest {
+        private String rules_json;
+        private String timezone;
+
+        public String getRules_json() { return rules_json; }
+        public void setRules_json(String rules_json) { this.rules_json = rules_json; }
+        public String getTimezone() { return timezone; }
+        public void setTimezone(String timezone) { this.timezone = timezone; }
+    }
+
+    public static class SaveTemplateRequest {
+        private String tone;
+        private String subject;
+        private String body;
+
+        public String getTone() { return tone; }
+        public void setTone(String tone) { this.tone = tone; }
+        public String getSubject() { return subject; }
+        public void setSubject(String subject) { this.subject = subject; }
+        public String getBody() { return body; }
+        public void setBody(String body) { this.body = body; }
+    }
+
+    public static class TemplateSettingsDto {
+        private String tone;
+        private String subject;
+        private String body;
+        private java.util.List<String> placeholders;
+
+        public TemplateSettingsDto(String tone, String subject, String body, java.util.List<String> placeholders) {
+            this.tone = tone;
+            this.subject = subject;
+            this.body = body;
+            this.placeholders = placeholders;
+        }
+
+        public String getTone() { return tone; }
+        public String getSubject() { return subject; }
+        public String getBody() { return body; }
+        public java.util.List<String> getPlaceholders() { return placeholders; }
+    }
 }

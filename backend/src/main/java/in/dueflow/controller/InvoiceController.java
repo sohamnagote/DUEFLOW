@@ -118,4 +118,14 @@ public class InvoiceController {
         RenderedEmail preview = invoiceService.previewEmail(userId, id, stage, tone);
         return ResponseEntity.ok(preview);
     }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> getInvoicePdf(@PathVariable("id") UUID id) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        in.dueflow.service.PdfInvoiceService.PdfGenerationResult pdf = invoiceService.getInvoicePdf(userId, id);
+        return ResponseEntity.ok()
+                .header(org.springframework.http.HttpHeaders.CONTENT_TYPE, org.springframework.http.MediaType.APPLICATION_PDF_VALUE)
+                .header(org.springframework.http.HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + pdf.filename + "\"")
+                .body(pdf.pdfBytes);
+    }
 }

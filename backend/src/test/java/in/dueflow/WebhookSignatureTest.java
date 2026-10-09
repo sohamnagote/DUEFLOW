@@ -1,63 +1,40 @@
 package in.dueflow;
 
-import in.dueflow.service.EmailService;
+import in.dueflow.controller.WebhookController;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.ResponseEntity;
 import org.springframework.test.util.ReflectionTestUtils;
 
-import javax.crypto.Mac;
-import javax.crypto.spec.SecretKeySpec;
-import java.nio.charset.StandardCharsets;
-import java.util.Base64;
+import java.util.Map;
 
 import static org.junit.jupiter.api.Assertions.*;
 
 public class WebhookSignatureTest {
 
-    private EmailService emailService;
-    private final String rawSecret = "test_svix_secret_key_12345678901234567890";
-    private String base64Secret;
+    private WebhookController webhookController;
 
     @BeforeEach
     void setUp() {
-        emailService = new EmailService();
-        base64Secret = Base64.getEncoder().encodeToString(rawSecret.getBytes(StandardCharsets.UTF_8));
-        ReflectionTestUtils.setField(emailService, "resendWebhookSecret", "whsec_" + base64Secret);
+        webhookController = new WebhookController();
+        ReflectionTestUtils.setField(webhookController, "whatsappVerifyToken", "dueflow_test_token");
     }
 
     @Test
-    void testValidSvixSignatureVerification() throws Exception {
-        String svixId = "msg_2X5Y7Z";
-        String svixTimestamp = String.valueOf(java.time.Instant.now().getEpochSecond());
-        String rawBody = "{\"type\":\"email.delivered\",\"data\":{\"email_id\":\"msg_123\"}}";
-
-        String toSign = svixId + "." + svixTimestamp + "." + rawBody;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        SecretKeySpec keySpec = new SecretKeySpec(rawSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        mac.init(keySpec);
-        String expectedSig = Base64.getEncoder().encodeToString(mac.doFinal(toSign.getBytes(StandardCharsets.UTF_8)));
-
-        String svixSignature = "v1," + expectedSig;
-
-        boolean isValid = emailService.verifyWebhookSignature(rawBody, svixId, svixTimestamp, svixSignature);
-        assertTrue(isValid, "Valid Svix signature should verify successfully");
+    void testWhatsappWebhookVerificationSuccess() {
+        ResponseEntity<String> response = webhookController.verifyWhatsappWebhook(
+                "subscribe", "dueflow_test_token", "challenge_12345"
+        );
+        assertEquals(HttpStatus.OK, response.getStatusCode());
+        assertEquals("challenge_12345", response.getBody());
     }
 
     @Test
-    void testTamperedPayloadFailsVerification() throws Exception {
-        String svixId = "msg_2X5Y7Z";
-        String svixTimestamp = String.valueOf(java.time.Instant.now().getEpochSecond());
-        String rawBody = "{\"type\":\"email.delivered\",\"data\":{\"email_id\":\"msg_123\"}}";
-
-        String toSign = svixId + "." + svixTimestamp + "." + rawBody;
-        Mac mac = Mac.getInstance("HmacSHA256");
-        SecretKeySpec keySpec = new SecretKeySpec(rawSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-        mac.init(keySpec);
-        String expectedSig = Base64.getEncoder().encodeToString(mac.doFinal(toSign.getBytes(StandardCharsets.UTF_8)));
-
-        String tamperedBody = "{\"type\":\"email.bounced\",\"data\":{\"email_id\":\"msg_123\"}}";
-
-        boolean isValid = emailService.verifyWebhookSignature(tamperedBody, svixId, svixTimestamp, "v1," + expectedSig);
-        assertFalse(isValid, "Tampered payload must fail Svix verification");
+    void testWhatsappWebhookVerificationMismatchRejected() {
+        ResponseEntity<String> response = webhookController.verifyWhatsappWebhook(
+                "subscribe", "wrong_token", "challenge_12345"
+        );
+        assertEquals(HttpStatus.FORBIDDEN, response.getStatusCode());
     }
 }
