@@ -115,7 +115,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       status: status,
       reminders_enabled: remindersEnabled,
       tone_template: toneTemplate,
-      cadence_architecture: 'Active · 4-Stage Automated Reminders',
+      cadence_architecture: 'Active · Automated Reminders',
       notes: notes.trim(),
     };
 
@@ -335,7 +335,7 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
               className="w-4 h-4 accent-black rounded cursor-pointer"
             />
             <label htmlFor="reminders_toggle" className="text-xs text-[#1a1b22] font-semibold cursor-pointer">
-              Enable automated 4-stage reminder schedule (-3d, 0d, +3d, +7d)
+              Enable automated invoice reminders
             </label>
           </div>
 

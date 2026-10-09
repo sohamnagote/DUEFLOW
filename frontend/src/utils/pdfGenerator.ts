@@ -142,7 +142,7 @@ export function generateInvoicePDF(invoice: Invoice, user?: UserProfile): void {
   doc.setTextColor(116, 120, 120);
   doc.text(`Standard Engagement · ${invoice.tone_template || 'Gentle Studio'}`, margin + 4, y + 11);
 
-  doc.text(invoice.reminders_enabled ? '4-Step Active' : 'Paused', margin + contentWidth * 0.55, y + 8);
+  doc.text(invoice.reminders_enabled ? 'Active' : 'Paused', margin + contentWidth * 0.55, y + 8);
 
   doc.setFont('helvetica', 'bold');
   doc.setFontSize(11);

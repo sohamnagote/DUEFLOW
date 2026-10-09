@@ -157,7 +157,7 @@ export default function App() {
       status: uiStatus,
       reminders_enabled: inv.reminders_enabled ?? true,
       tone_template: (inv.template_key as any) || profile.default_tone || 'Gentle Creative Professional',
-      cadence_architecture: 'Active · 4-Stage Automated Reminders',
+      cadence_architecture: 'Active · Automated Reminders',
       notes: inv.notes || '',
       paid_at: inv.paid_at ? new Date(inv.paid_at).toLocaleDateString('en-US', { month: 'short', day: 'numeric', year: 'numeric' }) : undefined,
       created_at: inv.created_at || new Date().toISOString(),
@@ -621,7 +621,7 @@ export default function App() {
         };
         setActivities((prev) => [newActivity, ...prev]);
 
-        addToast('success', 'Invoice Recorded', `${uiInvoice.invoice_number} created with 4-stage reminder schedule.`);
+        addToast('success', 'Invoice Recorded', `${uiInvoice.invoice_number} created and reminders scheduled.`);
       }
     } catch (err: any) {
       addToast('error', 'Save Failed', err.message || 'Could not save invoice');

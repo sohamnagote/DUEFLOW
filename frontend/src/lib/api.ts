@@ -17,6 +17,7 @@ export function clearStoredToken(): void {
 // Request helper attaching Bearer authorization
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
+  const headers = new Headers(options.headers || {});
   const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
   if (!isFormData && !headers.has('Content-Type')) {
     headers.set('Content-Type', 'application/json');
@@ -93,10 +94,15 @@ export const api = {
   async uploadPaymentQr(file: File) {
     const formData = new FormData();
     formData.append('file', file);
-    return apiFetch<{ success: boolean; message: string; qrUrl: string }>('/api/profile/payment-qr', {
+    const res = await apiFetch<{ success: boolean; message: string; qrUrl?: string; payment_qr_url?: string }>('/api/profile/payment-qr', {
       method: 'POST',
       body: formData,
     });
+    return {
+      success: res.success,
+      message: res.message,
+      qrUrl: res.qrUrl || res.payment_qr_url || '',
+    };
   },
 
   async deletePaymentQr() {
@@ -106,7 +112,8 @@ export const api = {
   },
 
   async getPaymentQr() {
-    return apiFetch<{ qrUrl: string }>('/api/profile/payment-qr');
+    const res = await apiFetch<{ qrUrl?: string; payment_qr_url?: string }>('/api/profile/payment-qr');
+    return { qrUrl: res.qrUrl || res.payment_qr_url || '' };
   },
 
   // ---------------------------------------------------------------------------

@@ -227,7 +227,9 @@ public class InvoiceService {
         invoice.setPaidAt(null);
         Invoice saved = invoiceRepository.save(invoice);
 
-        String timezone = profileRepository.findById(userId).map(Profile::getTimezone).orElse("Asia/Kolkata");
+        Profile profile = profileRepository.findById(userId).orElse(null);
+        String timezone = profile != null ? profile.getTimezone() : "Asia/Kolkata";
+        String customRules = profile != null ? profile.getReminderScheduleRules() : null;
         List<ReminderLog> logs = reminderLogRepository.findByInvoiceIdOrderByCreatedAtDesc(invoiceId);
         Set<String> sentKeys = logs.stream()
                 .filter(l -> "sent".equalsIgnoreCase(l.getStatus()) || "delivered".equalsIgnoreCase(l.getStatus()))
@@ -237,7 +239,7 @@ public class InvoiceService {
         reminderRuleRepository.deleteByInvoiceId(invoiceId);
         reminderRuleRepository.flush();
         List<ReminderRule> recomputed = schedulerService.recomputeRulesForUnpaid(
-                invoiceId, saved.getDueDate(), sentKeys, timezone, List.of("email")
+                invoiceId, saved.getDueDate(), sentKeys, timezone, List.of("email"), customRules
         );
         List<ReminderRule> savedRules = reminderRuleRepository.saveAll(recomputed);
 

@@ -189,7 +189,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 </div>
                 <div className="flex items-center justify-between pt-2 border-t border-[#e3e1ea]/70">
                   <span className={`text-[11px] ${inv.reminders_enabled ? 'text-[#5b598b] font-medium' : 'text-[#747878]'}`}>
-                    {inv.status === 'paid' ? 'Completed' : inv.reminders_enabled ? '4-Step Active' : 'Paused'}
+                    {inv.status === 'paid' ? 'Completed' : inv.reminders_enabled ? 'Reminders Active' : 'Paused'}
                   </span>
                   {inv.status !== 'paid' && onGiveReminderNow && (
                     <button
@@ -279,7 +279,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   </td>
                   <td className="py-4 px-4 text-left text-xs whitespace-nowrap">
                     <span className={inv.reminders_enabled ? 'text-[#5b598b] font-medium' : 'text-[#747878]'}>
-                      {inv.status === 'paid' ? 'Completed' : inv.reminders_enabled ? '4-Step Active' : 'Paused'}
+                      {inv.status === 'paid' ? 'Completed' : inv.reminders_enabled ? 'Reminders Active' : 'Paused'}
                     </span>
                   </td>
                   <td className="py-4 pl-4 text-right whitespace-nowrap">
