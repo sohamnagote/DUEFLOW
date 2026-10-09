@@ -60,7 +60,7 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
   };
 
   // Calculate executed stages
-  const executedCount = invoice.rules.filter((r) => r.status === 'delivered').length;
+  const executedCount = invoice.rules.filter((r) => r.status === 'delivered' || r.status === 'sent').length;
   const totalStages = Math.max(invoice.rules.length, 4);
 
   return (
@@ -136,9 +136,8 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
         </span>
 
         <span className="text-[#dad9e2]">/</span>
-
-        <span className="text-[#747878] font-label-num text-[12px] lowercase tracking-normal">
-          {invoice.client_id || 'kom-2024-q4'}
+        <span className="text-[#747878] text-[11px]">
+          Client: {invoice.client_name}
         </span>
       </div>
 
@@ -310,22 +309,26 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
             <span className="text-[#1a1b22] font-semibold text-sm">
               {invoice.client_name}
             </span>
-            <span className="font-label-num text-[12px] text-[#747878]">
-              {invoice.client_cin || 'CIN: U74999KA2021PTC'}
-            </span>
+            {invoice.client_cin && (
+              <span className="font-label-num text-[12px] text-[#747878]">
+                CIN: {invoice.client_cin}
+              </span>
+            )}
           </div>
 
           {/* Primary Email */}
           <div className="flex flex-col space-y-1">
             <span className="font-label-caps text-[11px] uppercase text-[#747878] tracking-[0.14em] font-semibold">
-              Primary Email
+              Recipient Email
             </span>
             <span className="text-[#1a1b22] text-sm">
               {invoice.client_email}
             </span>
-            <span className="font-label-num text-[12px] text-[#747878]">
-              {invoice.client_attn || 'Attn: Accounts Desk'}
-            </span>
+            {invoice.client_attn && (
+              <span className="font-label-num text-[12px] text-[#747878]">
+                Attn: {invoice.client_attn}
+              </span>
+            )}
           </div>
 
           {/* Issue Date */}
@@ -335,9 +338,6 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
             </span>
             <span className="text-[#1a1b22] text-sm font-medium">
               {invoice.issue_date}
-            </span>
-            <span className="font-label-num text-[12px] text-[#747878]">
-              {invoice.issue_time_formatted || 'Dispatched 11:42 AM IST'}
             </span>
           </div>
 
@@ -351,21 +351,15 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
             }`}>
               {invoice.due_date}
             </span>
-            <span className="font-label-num text-[12px] text-[#747878]">
-              {invoice.due_term_label || 'Net 14 payment term'}
-            </span>
           </div>
 
           {/* Tone Template */}
           <div className="flex flex-col space-y-1">
             <span className="font-label-caps text-[11px] uppercase text-[#747878] tracking-[0.14em] font-semibold">
-              Tone Template
+              Tone of Voice
             </span>
             <span className="text-[#444748] text-sm font-medium">
               {invoice.tone_template}
-            </span>
-            <span className="font-label-num text-[12px] text-[#747878]">
-              Indian Studio Preset
             </span>
           </div>
 
@@ -404,21 +398,39 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
 
             {invoice.rules.map((rule) => {
               const isDelivered = rule.status === 'delivered';
-              const isStage3Active = rule.stage_number === 3 && rule.status === 'delivered';
+              const isSent = rule.status === 'sent';
+              const isFailed = rule.status === 'failed';
+              const isSkipped = rule.status === 'skipped';
+              const isProcessing = rule.status === 'processing' || rule.status === 'sending';
+              const isCompleted = isDelivered || isSent;
+              const isStage3Active = rule.stage_number === 3 && isCompleted;
+
+              const getStatusBadge = () => {
+                if (isDelivered) return <span className="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-[#1a1b22]">● DELIVERED</span>;
+                if (isSent) return <span className="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-[#1a1b22]">● SENT</span>;
+                if (isProcessing) return <span className="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-[#5b598b] animate-pulse">◌ SENDING</span>;
+                if (isFailed) return <span className="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-[#ba1a1a]">⚠ FAILED</span>;
+                if (isSkipped) return <span className="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-[#747878]">— SKIPPED</span>;
+                return <span className="font-label-caps text-[11px] uppercase tracking-wider font-semibold text-[#747878]">○ SCHEDULED</span>;
+              };
 
               return (
                 <div
                   key={rule.id}
                   className={`relative flex flex-col sm:flex-row sm:items-baseline justify-between gap-2 group ${
-                    !isDelivered ? 'opacity-70' : ''
+                    !isCompleted && !isProcessing && !isFailed ? 'opacity-70' : ''
                   }`}
                 >
                   {/* Node indicator */}
                   <div className="absolute -left-[30px] top-1.5 w-5 h-5 rounded-full bg-white flex items-center justify-center">
                     {isStage3Active ? (
                       <div className="w-2.5 h-2.5 rounded-full bg-[#5b598b] ring-4 ring-[#cac6ff]"></div>
-                    ) : isDelivered ? (
+                    ) : isDelivered || isSent ? (
                       <div className="w-2 h-2 rounded-full bg-[#1a1b22]"></div>
+                    ) : isFailed ? (
+                      <div className="w-2 h-2 rounded-full bg-[#ba1a1a]"></div>
+                    ) : isProcessing ? (
+                      <div className="w-2.5 h-2.5 rounded-full bg-[#5b598b] animate-ping"></div>
                     ) : (
                       <div className="w-2 h-2 rounded-full bg-[#e3e1ea]"></div>
                     )}
@@ -428,7 +440,7 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
                   <div className="flex flex-col space-y-0.5">
                     <div className="flex items-center gap-2">
                       <span className={`font-label-caps text-[11px] uppercase tracking-wider font-semibold ${
-                        isStage3Active ? 'text-[#5b598b]' : isDelivered ? 'text-[#1a1b22]' : 'text-[#747878]'
+                        isStage3Active ? 'text-[#5b598b]' : isCompleted ? 'text-[#1a1b22]' : isFailed ? 'text-[#ba1a1a]' : 'text-[#747878]'
                       }`}>
                         {rule.stage_label}
                       </span>
@@ -437,10 +449,15 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
                       </span>
                     </div>
                     <p className={`text-sm ${
-                      isStage3Active ? 'text-[#1a1b22] font-semibold' : isDelivered ? 'text-[#1a1b22]' : 'text-[#747878]'
+                      isStage3Active ? 'text-[#1a1b22] font-semibold' : isCompleted ? 'text-[#1a1b22]' : isFailed ? 'text-[#ba1a1a]' : 'text-[#747878]'
                     }`}>
                       &ldquo;{rule.subject_line}&rdquo;
                     </p>
+                    {isFailed && rule.error_message && (
+                      <p className="text-[11px] text-[#ba1a1a] mt-0.5">
+                        Error: {rule.error_message}
+                      </p>
+                    )}
                   </div>
 
                   {/* Action & Status */}
@@ -451,15 +468,7 @@ export const InvoiceDetailView: React.FC<InvoiceDetailViewProps> = ({
                     >
                       Preview Email
                     </button>
-                    <span className={`font-label-caps text-[11px] uppercase tracking-wider font-semibold ${
-                      isStage3Active
-                        ? 'text-[#5b598b]'
-                        : isDelivered
-                        ? 'text-[#1a1b22]'
-                        : 'text-[#747878]'
-                    }`}>
-                      {isDelivered ? '● DELIVERED' : '○ SCHEDULED'}
-                    </span>
+                    {getStatusBadge()}
                   </div>
                 </div>
               );

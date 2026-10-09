@@ -23,6 +23,12 @@ public class Profile {
     @Column
     private String phone = "";
 
+    @Column
+    private String address = "";
+
+    @Column(name = "logo_url")
+    private String logoUrl = "";
+
     @Column(nullable = false)
     private String timezone = "Asia/Kolkata";
 
@@ -34,6 +40,15 @@ public class Profile {
 
     @Column(name = "bank_ifsc")
     private String bankIfsc = "";
+
+    @Column(name = "bank_name")
+    private String bankName = "";
+
+    @Column(name = "payment_notes", length = 1000)
+    private String paymentNotes = "";
+
+    @Column(name = "payment_qr_url", columnDefinition = "TEXT")
+    private String paymentQrUrl = "";
 
     @Column(name = "reminder_default")
     private String reminderDefault = "cadence_default";
@@ -114,6 +129,21 @@ public class Profile {
 
     public Boolean getWhatsappRemindersEnabled() { return whatsappRemindersEnabled; }
     public void setWhatsappRemindersEnabled(Boolean whatsappRemindersEnabled) { this.whatsappRemindersEnabled = whatsappRemindersEnabled; }
+
+    public String getAddress() { return address; }
+    public void setAddress(String address) { this.address = address; }
+
+    public String getLogoUrl() { return logoUrl; }
+    public void setLogoUrl(String logoUrl) { this.logoUrl = logoUrl; }
+
+    public String getBankName() { return bankName; }
+    public void setBankName(String bankName) { this.bankName = bankName; }
+
+    public String getPaymentNotes() { return paymentNotes; }
+    public void setPaymentNotes(String paymentNotes) { this.paymentNotes = paymentNotes; }
+
+    public String getPaymentQrUrl() { return paymentQrUrl; }
+    public void setPaymentQrUrl(String paymentQrUrl) { this.paymentQrUrl = paymentQrUrl; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

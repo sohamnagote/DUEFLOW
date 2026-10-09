@@ -67,10 +67,15 @@ public class AuthDtos {
         private String full_name;
         private String business_name;
         private String phone;
+        private String address;
+        private String logo_url;
         private String timezone;
         private String upi_id;
         private String bank_account;
         private String bank_ifsc;
+        private String bank_name;
+        private String payment_notes;
+        private String payment_qr_url;
         private String reminder_default;
 
         public String getFull_name() { return full_name; }
@@ -81,6 +86,12 @@ public class AuthDtos {
 
         public String getPhone() { return phone; }
         public void setPhone(String phone) { this.phone = phone; }
+
+        public String getAddress() { return address; }
+        public void setAddress(String address) { this.address = address; }
+
+        public String getLogo_url() { return logo_url; }
+        public void setLogo_url(String logo_url) { this.logo_url = logo_url; }
 
         public String getTimezone() { return timezone; }
         public void setTimezone(String timezone) { this.timezone = timezone; }
@@ -93,6 +104,15 @@ public class AuthDtos {
 
         public String getBank_ifsc() { return bank_ifsc; }
         public void setBank_ifsc(String bank_ifsc) { this.bank_ifsc = bank_ifsc; }
+
+        public String getBank_name() { return bank_name; }
+        public void setBank_name(String bank_name) { this.bank_name = bank_name; }
+
+        public String getPayment_notes() { return payment_notes; }
+        public void setPayment_notes(String payment_notes) { this.payment_notes = payment_notes; }
+
+        public String getPayment_qr_url() { return payment_qr_url; }
+        public void setPayment_qr_url(String payment_qr_url) { this.payment_qr_url = payment_qr_url; }
 
         public String getReminder_default() { return reminder_default; }
         public void setReminder_default(String reminder_default) { this.reminder_default = reminder_default; }

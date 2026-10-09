@@ -189,10 +189,15 @@ public class AuthService {
         if (req.getFull_name() != null) profile.setFullName(req.getFull_name().trim());
         if (req.getBusiness_name() != null) profile.setBusinessName(req.getBusiness_name().trim());
         if (req.getPhone() != null) profile.setPhone(req.getPhone().trim());
+        if (req.getAddress() != null) profile.setAddress(req.getAddress().trim());
+        if (req.getLogo_url() != null) profile.setLogoUrl(req.getLogo_url().trim());
         if (req.getTimezone() != null) profile.setTimezone(req.getTimezone().trim());
         if (req.getUpi_id() != null) profile.setUpiId(req.getUpi_id().trim());
         if (req.getBank_account() != null) profile.setBankAccount(req.getBank_account().trim());
         if (req.getBank_ifsc() != null) profile.setBankIfsc(req.getBank_ifsc().trim());
+        if (req.getBank_name() != null) profile.setBankName(req.getBank_name().trim());
+        if (req.getPayment_notes() != null) profile.setPaymentNotes(req.getPayment_notes().trim());
+        if (req.getPayment_qr_url() != null) profile.setPaymentQrUrl(req.getPayment_qr_url().trim());
         if (req.getReminder_default() != null) profile.setReminderDefault(req.getReminder_default().trim());
 
         return profileRepository.save(profile);

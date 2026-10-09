@@ -1,22 +1,23 @@
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useRef } from 'react';
 import {
   Save,
   RefreshCw,
   CheckCircle2,
-  Shield,
   CreditCard,
   Building2,
   User,
   MessageSquare,
   Mail,
   Zap,
-  ExternalLink,
   AlertCircle,
   AlertTriangle,
-  RotateCw,
   LogOut,
   Send,
-  Sparkles,
+  Upload,
+  Trash2,
+  QrCode,
+  MapPin,
+  FileText,
 } from 'lucide-react';
 import { UserProfile, ToneTemplate, SafeIntegration, IntegrationSettingsResponse } from '../types';
 import { api } from '../lib/api';
@@ -54,6 +55,16 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [isConnectWhatsAppOpen, setIsConnectWhatsAppOpen] = useState(false);
   const [testActionMessage, setTestActionMessage] = useState<{ type: 'success' | 'error'; text: string } | null>(null);
 
+  // Test email state
+  const [isSendingTestEmail, setIsSendingTestEmail] = useState(false);
+  const [testEmailRecipient, setTestEmailRecipient] = useState(user.email || '');
+  const [showTestEmailModal, setShowTestEmailModal] = useState(false);
+
+  // QR Code upload state
+  const [isUploadingQr, setIsUploadingQr] = useState(false);
+  const [qrUploadError, setQrUploadError] = useState<string | null>(null);
+  const qrFileInputRef = useRef<HTMLInputElement>(null);
+
   // Fetch real integrations from backend database
   const loadIntegrations = async () => {
     setIsLoadingIntegrations(true);
@@ -79,17 +90,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   // Sync profile when user prop changes
   useEffect(() => {
     setProfile(user);
+    if (!testEmailRecipient && user.email) {
+      setTestEmailRecipient(user.email);
+    }
   }, [user]);
 
   // Listen for OAuth popup completion via cross-origin postMessage
   useEffect(() => {
     const handleAuthMessage = (event: MessageEvent) => {
-      // Validate origin if needed
       const origin = event.origin;
       if (
         !origin.endsWith('.run.app') &&
         !origin.includes('localhost') &&
-        !origin.includes('127.0.0.1')
+        !origin.includes('127.0.0.1') &&
+        !origin.includes('vercel.app') &&
+        !origin.includes('onrender.com')
       ) {
         return;
       }
@@ -157,19 +172,23 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
-  const handleSendTestEmail = async () => {
+  const handleSendTestEmail = async (recipient: string) => {
+    setIsSendingTestEmail(true);
     setTestActionMessage(null);
     try {
-      const res = await api.sendTestEmail();
+      const res = await api.sendTestEmail(recipient || profile.email);
       setTestActionMessage({
         type: res.success ? 'success' : 'error',
         text: res.message + (res.providerMessageId ? ` (ID: ${res.providerMessageId})` : ''),
       });
+      setShowTestEmailModal(false);
       loadIntegrations();
     } catch (err: any) {
       setTestActionMessage({ type: 'error', text: err.message || 'Test email failed to send.' });
+    } finally {
+      setIsSendingTestEmail(false);
     }
-    setTimeout(() => setTestActionMessage(null), 6000);
+    setTimeout(() => setTestActionMessage(null), 8000);
   };
 
   const handleDisconnectEmail = async (provider?: string) => {
@@ -212,6 +231,60 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setTimeout(() => setTestActionMessage(null), 4000);
   };
 
+  // Payment QR Upload Handlers
+  const handleQrFileChange = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+
+    // Validate size (max 2MB)
+    if (file.size > 2 * 1024 * 1024) {
+      setQrUploadError('Image size exceeds 2MB limit. Please upload a smaller image.');
+      return;
+    }
+
+    // Validate format
+    const validTypes = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!validTypes.includes(file.type.toLowerCase())) {
+      setQrUploadError('Invalid file format. Please upload PNG, JPG, or WebP image.');
+      return;
+    }
+
+    setIsUploadingQr(true);
+    setQrUploadError(null);
+
+    try {
+      const res = await api.uploadPaymentQr(file);
+      const updatedProfile = { ...profile, payment_qr_url: res.qrUrl };
+      setProfile(updatedProfile);
+      onUpdateUser(updatedProfile);
+      setTestActionMessage({ type: 'success', text: 'Payment QR code uploaded and saved successfully.' });
+      setTimeout(() => setTestActionMessage(null), 5000);
+    } catch (err: any) {
+      setQrUploadError(err.message || 'Failed to upload QR image.');
+    } finally {
+      setIsUploadingQr(false);
+      if (qrFileInputRef.current) qrFileInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteQr = async () => {
+    if (!confirm('Are you sure you want to remove your payment QR code?')) return;
+    setIsUploadingQr(true);
+    setQrUploadError(null);
+    try {
+      await api.deletePaymentQr();
+      const updatedProfile = { ...profile, payment_qr_url: undefined };
+      setProfile(updatedProfile);
+      onUpdateUser(updatedProfile);
+      setTestActionMessage({ type: 'success', text: 'Payment QR code removed.' });
+      setTimeout(() => setTestActionMessage(null), 4000);
+    } catch (err: any) {
+      setQrUploadError(err.message || 'Failed to remove QR image.');
+    } finally {
+      setIsUploadingQr(false);
+    }
+  };
+
   // Submit all settings
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -219,7 +292,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setSaveError(null);
 
     try {
-      // 1. Save profile coordinates
       const updatedProfile: UserProfile = {
         ...profile,
         default_reminder_channel: channelSettings.default_reminder_channel,
@@ -229,7 +301,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
       await api.updateProfile(updatedProfile);
 
-      // 2. Save integration reminder policy
       await api.updateIntegrationSettings({
         default_reminder_channel: channelSettings.default_reminder_channel,
         email_reminders_enabled: channelSettings.email_reminders_enabled,
@@ -241,7 +312,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       setTimeout(() => setSavedSuccess(false), 3000);
     } catch (err: any) {
       console.error('[SettingsView] Save error:', err);
-      setSaveError(err.message || 'Unable to save integration settings.');
+      setSaveError(err.message || 'Unable to save settings.');
     } finally {
       setIsSaving(false);
     }
@@ -257,27 +328,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const isWhatsAppConnected = whatsappIntegration?.status === 'CONNECTED';
 
   return (
-    <div className="w-full max-w-[1240px] mx-auto px-4 sm:px-6 md:px-12 py-6 sm:py-10">
+    <div className="w-full max-w-[1000px] mx-auto px-4 sm:px-6 md:px-8 py-6 sm:py-10">
       {/* Header */}
-      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 mb-6 sm:mb-8">
+      <div className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 mb-8">
         <div>
-          <h1 className="text-3xl sm:text-5xl md:text-6xl lg:text-[72px] font-extrabold text-[#1a1b22] tracking-tight leading-none">
-            SETTINGS
+          <h1 className="text-2xl sm:text-3xl font-bold text-[#1a1b22] tracking-tight">
+            Settings
           </h1>
-          <p className="text-[#444748] text-sm sm:text-base mt-2">
-            Manage your account and reminder settings.
+          <p className="text-[#64748b] text-sm mt-1">
+            Manage your business profile, payment coordinates, and communication channels.
           </p>
         </div>
 
         {savedSuccess && (
-          <div className="inline-flex items-center gap-2 bg-[#d1fae5] text-[#065f46] px-4 py-2.5 rounded-lg text-xs font-semibold shadow-xs">
-            <CheckCircle2 size={16} />
+          <div className="inline-flex items-center gap-2 bg-[#d1fae5] text-[#065f46] px-3.5 py-2 rounded-lg text-xs font-semibold shadow-xs">
+            <CheckCircle2 size={15} />
             <span>Settings saved successfully</span>
           </div>
         )}
       </div>
 
-      {/* Structured Error Banner */}
+      {/* Save Error Banner */}
       {saveError && (
         <div className="mb-6 p-4 bg-[#fff1f2] border border-[#fecdd3] rounded-xl flex items-start gap-3">
           <AlertCircle size={18} className="text-[#be123c] shrink-0 mt-0.5" />
@@ -302,464 +373,105 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       )}
 
-      <form onSubmit={handleSubmit} className="border-t border-[#e3e1ea] pt-6 sm:pt-8 space-y-8 sm:space-y-10">
-        {/* Simplified Integrations Section */}
-        <div>
-          <div className="mb-4">
-            <h3 className="font-label-caps text-[12px] font-bold uppercase tracking-[0.16em] text-[#1a1b22] flex items-center gap-2">
-              <Zap size={14} className="text-[#5b598b]" />
-              <span>EMAIL &amp; WHATSAPP</span>
-            </h3>
-            <p className="text-xs text-[#747878] mt-1">
-              Connect your channels to send reminders to clients.
-            </p>
-          </div>
-
-          <div className="grid grid-cols-1 lg:grid-cols-2 gap-6">
-            {/* Email Integration Card */}
-            <div className="p-5 rounded-2xl border border-[#e3e1ea] bg-[#fbf8ff] flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <Mail size={18} className="text-[#5b598b]" />
-                    <span className="font-bold text-base text-[#1a1b22]">EMAIL</span>
-                  </div>
-
-                  {/* Real Verified Status */}
-                  {isEmailConnected ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#d1fae5] text-[#065f46]">
-                      <CheckCircle2 size={12} />
-                      CONNECTED
-                    </span>
-                  ) : activeEmailIntegration?.status === 'RECONNECT_REQUIRED' ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#fee2e2] text-[#991b1b]">
-                      <AlertTriangle size={12} />
-                      RECONNECT REQUIRED
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#f1f5f9] text-[#64748b]">
-                      NOT CONNECTED
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-[#444748] leading-relaxed">
-                  Connect your email to send reminders.
-                </p>
-
-                {/* Connected Account Display */}
-                {isEmailConnected && activeEmailIntegration?.display_email && (
-                  <div className="mt-3.5 p-3 rounded-lg bg-white border border-[#e3e1ea] flex items-center justify-between text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-[#747878] block">
-                        Connected Email
-                      </span>
-                      <span className="font-mono font-bold text-[#1a1b22] text-sm">
-                        {activeEmailIntegration.display_email}
-                      </span>
-                    </div>
-                    <span className="text-[10px] text-[#059669] font-semibold bg-[#ecfdf5] px-2 py-0.5 rounded">
-                      Active
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* Action Buttons */}
-              <div className="pt-2 border-t border-[#cac6ff]/40 flex flex-wrap items-center gap-2.5">
-                {!isEmailConnected ? (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleConnectGmail}
-                      disabled={isConnectingEmail}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-[#e3e1ea] rounded-lg text-xs font-bold text-[#1a1b22] flex items-center gap-2 cursor-pointer shadow-2xs active:scale-[0.98]"
-                    >
-                      <span>Connect Gmail</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleConnectOutlook}
-                      disabled={isConnectingEmail}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-[#e3e1ea] rounded-lg text-xs font-bold text-[#1a1b22] flex items-center gap-2 cursor-pointer shadow-2xs active:scale-[0.98]"
-                    >
-                      <span>Connect Outlook</span>
-                    </button>
-                  </>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleSendTestEmail}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-[#e3e1ea] rounded-lg text-xs font-bold text-[#5b598b] flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    >
-                      <Send size={13} />
-                      <span>Send Test Email</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={() => handleDisconnectEmail()}
-                      className="px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <LogOut size={13} />
-                      <span>Disconnect</span>
-                    </button>
-                  </>
-                )}
-              </div>
-            </div>
-
-            {/* WhatsApp Business Integration Card */}
-            <div className="p-5 rounded-2xl border border-[#e3e1ea] bg-white flex flex-col justify-between space-y-4">
-              <div>
-                <div className="flex items-center justify-between gap-2 mb-2">
-                  <div className="flex items-center gap-2">
-                    <MessageSquare size={18} className="text-[#059669]" />
-                    <span className="font-bold text-base text-[#1a1b22]">WHATSAPP</span>
-                  </div>
-
-                  {/* Real Verified Status */}
-                  {isWhatsAppConnected ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#d1fae5] text-[#065f46]">
-                      <CheckCircle2 size={12} />
-                      CONNECTED
-                    </span>
-                  ) : whatsappIntegration?.status === 'SETUP_REQUIRED' ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#fef3c7] text-[#92400e]">
-                      <AlertTriangle size={12} />
-                      SETUP REQUIRED
-                    </span>
-                  ) : whatsappIntegration?.status === 'RECONNECT_REQUIRED' ? (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#fee2e2] text-[#991b1b]">
-                      <AlertTriangle size={12} />
-                      RECONNECT REQUIRED
-                    </span>
-                  ) : (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] uppercase font-bold tracking-wider px-2.5 py-1 rounded-full bg-[#f1f5f9] text-[#64748b]">
-                      NOT CONNECTED
-                    </span>
-                  )}
-                </div>
-
-                <p className="text-xs text-[#444748] leading-relaxed">
-                  Connect WhatsApp Business to send reminders.
-                </p>
-
-                {/* Connected WhatsApp Account Display */}
-                {isWhatsAppConnected && (
-                  <div className="mt-3.5 p-3 rounded-lg bg-[#f0fdf4] border border-[#bbf7d0] flex items-center justify-between text-xs">
-                    <div>
-                      <span className="text-[10px] uppercase font-bold text-[#166534] block">
-                        Connected Account
-                      </span>
-                      <span className="font-mono font-bold text-[#14532d] text-sm">
-                        {whatsappIntegration?.business_name || 'WhatsApp Business'}
-                      </span>
-                      {whatsappIntegration?.display_phone && (
-                        <span className="text-[11px] text-[#15803d] font-mono block">
-                          Phone: {whatsappIntegration.display_phone}
-                        </span>
-                      )}
-                    </div>
-                    <span className="text-[10px] text-[#059669] font-bold bg-white px-2 py-0.5 rounded border border-[#bbf7d0]">
-                      Active
-                    </span>
-                  </div>
-                )}
-              </div>
-
-              {/* WhatsApp Action Buttons */}
-              <div className="pt-2 border-t border-[#e3e1ea] flex flex-wrap items-center gap-2.5">
-                {!isWhatsAppConnected ? (
-                  <button
-                    type="button"
-                    onClick={() => setIsConnectWhatsAppOpen(true)}
-                    className="px-4 py-2 bg-[#059669] hover:bg-[#047857] text-white rounded-lg text-xs font-bold flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
-                  >
-                    <MessageSquare size={14} />
-                    <span>Connect WhatsApp Business</span>
-                  </button>
-                ) : (
-                  <>
-                    <button
-                      type="button"
-                      onClick={handleSendTestWhatsApp}
-                      className="px-3.5 py-2 bg-white hover:bg-slate-50 border border-[#e3e1ea] rounded-lg text-xs font-bold text-[#059669] flex items-center gap-1.5 cursor-pointer shadow-2xs"
-                    >
-                      <Send size={13} />
-                      <span>Send Test WhatsApp</span>
-                    </button>
-
-                    <button
-                      type="button"
-                      onClick={handleDisconnectWhatsApp}
-                      className="px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:underline flex items-center gap-1 cursor-pointer"
-                    >
-                      <LogOut size={13} />
-                      <span>Disconnect</span>
-                    </button>
-                  </>
-                )}
-              </div>
+      <form onSubmit={handleSubmit} className="space-y-8">
+        {/* =================================================================== */}
+        {/* SECTION 1: BUSINESS PROFILE */}
+        {/* =================================================================== */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[#f1f5f9]">
+            <Building2 size={18} className="text-[#3b82f6]" />
+            <div>
+              <h2 className="text-base font-semibold text-[#0f172a]">Business Profile</h2>
+              <p className="text-xs text-[#64748b]">Your identity shown on client invoices and reminder messages</p>
             </div>
           </div>
 
-          {/* 2. Channel Selection & Automation Policy Section */}
-          <div className="mt-8 p-6 rounded-2xl border border-[#e3e1ea] bg-white space-y-6">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <h4 className="font-bold text-sm text-[#1a1b22] uppercase tracking-wider font-label-caps">
-                Reminder Channels &amp; Automation Configuration
-              </h4>
-              <p className="text-xs text-[#747878] mt-0.5">
-                Choose your preferred reminder channel and delivery rules.
-              </p>
-            </div>
-
-            {/* Default Channel Selector */}
-            <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-2">
-                Default Reminder Channel
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Business / Freelancer Name *
               </label>
-
-              <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
-                {/* Email Option */}
-                <label
-                  className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition-all ${
-                    channelSettings.default_reminder_channel === 'email'
-                      ? 'border-[#5b598b] bg-[#fbf8ff] ring-2 ring-[#5b598b]/20'
-                      : 'border-[#e3e1ea] bg-white hover:border-slate-300'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="radio"
-                      name="default_channel"
-                      value="email"
-                      checked={channelSettings.default_reminder_channel === 'email'}
-                      onChange={() =>
-                        setChannelSettings({ ...channelSettings, default_reminder_channel: 'email' })
-                      }
-                      className="text-[#5b598b]"
-                    />
-                    <div>
-                      <span className="font-bold text-xs text-[#1a1b22] block">Email</span>
-                      <span className="text-[10px] text-[#747878]">Automated email reminders</span>
-                    </div>
-                  </div>
-                  <Mail size={16} className="text-[#5b598b]" />
-                </label>
-
-                {/* WhatsApp Option */}
-                <label
-                  className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                    !isWhatsAppConnected
-                      ? 'opacity-60 cursor-not-allowed bg-slate-50 border-[#e3e1ea]'
-                      : channelSettings.default_reminder_channel === 'whatsapp'
-                      ? 'border-[#059669] bg-[#f0fdf4] ring-2 ring-[#059669]/20 cursor-pointer'
-                      : 'border-[#e3e1ea] bg-white hover:border-slate-300 cursor-pointer'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="radio"
-                      name="default_channel"
-                      value="whatsapp"
-                      disabled={!isWhatsAppConnected}
-                      checked={channelSettings.default_reminder_channel === 'whatsapp'}
-                      onChange={() =>
-                        setChannelSettings({ ...channelSettings, default_reminder_channel: 'whatsapp' })
-                      }
-                      className="text-[#059669]"
-                    />
-                    <div>
-                      <span className="font-bold text-xs text-[#1a1b22] block">WhatsApp</span>
-                      <span className="text-[10px] text-[#747878]">
-                        {!isWhatsAppConnected ? 'Requires WhatsApp' : 'Instant reminder messages'}
-                      </span>
-                    </div>
-                  </div>
-                  <MessageSquare size={16} className="text-[#059669]" />
-                </label>
-
-                {/* Both Option (Only active if both are connected) */}
-                <label
-                  className={`p-3.5 rounded-xl border flex items-center justify-between transition-all ${
-                    !isEmailConnected || !isWhatsAppConnected
-                      ? 'opacity-60 cursor-not-allowed bg-slate-50 border-[#e3e1ea]'
-                      : channelSettings.default_reminder_channel === 'both'
-                      ? 'border-[#1a1b22] bg-[#f4f2fc] ring-2 ring-black/20 cursor-pointer'
-                      : 'border-[#e3e1ea] bg-white hover:border-slate-300 cursor-pointer'
-                  }`}
-                >
-                  <div className="flex items-center gap-2.5">
-                    <input
-                      type="radio"
-                      name="default_channel"
-                      value="both"
-                      disabled={!isEmailConnected || !isWhatsAppConnected}
-                      checked={channelSettings.default_reminder_channel === 'both'}
-                      onChange={() =>
-                        setChannelSettings({ ...channelSettings, default_reminder_channel: 'both' })
-                      }
-                      className="text-[#1a1b22]"
-                    />
-                    <div>
-                      <span className="font-bold text-xs text-[#1a1b22] block">Both</span>
-                      <span className="text-[10px] text-[#747878]">
-                        {!isEmailConnected || !isWhatsAppConnected
-                          ? 'Requires both channels'
-                          : 'Dual-channel delivery'}
-                      </span>
-                    </div>
-                  </div>
-                  <Zap size={16} className="text-[#5b598b]" />
-                </label>
-              </div>
-
-              {(!isEmailConnected || !isWhatsAppConnected) && (
-                <p className="text-[11px] text-[#747878] mt-2 flex items-center gap-1.5">
-                  <AlertCircle size={13} className="text-[#747878]" />
-                  <span>
-                    "Both" channel delivery requires active connections to both Email and WhatsApp Business.
-                  </span>
-                </p>
-              )}
+              <input
+                type="text"
+                required
+                placeholder="e.g. Acme Studio"
+                value={profile.business_name || ''}
+                onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/20 focus:border-[#3b82f6]"
+              />
             </div>
 
-            {/* Automation Toggles */}
-            <div className="pt-4 border-t border-[#e3e1ea] grid grid-cols-1 sm:grid-cols-2 gap-4">
-              <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#e3e1ea] bg-slate-50/60">
-                <div>
-                  <span className="font-bold text-xs text-[#1a1b22] block">Email Reminders</span>
-                  <span className="text-[11px] text-[#747878]">Automated 4-stage reminder schedule</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() =>
-                    setChannelSettings({
-                      ...channelSettings,
-                      email_reminders_enabled: !channelSettings.email_reminders_enabled,
-                    })
-                  }
-                  className={`w-12 h-6 rounded-full transition-colors p-1 cursor-pointer flex items-center ${
-                    channelSettings.email_reminders_enabled ? 'bg-[#5b598b] justify-end' : 'bg-slate-300 justify-start'
-                  }`}
-                >
-                  <div className="w-4 h-4 rounded-full bg-white shadow-xs" />
-                </button>
-              </div>
-
-              <div className="flex items-center justify-between p-3.5 rounded-xl border border-[#e3e1ea] bg-slate-50/60">
-                <div>
-                  <span className="font-bold text-xs text-[#1a1b22] block">WhatsApp Reminders</span>
-                  <span className="text-[11px] text-[#747878]">Automatic WhatsApp message reminders</span>
-                </div>
-                <button
-                  type="button"
-                  onClick={() => {
-                    if (!isWhatsAppConnected && !channelSettings.whatsapp_reminders_enabled) {
-                      alert('Please connect your WhatsApp Business account first before enabling reminders.');
-                      return;
-                    }
-                    setChannelSettings({
-                      ...channelSettings,
-                      whatsapp_reminders_enabled: !channelSettings.whatsapp_reminders_enabled,
-                    });
-                  }}
-                  className={`w-12 h-6 rounded-full transition-colors p-1 cursor-pointer flex items-center ${
-                    channelSettings.whatsapp_reminders_enabled ? 'bg-[#059669] justify-end' : 'bg-slate-300 justify-start'
-                  }`}
-                >
-                  <div className="w-4 h-4 rounded-full bg-white shadow-xs" />
-                </button>
-              </div>
-            </div>
-          </div>
-        </div>
-
-        {/* 2. Identity & Business Profile */}
-        <div>
-          <div className="mb-4">
-            <h3 className="font-label-caps text-[12px] font-bold uppercase tracking-[0.16em] text-[#1a1b22] flex items-center gap-2">
-              <User size={14} />
-              <span>PROFILE &amp; BUSINESS DETAILS</span>
-            </h3>
-            <p className="text-xs text-[#747878] mt-1">This information appears in invoice reminders and signature lines.</p>
-          </div>
-
-          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
-                Full Name *
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Your Name / Sender Name *
               </label>
               <input
                 type="text"
                 required
                 placeholder="e.g. John Doe"
-                value={profile.full_name}
+                value={profile.full_name || ''}
                 onChange={(e) => setProfile({ ...profile, full_name: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm text-[#1a1b22]"
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/20 focus:border-[#3b82f6]"
               />
             </div>
 
             <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
-                Business / Studio Name *
-              </label>
-              <input
-                type="text"
-                required
-                placeholder="e.g. Studio Vertex"
-                value={profile.business_name}
-                onChange={(e) => setProfile({ ...profile, business_name: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm text-[#1a1b22]"
-              />
-            </div>
-
-            <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
-                Reply-To / Contact Email *
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Business Email *
               </label>
               <input
                 type="email"
                 required
-                placeholder="e.g. billing@studio.in"
-                value={profile.email}
+                placeholder="e.g. contact@acmestudio.in"
+                value={profile.email || ''}
                 onChange={(e) => setProfile({ ...profile, email: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm text-[#1a1b22]"
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/20 focus:border-[#3b82f6]"
               />
             </div>
 
             <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
-                Phone / WhatsApp Number
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Phone Number
               </label>
               <input
                 type="text"
                 placeholder="e.g. +91 98765 43210"
                 value={profile.phone || ''}
                 onChange={(e) => setProfile({ ...profile, phone: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm text-[#1a1b22]"
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/20 focus:border-[#3b82f6]"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Business Address (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. 402 Business Tower, Bandra West, Mumbai 400050"
+                value={profile.address || ''}
+                onChange={(e) => setProfile({ ...profile, address: e.target.value })}
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#3b82f6]/20 focus:border-[#3b82f6]"
               />
             </div>
           </div>
         </div>
 
-        {/* 3. Indian Direct Settlement Coordinates */}
-        <div className="border-t border-[#e3e1ea] pt-8">
-          <div className="mb-4">
-            <h3 className="font-label-caps text-[12px] font-bold uppercase tracking-[0.16em] text-[#1a1b22] flex items-center gap-2">
-              <CreditCard size={14} />
-              <span>PAYMENT DETAILS (BANK &amp; UPI)</span>
-            </h3>
-            <p className="text-xs text-[#747878] mt-1">Included automatically in reminder emails and WhatsApp messages.</p>
+        {/* =================================================================== */}
+        {/* SECTION 2: PAYMENT DETAILS & QR CODE */}
+        {/* =================================================================== */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl p-6 shadow-xs space-y-6">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[#f1f5f9]">
+            <CreditCard size={18} className="text-[#10b981]" />
+            <div>
+              <h2 className="text-base font-semibold text-[#0f172a]">Payment Details</h2>
+              <p className="text-xs text-[#64748b]">Direct settlement coordinates included in client reminders</p>
+            </div>
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
+          <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
             <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
+              <label className="text-xs font-medium text-[#475569] block mb-1">
                 UPI ID (VPA)
               </label>
               <input
@@ -767,12 +479,25 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="e.g. studio@okicici"
                 value={profile.upi_id || ''}
                 onChange={(e) => setProfile({ ...profile, upi_id: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm font-mono text-[#1a1b22]"
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm font-mono text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#10b981]/20 focus:border-[#10b981]"
               />
             </div>
 
             <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Bank Name
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. HDFC Bank"
+                value={profile.bank_name || ''}
+                onChange={(e) => setProfile({ ...profile, bank_name: e.target.value })}
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#10b981]/20 focus:border-[#10b981]"
+              />
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-[#475569] block mb-1">
                 Bank Account Number
               </label>
               <input
@@ -780,89 +505,482 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 placeholder="e.g. 50200012345678"
                 value={profile.bank_account || ''}
                 onChange={(e) => setProfile({ ...profile, bank_account: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm font-mono text-[#1a1b22]"
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm font-mono text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#10b981]/20 focus:border-[#10b981]"
               />
             </div>
 
             <div>
-              <label className="font-label-caps text-[10px] uppercase text-[#747878] font-bold block mb-1">
+              <label className="text-xs font-medium text-[#475569] block mb-1">
                 Bank IFSC Code
               </label>
               <input
                 type="text"
                 placeholder="e.g. HDFC0001234"
                 value={profile.bank_ifsc || ''}
-                onChange={(e) => setProfile({ ...profile, bank_ifsc: e.target.value })}
-                className="w-full px-3.5 py-2.5 bg-white border border-[#e3e1ea] rounded-md focus:outline-none focus:border-[#5b598b] text-sm font-mono uppercase text-[#1a1b22]"
+                onChange={(e) => setProfile({ ...profile, bank_ifsc: e.target.value.toUpperCase() })}
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm font-mono uppercase text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#10b981]/20 focus:border-[#10b981]"
+              />
+            </div>
+
+            <div className="sm:col-span-2">
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Payment Instructions / Notes (Optional)
+              </label>
+              <input
+                type="text"
+                placeholder="e.g. Please mention the invoice number in the UPI/transfer remarks"
+                value={profile.payment_notes || ''}
+                onChange={(e) => setProfile({ ...profile, payment_notes: e.target.value })}
+                className="w-full px-3 py-2 bg-white border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#10b981]/20 focus:border-[#10b981]"
+              />
+            </div>
+          </div>
+
+          {/* Payment QR Code Upload Sub-section */}
+          <div className="pt-4 border-t border-[#f1f5f9]">
+            <div className="flex items-center gap-2 mb-2">
+              <QrCode size={16} className="text-[#475569]" />
+              <label className="text-xs font-semibold text-[#0f172a]">
+                Payment QR Code Image
+              </label>
+            </div>
+            <p className="text-xs text-[#64748b] mb-4">
+              Upload your own UPI QR code (Google Pay, PhonePe, Paytm, or BHIM). It will be embedded directly inside reminder emails.
+            </p>
+
+            {qrUploadError && (
+              <div className="mb-3 p-3 bg-red-50 border border-red-200 rounded-lg text-xs text-red-700">
+                {qrUploadError}
+              </div>
+            )}
+
+            <div className="flex flex-col sm:flex-row items-start sm:items-center gap-4">
+              {profile.payment_qr_url ? (
+                <div className="relative group p-2 bg-[#f8fafc] border border-[#e2e8f0] rounded-xl flex items-center gap-4">
+                  <img
+                    src={profile.payment_qr_url}
+                    alt="Payment QR"
+                    className="w-24 h-24 object-contain rounded-lg border border-[#cbd5e1] bg-white shadow-xs"
+                  />
+                  <div className="space-y-2">
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-semibold text-emerald-700 bg-emerald-50 px-2.5 py-1 rounded-full border border-emerald-200">
+                      <CheckCircle2 size={12} />
+                      QR Code Active
+                    </span>
+                    <div className="flex items-center gap-2">
+                      <button
+                        type="button"
+                        onClick={() => qrFileInputRef.current?.click()}
+                        disabled={isUploadingQr}
+                        className="text-xs font-medium text-[#3b82f6] hover:underline cursor-pointer"
+                      >
+                        Replace
+                      </button>
+                      <span className="text-[#cbd5e1]">•</span>
+                      <button
+                        type="button"
+                        onClick={handleDeleteQr}
+                        disabled={isUploadingQr}
+                        className="text-xs font-medium text-red-600 hover:underline cursor-pointer"
+                      >
+                        Remove
+                      </button>
+                    </div>
+                  </div>
+                </div>
+              ) : (
+                <button
+                  type="button"
+                  onClick={() => qrFileInputRef.current?.click()}
+                  disabled={isUploadingQr}
+                  className="px-4 py-3 border-2 border-dashed border-[#cbd5e1] hover:border-[#3b82f6] rounded-xl bg-[#f8fafc] hover:bg-[#f1f5f9] text-xs font-medium text-[#475569] flex items-center gap-2.5 transition cursor-pointer"
+                >
+                  <Upload size={16} className="text-[#64748b]" />
+                  <span>{isUploadingQr ? 'Uploading QR Code...' : 'Upload QR Image (PNG, JPG, WebP up to 2MB)'}</span>
+                </button>
+              )}
+
+              <input
+                ref={qrFileInputRef}
+                type="file"
+                accept="image/png,image/jpeg,image/jpg,image/webp"
+                onChange={handleQrFileChange}
+                className="hidden"
               />
             </div>
           </div>
         </div>
 
-        {/* 4. Tone Template Selector */}
-        <div className="border-t border-[#e3e1ea] pt-8">
-          <div className="mb-4">
-            <h3 className="font-label-caps text-[12px] font-bold uppercase tracking-[0.16em] text-[#1a1b22] flex items-center gap-2">
-              <Building2 size={14} />
-              <span>REMINDER TONE &amp; STYLE</span>
-            </h3>
-            <p className="text-xs text-[#747878] mt-1">Default tone used for automated follow-up messages.</p>
+        {/* =================================================================== */}
+        {/* SECTION 3: EMAIL CONNECTION */}
+        {/* =================================================================== */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-[#f1f5f9]">
+            <div className="flex items-center gap-2.5">
+              <Mail size={18} className="text-[#6366f1]" />
+              <div>
+                <h2 className="text-base font-semibold text-[#0f172a]">Email Connection</h2>
+                <p className="text-xs text-[#64748b]">Send reminders directly from your own Gmail or Outlook account</p>
+              </div>
+            </div>
+
+            {isEmailConnected ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 size={13} />
+                Connected
+              </span>
+            ) : activeEmailIntegration?.status === 'RECONNECT_REQUIRED' ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-amber-50 text-amber-700 border border-amber-200">
+                <AlertTriangle size={13} />
+                Reconnect Required
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                Not Connected
+              </span>
+            )}
           </div>
 
-          <div className="grid grid-cols-1 md:grid-cols-3 gap-4">
-            {(
-              [
-                { id: 'Gentle Creative Professional', desc: 'Courteous partnership tone suitable for design & agency accounts.' },
-                { id: 'Casual Friendly', desc: 'Direct, friendly check-in tone for close-knit client relationships.' },
-                { id: 'Firm & Direct', desc: 'Direct, clear follow-up emphasizing due dates and payment terms.' },
-              ] as const
-            ).map((t) => (
-              <label
-                key={t.id}
-                className={`p-4 rounded-xl border cursor-pointer transition-all ${
-                  profile.default_tone === t.id
-                    ? 'border-[#5b598b] bg-[#fbf8ff] ring-1 ring-[#5b598b]'
-                    : 'border-[#e3e1ea] bg-white hover:border-slate-300'
-                }`}
-              >
-                <div className="flex items-center gap-2 mb-1.5">
-                  <input
-                    type="radio"
-                    name="default_tone"
-                    value={t.id}
-                    checked={profile.default_tone === t.id}
-                    onChange={() => setProfile({ ...profile, default_tone: t.id as ToneTemplate })}
-                    className="text-[#5b598b]"
-                  />
-                  <span className="font-bold text-xs text-[#1a1b22]">{t.id}</span>
-                </div>
-                <p className="text-xs text-[#747878] pl-5">{t.desc}</p>
-              </label>
-            ))}
+          {isEmailConnected && activeEmailIntegration?.display_email && (
+            <div className="p-3.5 rounded-lg bg-[#f8fafc] border border-[#e2e8f0] flex items-center justify-between text-xs">
+              <div>
+                <span className="text-[10px] uppercase font-bold text-[#64748b] block">Connected Account</span>
+                <span className="font-medium text-[#0f172a] text-sm">{activeEmailIntegration.display_email}</span>
+                <span className="text-[11px] text-[#64748b] block mt-0.5">
+                  Provider: {googleIntegration ? 'Google Gmail API' : 'Microsoft Outlook Graph API'}
+                </span>
+              </div>
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            {!isEmailConnected ? (
+              <>
+                <button
+                  type="button"
+                  onClick={handleConnectGmail}
+                  disabled={isConnectingEmail}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-[#cbd5e1] rounded-lg text-xs font-semibold text-[#0f172a] flex items-center gap-2 shadow-2xs cursor-pointer active:scale-[0.98]"
+                >
+                  <Mail size={14} className="text-red-500" />
+                  <span>Connect Gmail</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleConnectOutlook}
+                  disabled={isConnectingEmail}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-[#cbd5e1] rounded-lg text-xs font-semibold text-[#0f172a] flex items-center gap-2 shadow-2xs cursor-pointer active:scale-[0.98]"
+                >
+                  <Mail size={14} className="text-blue-500" />
+                  <span>Connect Outlook</span>
+                </button>
+              </>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={() => setShowTestEmailModal(true)}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-[#cbd5e1] rounded-lg text-xs font-semibold text-[#0f172a] flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <Send size={13} className="text-[#6366f1]" />
+                  <span>Send Test Email</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => handleDisconnectEmail()}
+                  className="px-3.5 py-2 text-xs font-semibold text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <LogOut size={13} />
+                  <span>Disconnect</span>
+                </button>
+              </>
+            )}
           </div>
         </div>
 
-        {/* Save Bar */}
-        <div className="pt-6 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-[#e3e1ea]">
+        {/* =================================================================== */}
+        {/* SECTION 4: WHATSAPP CONNECTION */}
+        {/* =================================================================== */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl p-6 shadow-xs space-y-5">
+          <div className="flex items-center justify-between pb-3 border-b border-[#f1f5f9]">
+            <div className="flex items-center gap-2.5">
+              <MessageSquare size={18} className="text-[#10b981]" />
+              <div>
+                <h2 className="text-base font-semibold text-[#0f172a]">WhatsApp Business Connection</h2>
+                <p className="text-xs text-[#64748b]">Send instant WhatsApp message reminders to clients</p>
+              </div>
+            </div>
+
+            {isWhatsAppConnected ? (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-emerald-50 text-emerald-700 border border-emerald-200">
+                <CheckCircle2 size={13} />
+                Connected
+              </span>
+            ) : (
+              <span className="inline-flex items-center gap-1.5 text-xs font-semibold px-2.5 py-1 rounded-full bg-slate-100 text-slate-600">
+                Not Connected
+              </span>
+            )}
+          </div>
+
+          {isWhatsAppConnected && (
+            <div className="p-3.5 rounded-lg bg-[#f0fdf4] border border-[#bbf7d0] text-xs">
+              <span className="text-[10px] uppercase font-bold text-[#166534] block">Connected Account</span>
+              <span className="font-medium text-[#14532d] text-sm">
+                {whatsappIntegration?.business_name || 'WhatsApp Business'}
+              </span>
+              {whatsappIntegration?.display_phone && (
+                <span className="text-[11px] text-[#15803d] font-mono block mt-0.5">
+                  Phone: {whatsappIntegration.display_phone}
+                </span>
+              )}
+            </div>
+          )}
+
+          <div className="flex flex-wrap items-center gap-3 pt-2">
+            {!isWhatsAppConnected ? (
+              <button
+                type="button"
+                onClick={() => setIsConnectWhatsAppOpen(true)}
+                className="px-4 py-2 bg-[#10b981] hover:bg-[#059669] text-white rounded-lg text-xs font-semibold flex items-center gap-2 cursor-pointer shadow-xs active:scale-[0.98]"
+              >
+                <MessageSquare size={14} />
+                <span>Connect WhatsApp Business</span>
+              </button>
+            ) : (
+              <>
+                <button
+                  type="button"
+                  onClick={handleSendTestWhatsApp}
+                  className="px-4 py-2 bg-white hover:bg-slate-50 border border-[#cbd5e1] rounded-lg text-xs font-semibold text-emerald-700 flex items-center gap-1.5 shadow-2xs cursor-pointer"
+                >
+                  <Send size={13} />
+                  <span>Send Test WhatsApp</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={handleDisconnectWhatsApp}
+                  className="px-3.5 py-2 text-xs font-semibold text-red-600 hover:underline flex items-center gap-1 cursor-pointer"
+                >
+                  <LogOut size={13} />
+                  <span>Disconnect</span>
+                </button>
+              </>
+            )}
+          </div>
+        </div>
+
+        {/* =================================================================== */}
+        {/* SECTION 5: REMINDER PREFERENCES */}
+        {/* =================================================================== */}
+        <div className="bg-white border border-[#e2e8f0] rounded-xl p-6 shadow-xs space-y-6">
+          <div className="flex items-center gap-2.5 pb-3 border-b border-[#f1f5f9]">
+            <Zap size={18} className="text-[#8b5cf6]" />
+            <div>
+              <h2 className="text-base font-semibold text-[#0f172a]">Reminder Preferences</h2>
+              <p className="text-xs text-[#64748b]">Configure your automated dispatch schedule and communication tone</p>
+            </div>
+          </div>
+
+          {/* Default Channel */}
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-2">
+              Default Delivery Channel
+            </label>
+            <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+              <label
+                className={`p-3.5 rounded-xl border flex items-center justify-between cursor-pointer transition ${
+                  channelSettings.default_reminder_channel === 'email'
+                    ? 'border-[#6366f1] bg-[#f5f3ff] ring-2 ring-[#6366f1]/20'
+                    : 'border-[#e2e8f0] bg-white hover:border-slate-300'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="radio"
+                    name="default_channel"
+                    value="email"
+                    checked={channelSettings.default_reminder_channel === 'email'}
+                    onChange={() => setChannelSettings({ ...channelSettings, default_reminder_channel: 'email' })}
+                    className="text-[#6366f1]"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-[#0f172a] block">Email</span>
+                    <span className="text-[11px] text-[#64748b]">Standard invoice email</span>
+                  </div>
+                </div>
+                <Mail size={16} className="text-[#6366f1]" />
+              </label>
+
+              <label
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition ${
+                  !isWhatsAppConnected
+                    ? 'opacity-60 cursor-not-allowed bg-slate-50 border-[#e2e8f0]'
+                    : channelSettings.default_reminder_channel === 'whatsapp'
+                    ? 'border-[#10b981] bg-[#ecfdf5] ring-2 ring-[#10b981]/20 cursor-pointer'
+                    : 'border-[#e2e8f0] bg-white hover:border-slate-300 cursor-pointer'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="radio"
+                    name="default_channel"
+                    value="whatsapp"
+                    disabled={!isWhatsAppConnected}
+                    checked={channelSettings.default_reminder_channel === 'whatsapp'}
+                    onChange={() => setChannelSettings({ ...channelSettings, default_reminder_channel: 'whatsapp' })}
+                    className="text-[#10b981]"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-[#0f172a] block">WhatsApp</span>
+                    <span className="text-[11px] text-[#64748b]">
+                      {!isWhatsAppConnected ? 'Requires WhatsApp' : 'Direct mobile message'}
+                    </span>
+                  </div>
+                </div>
+                <MessageSquare size={16} className="text-[#10b981]" />
+              </label>
+
+              <label
+                className={`p-3.5 rounded-xl border flex items-center justify-between transition ${
+                  !isEmailConnected || !isWhatsAppConnected
+                    ? 'opacity-60 cursor-not-allowed bg-slate-50 border-[#e2e8f0]'
+                    : channelSettings.default_reminder_channel === 'both'
+                    ? 'border-[#0f172a] bg-[#f8fafc] ring-2 ring-black/10 cursor-pointer'
+                    : 'border-[#e2e8f0] bg-white hover:border-slate-300 cursor-pointer'
+                }`}
+              >
+                <div className="flex items-center gap-2.5">
+                  <input
+                    type="radio"
+                    name="default_channel"
+                    value="both"
+                    disabled={!isEmailConnected || !isWhatsAppConnected}
+                    checked={channelSettings.default_reminder_channel === 'both'}
+                    onChange={() => setChannelSettings({ ...channelSettings, default_reminder_channel: 'both' })}
+                    className="text-[#0f172a]"
+                  />
+                  <div>
+                    <span className="font-semibold text-xs text-[#0f172a] block">Both Channels</span>
+                    <span className="text-[11px] text-[#64748b]">Email + WhatsApp</span>
+                  </div>
+                </div>
+                <Zap size={16} className="text-[#8b5cf6]" />
+              </label>
+            </div>
+          </div>
+
+          {/* Tone Selector */}
+          <div>
+            <label className="text-xs font-medium text-[#475569] block mb-2">
+              Default Tone of Voice
+            </label>
+            <div className="grid grid-cols-1 md:grid-cols-3 gap-3">
+              {(
+                [
+                  { id: 'Gentle Creative Professional', desc: 'Friendly, courteous partnership tone.' },
+                  { id: 'Casual Friendly', desc: 'Direct, personal check-in tone.' },
+                  { id: 'Firm & Direct', desc: 'Clear, concise reminder emphasizing payment deadline.' },
+                ] as const
+              ).map((t) => (
+                <label
+                  key={t.id}
+                  className={`p-3.5 rounded-xl border cursor-pointer transition ${
+                    profile.default_tone === t.id
+                      ? 'border-[#6366f1] bg-[#f5f3ff] ring-1 ring-[#6366f1]'
+                      : 'border-[#e2e8f0] bg-white hover:border-slate-300'
+                  }`}
+                >
+                  <div className="flex items-center gap-2 mb-1">
+                    <input
+                      type="radio"
+                      name="default_tone"
+                      value={t.id}
+                      checked={profile.default_tone === t.id}
+                      onChange={() => setProfile({ ...profile, default_tone: t.id as ToneTemplate })}
+                      className="text-[#6366f1]"
+                    />
+                    <span className="font-semibold text-xs text-[#0f172a]">{t.id}</span>
+                  </div>
+                  <p className="text-[11px] text-[#64748b] pl-5">{t.desc}</p>
+                </label>
+              ))}
+            </div>
+          </div>
+        </div>
+
+        {/* Action Save Bar */}
+        <div className="pt-4 flex flex-col-reverse sm:flex-row items-stretch sm:items-center justify-between gap-4 border-t border-[#e2e8f0]">
           <button
             type="button"
             onClick={onResetData}
-            className="text-xs text-[#ba1a1a] hover:underline flex items-center justify-center gap-1.5 cursor-pointer font-medium min-h-[44px] sm:min-h-0 py-2"
+            className="text-xs text-red-600 hover:underline flex items-center justify-center gap-1.5 cursor-pointer font-medium py-2"
           >
             <RefreshCw size={13} />
-            <span>Reset Demo Workspace Data</span>
+            <span>Reset Demo Data</span>
           </button>
 
           <button
             type="submit"
             disabled={isSaving}
-            className="w-full sm:w-auto bg-black hover:bg-[#1c1b1b] text-white px-8 py-3.5 min-h-[44px] rounded-lg font-label-caps text-[11px] uppercase tracking-wider font-semibold transition-all flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98] disabled:opacity-50"
+            className="bg-[#0f172a] hover:bg-[#1e293b] text-white px-7 py-3 rounded-lg text-xs font-semibold transition flex items-center justify-center gap-2 cursor-pointer shadow-xs active:scale-[0.98] disabled:opacity-50"
           >
             <Save size={15} />
-            <span>{isSaving ? 'SAVING...' : 'SAVE CHANGES'}</span>
+            <span>{isSaving ? 'Saving...' : 'Save Changes'}</span>
           </button>
         </div>
       </form>
+
+      {/* Test Email Recipient Modal */}
+      {showTestEmailModal && (
+        <div className="fixed inset-0 z-50 bg-black/40 backdrop-blur-xs flex items-center justify-center p-4">
+          <div className="bg-white rounded-2xl max-w-md w-full p-6 shadow-xl border border-[#e2e8f0] space-y-4">
+            <div>
+              <h3 className="text-base font-bold text-[#0f172a]">Send Test Email</h3>
+              <p className="text-xs text-[#64748b] mt-1">
+                Verify delivery through your connected email provider ({googleIntegration ? 'Gmail' : 'Outlook'}).
+              </p>
+            </div>
+
+            <div>
+              <label className="text-xs font-medium text-[#475569] block mb-1">
+                Recipient Email Address
+              </label>
+              <input
+                type="email"
+                required
+                placeholder="Enter email to receive test message"
+                value={testEmailRecipient}
+                onChange={(e) => setTestEmailRecipient(e.target.value)}
+                className="w-full px-3 py-2 border border-[#cbd5e1] rounded-lg text-sm text-[#0f172a] focus:outline-none focus:ring-2 focus:ring-[#6366f1]/20 focus:border-[#6366f1]"
+              />
+            </div>
+
+            <div className="flex items-center justify-end gap-2.5 pt-2">
+              <button
+                type="button"
+                onClick={() => setShowTestEmailModal(false)}
+                disabled={isSendingTestEmail}
+                className="px-4 py-2 text-xs font-medium text-[#64748b] hover:text-[#0f172a] cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => handleSendTestEmail(testEmailRecipient)}
+                disabled={isSendingTestEmail || !testEmailRecipient}
+                className="px-5 py-2 bg-[#0f172a] hover:bg-[#1e293b] text-white rounded-lg text-xs font-semibold flex items-center gap-2 cursor-pointer disabled:opacity-50"
+              >
+                <Send size={13} />
+                <span>{isSendingTestEmail ? 'Sending via Gmail...' : 'Send Test Email'}</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Connect WhatsApp Modal */}
       <ConnectWhatsAppModal

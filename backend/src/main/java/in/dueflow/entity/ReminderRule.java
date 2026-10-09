@@ -41,6 +41,15 @@ public class ReminderRule {
     @Column(nullable = false)
     private String status = "pending";
 
+    @Column(name = "attempt_count", nullable = false)
+    private Integer attemptCount = 0;
+
+    @Column(name = "last_attempted_at")
+    private Instant lastAttemptedAt;
+
+    @Column(name = "updated_at")
+    private Instant updatedAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -56,6 +65,7 @@ public class ReminderRule {
         this.scheduledFor = scheduledFor;
         this.status = status != null ? status : "pending";
         this.enabled = enabled != null ? enabled : true;
+        this.attemptCount = 0;
     }
 
     @PrePersist
@@ -65,6 +75,13 @@ public class ReminderRule {
         if (channel == null) channel = "email";
         if (status == null) status = "pending";
         if (enabled == null) enabled = true;
+        if (attemptCount == null) attemptCount = 0;
+        this.updatedAt = Instant.now();
+    }
+
+    @PreUpdate
+    protected void onUpdate() {
+        this.updatedAt = Instant.now();
     }
 
     public UUID getId() { return id; }
@@ -93,6 +110,15 @@ public class ReminderRule {
 
     public String getStatus() { return status; }
     public void setStatus(String status) { this.status = status; }
+
+    public Integer getAttemptCount() { return attemptCount; }
+    public void setAttemptCount(Integer attemptCount) { this.attemptCount = attemptCount; }
+
+    public Instant getLastAttemptedAt() { return lastAttemptedAt; }
+    public void setLastAttemptedAt(Instant lastAttemptedAt) { this.lastAttemptedAt = lastAttemptedAt; }
+
+    public Instant getUpdatedAt() { return updatedAt; }
+    public void setUpdatedAt(Instant updatedAt) { this.updatedAt = updatedAt; }
 
     public Instant getCreatedAt() { return createdAt; }
     public void setCreatedAt(Instant createdAt) { this.createdAt = createdAt; }

@@ -19,6 +19,7 @@ public class EmailServiceTest {
     @BeforeEach
     void setUp() {
         emailService = new EmailService();
+        ReflectionTestUtils.setField(emailService, "encryptionService", new in.dueflow.service.EncryptionService("test-key", "", "test-cron"));
         ReflectionTestUtils.setField(emailService, "resendFromEmail", "DueFlow Reminders <reminders@dueflow.in>");
     }
 

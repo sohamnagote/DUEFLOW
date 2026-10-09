@@ -267,6 +267,22 @@ public class InvoiceService {
             throw new BadRequestException("Cannot send reminder for an invoice already marked paid");
         }
 
+        if (Boolean.FALSE.equals(invoice.getRemindersEnabled())) {
+            throw new BadRequestException("Reminders are disabled for this invoice");
+        }
+
+        // Prevent duplicate sends caused by retries or repeated rapid clicks (15 second debounce)
+        List<ReminderLog> recentLogs = reminderLogRepository.findByInvoiceIdOrderByCreatedAtDesc(invoice.getId());
+        if (!recentLogs.isEmpty()) {
+            ReminderLog lastLog = recentLogs.get(0);
+            if ("sent".equalsIgnoreCase(lastLog.getStatus()) && lastLog.getCreatedAt() != null) {
+                long secondsSince = java.time.Duration.between(lastLog.getCreatedAt(), Instant.now()).getSeconds();
+                if (secondsSince < 15) {
+                    throw new BadRequestException("A reminder for this invoice was sent " + secondsSince + " seconds ago. Please wait before sending another reminder.");
+                }
+            }
+        }
+
         Profile profile = profileRepository.findById(userId).orElse(new Profile(userId, ""));
 
         String subject = req.getCustomSubject();
@@ -292,26 +308,32 @@ public class InvoiceService {
         emailData.invoiceNumber = invoice.getInvoiceNumber();
         emailData.amount = invoice.getAmount();
         emailData.dueDate = invoice.getDueDate().toString();
+        emailData.issueDate = invoice.getIssueDate() != null ? invoice.getIssueDate().toString() : null;
         emailData.clientName = invoice.getClientNameSnapshot();
         emailData.clientEmail = invoice.getClientEmailSnapshot();
         emailData.businessName = profile.getBusinessName();
         emailData.senderName = profile.getFullName();
         emailData.senderEmail = profile.getEmail();
+        emailData.senderPhone = profile.getPhone();
+        emailData.senderAddress = profile.getAddress();
         emailData.upiId = profile.getUpiId();
         emailData.bankAccount = profile.getBankAccount();
         emailData.bankIfsc = profile.getBankIfsc();
+        emailData.bankName = profile.getBankName();
+        emailData.paymentNotes = profile.getPaymentNotes();
+        emailData.paymentQrUrl = profile.getPaymentQrUrl();
         emailData.notes = invoice.getNotes();
         emailData.customSubject = subject;
         emailData.customBody = body;
 
         EmailService.SendResult sendRes = emailService.sendEmail(
-                invoice.getClientEmailSnapshot(), profile.getEmail(), emailData
+                userId, invoice.getClientEmailSnapshot(), profile.getEmail(), emailData
         );
 
         ReminderLog log = new ReminderLog();
         log.setInvoiceId(invoice.getId());
         log.setChannel("email");
-        log.setProvider("resend");
+        log.setProvider(sendRes.provider != null ? sendRes.provider : "none");
         log.setOccurrenceKey("manual_nudge_email_" + System.currentTimeMillis());
         log.setRecipientEmail(invoice.getClientEmailSnapshot());
         log.setRecipient(invoice.getClientEmailSnapshot());
@@ -328,9 +350,13 @@ public class InvoiceService {
         Map<String, Object> response = new HashMap<>();
         response.put("success", sendRes.success);
         response.put("channel", "email");
+        response.put("provider", sendRes.provider);
+        response.put("providerMessageId", sendRes.providerMessageId);
         response.put("results", Map.of("email", sendRes));
         response.put("logs", List.of(savedLog));
-        response.put("message", sendRes.success ? "Reminder dispatched successfully." : ("Email delivery failed: " + sendRes.error));
+        response.put("message", sendRes.success
+                ? ("Reminder dispatched successfully via " + sendRes.provider + ".")
+                : ("Email delivery failed: " + sendRes.error));
         return response;
     }
 
@@ -344,14 +370,20 @@ public class InvoiceService {
         emailData.invoiceNumber = invoice.getInvoiceNumber();
         emailData.amount = invoice.getAmount();
         emailData.dueDate = invoice.getDueDate().toString();
+        emailData.issueDate = invoice.getIssueDate() != null ? invoice.getIssueDate().toString() : null;
         emailData.clientName = invoice.getClientNameSnapshot();
         emailData.clientEmail = invoice.getClientEmailSnapshot();
         emailData.businessName = profile.getBusinessName();
         emailData.senderName = profile.getFullName();
         emailData.senderEmail = profile.getEmail();
+        emailData.senderPhone = profile.getPhone();
+        emailData.senderAddress = profile.getAddress();
         emailData.upiId = profile.getUpiId();
         emailData.bankAccount = profile.getBankAccount();
         emailData.bankIfsc = profile.getBankIfsc();
+        emailData.bankName = profile.getBankName();
+        emailData.paymentNotes = profile.getPaymentNotes();
+        emailData.paymentQrUrl = profile.getPaymentQrUrl();
         emailData.notes = invoice.getNotes();
         emailData.stageName = "Stage " + stage;
         emailData.tone = (tone != null && !tone.isBlank()) ? tone : "professional";

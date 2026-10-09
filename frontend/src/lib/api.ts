@@ -17,9 +17,10 @@ export function clearStoredToken(): void {
 // Request helper attaching Bearer authorization
 async function apiFetch<T>(endpoint: string, options: RequestInit = {}): Promise<T> {
   const token = getStoredToken();
-  const headers = new Headers(options.headers || {});
-
-  headers.set('Content-Type', 'application/json');
+  const isFormData = typeof FormData !== 'undefined' && options.body instanceof FormData;
+  if (!isFormData && !headers.has('Content-Type')) {
+    headers.set('Content-Type', 'application/json');
+  }
   if (token && !headers.has('Authorization')) {
     headers.set('Authorization', `Bearer ${token}`);
   }
@@ -87,6 +88,25 @@ export const api = {
       method: 'PUT',
       body: JSON.stringify(profile),
     });
+  },
+
+  async uploadPaymentQr(file: File) {
+    const formData = new FormData();
+    formData.append('file', file);
+    return apiFetch<{ success: boolean; message: string; qrUrl: string }>('/api/profile/payment-qr', {
+      method: 'POST',
+      body: formData,
+    });
+  },
+
+  async deletePaymentQr() {
+    return apiFetch<{ success: boolean; message: string }>('/api/profile/payment-qr', {
+      method: 'DELETE',
+    });
+  },
+
+  async getPaymentQr() {
+    return apiFetch<{ qrUrl: string }>('/api/profile/payment-qr');
   },
 
   // ---------------------------------------------------------------------------
@@ -318,16 +338,17 @@ export const api = {
     }>('/api/integrations/email/status');
   },
 
-  async sendTestEmail() {
+  async sendTestEmail(recipient?: string) {
     return apiFetch<{
       success: boolean;
-      provider: string;
+      provider?: string;
       providerMessageId?: string;
-      recipient: string;
+      recipient?: string;
       message: string;
       error?: string;
     }>('/api/integrations/email/test', {
       method: 'POST',
+      body: recipient ? JSON.stringify({ recipient }) : undefined,
     });
   },
 

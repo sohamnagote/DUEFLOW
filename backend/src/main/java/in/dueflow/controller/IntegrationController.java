@@ -26,6 +26,12 @@ import java.net.http.HttpResponse;
 import java.nio.charset.StandardCharsets;
 import java.time.Duration;
 import java.time.Instant;
+import in.dueflow.entity.Profile;
+import in.dueflow.service.EmailService;
+import in.dueflow.service.OAuthStateService;
+import in.dueflow.service.EncryptionService;
+import java.math.BigDecimal;
+import java.time.LocalDate;
 import java.util.*;
 
 @RestController
@@ -38,6 +44,9 @@ public class IntegrationController {
     private final IntegrationRepository integrationRepository;
     private final ProfileRepository profileRepository;
     private final ObjectMapper objectMapper;
+    private final EmailService emailService;
+    private final OAuthStateService oauthStateService;
+    private final EncryptionService encryptionService;
 
     private final HttpClient httpClient = HttpClient.newBuilder()
             .connectTimeout(Duration.ofSeconds(10))
@@ -62,12 +71,18 @@ public class IntegrationController {
             IntegrationService integrationService,
             IntegrationRepository integrationRepository,
             ProfileRepository profileRepository,
-            ObjectMapper objectMapper
+            ObjectMapper objectMapper,
+            EmailService emailService,
+            OAuthStateService oauthStateService,
+            EncryptionService encryptionService
     ) {
         this.integrationService = integrationService;
         this.integrationRepository = integrationRepository;
         this.profileRepository = profileRepository;
         this.objectMapper = objectMapper;
+        this.emailService = emailService;
+        this.oauthStateService = oauthStateService;
+        this.encryptionService = encryptionService;
     }
 
     private String getBaseUrl(HttpServletRequest req) {
@@ -132,9 +147,8 @@ public class IntegrationController {
         String baseUrl = getBaseUrl(request);
         String redirectUri = baseUrl + "/api/integrations/email/google/callback";
 
-        String nonce = UUID.randomUUID().toString();
-        String statePayload = "{\"userId\":\"" + userId + "\",\"nonce\":\"" + nonce + "\"}";
-        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(statePayload.getBytes(StandardCharsets.UTF_8));
+        // Cryptographically signed, single-use, time-bounded OAuth state parameter
+        String state = oauthStateService.generateState(userId, "google");
 
         String scopes = "https://www.googleapis.com/auth/gmail.send https://www.googleapis.com/auth/userinfo.email openid";
 
@@ -165,24 +179,12 @@ public class IntegrationController {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "google", null, error));
         }
 
-        UUID userId = null;
-        try {
-            if (state != null && !state.isBlank()) {
-                String decodedState = new String(Base64.getUrlDecoder().decode(state), StandardCharsets.UTF_8);
-                JsonNode json = objectMapper.readTree(decodedState);
-                if (json.has("userId")) {
-                    userId = UUID.fromString(json.get("userId").asText());
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[Google OAuth] Failed to decode state parameter: {}", e.getMessage());
+        // Single-use, cryptographic state validation and consumption
+        UUID targetUserId = oauthStateService.validateAndConsumeState(state, "google");
+        if (targetUserId == null) {
+            log.warn("[Google OAuth] Rejected callback: invalid, expired, or previously used state parameter");
+            return ResponseEntity.ok(renderOAuthCallbackHtml(false, "google", null, "Invalid, expired, or previously used OAuth state parameter."));
         }
-
-        if (userId == null) {
-            return ResponseEntity.ok(renderOAuthCallbackHtml(false, "google", null, "Invalid state parameter in OAuth callback."));
-        }
-
-        final UUID targetUserId = userId;
 
         if (googleClientId == null || googleClientId.isBlank() || googleClientSecret == null || googleClientSecret.isBlank() || code == null || code.isBlank()) {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "google", null, "Missing Google credentials or authorization code."));
@@ -254,9 +256,11 @@ public class IntegrationController {
             integration.setStatus("CONNECTED");
             integration.setProviderAccountId(userEmail);
             integration.setProviderEmail(userEmail);
-            integration.setAccessTokenEncrypted(accessToken);
+            integration.setAccessTokenEncrypted(encryptionService.encrypt(accessToken));
             if (refreshToken != null && !refreshToken.isBlank()) {
-                integration.setRefreshTokenEncrypted(refreshToken);
+                integration.setRefreshTokenEncrypted(encryptionService.encrypt(refreshToken));
+            } else if (integration.getRefreshTokenEncrypted() == null || integration.getRefreshTokenEncrypted().isBlank()) {
+                log.warn("[Google OAuth] No refresh token received on initial connect for user {}", targetUserId);
             }
             integration.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
             integration.setScopes("https://www.googleapis.com/auth/gmail.send email openid");
@@ -275,7 +279,7 @@ public class IntegrationController {
                 }
             });
 
-            log.info("[Google OAuth] Successfully connected Gmail account {} for user {}", userEmail, userId);
+            log.info("[Google OAuth] Successfully connected Gmail account {} for user {}", userEmail, targetUserId);
             return ResponseEntity.ok(renderOAuthCallbackHtml(true, "google", userEmail, null));
 
         } catch (Exception e) {
@@ -314,9 +318,8 @@ public class IntegrationController {
         String baseUrl = getBaseUrl(request);
         String redirectUri = baseUrl + "/api/integrations/email/microsoft/callback";
 
-        String nonce = UUID.randomUUID().toString();
-        String statePayload = "{\"userId\":\"" + userId + "\",\"nonce\":\"" + nonce + "\"}";
-        String state = Base64.getUrlEncoder().withoutPadding().encodeToString(statePayload.getBytes(StandardCharsets.UTF_8));
+        // Cryptographically signed, single-use, time-bounded OAuth state parameter
+        String state = oauthStateService.generateState(userId, "microsoft");
 
         String scopes = "offline_access https://graph.microsoft.com/Mail.Send User.Read openid email";
 
@@ -346,24 +349,12 @@ public class IntegrationController {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, error));
         }
 
-        UUID userId = null;
-        try {
-            if (state != null && !state.isBlank()) {
-                String decodedState = new String(Base64.getUrlDecoder().decode(state), StandardCharsets.UTF_8);
-                JsonNode json = objectMapper.readTree(decodedState);
-                if (json.has("userId")) {
-                    userId = UUID.fromString(json.get("userId").asText());
-                }
-            }
-        } catch (Exception e) {
-            log.warn("[Microsoft OAuth] Failed to decode state parameter: {}", e.getMessage());
+        // Single-use, cryptographic state validation and consumption
+        UUID targetUserId = oauthStateService.validateAndConsumeState(state, "microsoft");
+        if (targetUserId == null) {
+            log.warn("[Microsoft OAuth] Rejected callback: invalid, expired, or previously used state parameter");
+            return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, "Invalid, expired, or previously used OAuth state parameter."));
         }
-
-        if (userId == null) {
-            return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, "Invalid state parameter in OAuth callback."));
-        }
-
-        final UUID targetUserId = userId;
 
         if (microsoftClientId == null || microsoftClientId.isBlank() || microsoftClientSecret == null || microsoftClientSecret.isBlank() || code == null || code.isBlank()) {
             return ResponseEntity.ok(renderOAuthCallbackHtml(false, "microsoft", null, "Missing Microsoft credentials or authorization code."));
@@ -433,9 +424,9 @@ public class IntegrationController {
             integration.setStatus("CONNECTED");
             integration.setProviderAccountId(userEmail);
             integration.setProviderEmail(userEmail);
-            integration.setAccessTokenEncrypted(accessToken);
+            integration.setAccessTokenEncrypted(encryptionService.encrypt(accessToken));
             if (refreshToken != null && !refreshToken.isBlank()) {
-                integration.setRefreshTokenEncrypted(refreshToken);
+                integration.setRefreshTokenEncrypted(encryptionService.encrypt(refreshToken));
             }
             integration.setTokenExpiresAt(Instant.now().plusSeconds(expiresIn));
             integration.setScopes("offline_access https://graph.microsoft.com/Mail.Send User.Read openid email");
@@ -454,7 +445,7 @@ public class IntegrationController {
                 }
             });
 
-            log.info("[Microsoft OAuth] Successfully connected Outlook account {} for user {}", userEmail, userId);
+            log.info("[Microsoft OAuth] Successfully connected Outlook account {} for user {}", userEmail, targetUserId);
             return ResponseEntity.ok(renderOAuthCallbackHtml(true, "microsoft", userEmail, null));
 
         } catch (Exception e) {
@@ -476,25 +467,73 @@ public class IntegrationController {
 
         if (userId != null) {
             Optional<Integration> google = integrationRepository.findByUserIdAndProvider(userId, "google");
-            if (google.isPresent() && "CONNECTED".equalsIgnoreCase(google.get().getStatus())) {
-                return ResponseEntity.ok(Map.of(
-                        "success", true,
-                        "provider", "google",
-                        "is_user_connected", true,
-                        "status", "CONNECTED",
-                        "display_email", google.get().getProviderEmail() != null ? google.get().getProviderEmail() : ""
-                ));
+            if (google.isPresent()) {
+                Integration g = google.get();
+                if ("RECONNECT_REQUIRED".equalsIgnoreCase(g.getStatus())) {
+                    return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "provider", "google",
+                            "is_user_connected", false,
+                            "status", "RECONNECT_REQUIRED",
+                            "display_email", g.getProviderEmail() != null ? g.getProviderEmail() : "",
+                            "error", g.getLastErrorMessage() != null ? g.getLastErrorMessage() : "Reauthorization required"
+                    ));
+                }
+
+                boolean tokenValid = emailService.ensureValidGoogleToken(g);
+                if (tokenValid) {
+                    return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "provider", "google",
+                            "is_user_connected", true,
+                            "status", "CONNECTED",
+                            "display_email", g.getProviderEmail() != null ? g.getProviderEmail() : ""
+                    ));
+                } else {
+                    return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "provider", "google",
+                            "is_user_connected", false,
+                            "status", "RECONNECT_REQUIRED",
+                            "display_email", g.getProviderEmail() != null ? g.getProviderEmail() : "",
+                            "error", "Google authorization expired or revoked. Please reconnect in Settings."
+                    ));
+                }
             }
 
             Optional<Integration> ms = integrationRepository.findByUserIdAndProvider(userId, "microsoft");
-            if (ms.isPresent() && "CONNECTED".equalsIgnoreCase(ms.get().getStatus())) {
-                return ResponseEntity.ok(Map.of(
-                        "success", true,
-                        "provider", "microsoft",
-                        "is_user_connected", true,
-                        "status", "CONNECTED",
-                        "display_email", ms.get().getProviderEmail() != null ? ms.get().getProviderEmail() : ""
-                ));
+            if (ms.isPresent()) {
+                Integration m = ms.get();
+                if ("RECONNECT_REQUIRED".equalsIgnoreCase(m.getStatus())) {
+                    return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "provider", "microsoft",
+                            "is_user_connected", false,
+                            "status", "RECONNECT_REQUIRED",
+                            "display_email", m.getProviderEmail() != null ? m.getProviderEmail() : "",
+                            "error", m.getLastErrorMessage() != null ? m.getLastErrorMessage() : "Reauthorization required"
+                    ));
+                }
+
+                boolean tokenValid = emailService.ensureValidMicrosoftToken(m);
+                if (tokenValid) {
+                    return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "provider", "microsoft",
+                            "is_user_connected", true,
+                            "status", "CONNECTED",
+                            "display_email", m.getProviderEmail() != null ? m.getProviderEmail() : ""
+                    ));
+                } else {
+                    return ResponseEntity.ok(Map.of(
+                            "success", true,
+                            "provider", "microsoft",
+                            "is_user_connected", false,
+                            "status", "RECONNECT_REQUIRED",
+                            "display_email", m.getProviderEmail() != null ? m.getProviderEmail() : "",
+                            "error", "Microsoft authorization expired or revoked. Please reconnect in Settings."
+                    ));
+                }
             }
         }
 
@@ -503,15 +542,73 @@ public class IntegrationController {
                 "provider", "resend",
                 "is_user_connected", false,
                 "status", "NOT_CONNECTED",
-                "message", "Configured via RESEND_API_KEY"
+                "message", "No user email provider connected"
         ));
     }
 
     @PostMapping("/email/test")
-    public ResponseEntity<Map<String, Object>> testEmail() {
+    public ResponseEntity<Map<String, Object>> testEmail(@RequestBody(required = false) Map<String, String> body) {
+        UUID userId = SecurityUtils.getCurrentUserId();
+        Profile profile = profileRepository.findById(userId).orElse(new Profile(userId, ""));
+
+        String recipient = body != null ? body.get("recipient") : null;
+        if (recipient == null || recipient.isBlank()) {
+            recipient = profile.getEmail();
+        }
+        if (recipient == null || recipient.isBlank() || !recipient.contains("@")) {
+            return ResponseEntity.badRequest().body(Map.of(
+                    "success", false,
+                    "error", "A valid recipient email address is required to send a test email. Please provide one or set your profile email."
+            ));
+        }
+
+        String businessName = profile.getBusinessName() != null && !profile.getBusinessName().isBlank()
+                ? profile.getBusinessName() : "DueFlow";
+        String senderName = profile.getFullName() != null && !profile.getFullName().isBlank()
+                ? profile.getFullName() : businessName;
+
+        EmailService.EmailRenderData data = new EmailService.EmailRenderData();
+        data.invoiceNumber = "TEST-VERIFY";
+        data.amount = new BigDecimal("12500.00");
+        data.dueDate = LocalDate.now().plusDays(5).toString();
+        data.issueDate = LocalDate.now().toString();
+        data.clientName = "Valued Client (Test)";
+        data.clientEmail = recipient;
+        data.businessName = businessName;
+        data.senderName = senderName;
+        data.senderEmail = profile.getEmail();
+        data.senderPhone = profile.getPhone();
+        data.senderAddress = profile.getAddress();
+        data.upiId = profile.getUpiId();
+        data.bankAccount = profile.getBankAccount();
+        data.bankIfsc = profile.getBankIfsc();
+        data.bankName = profile.getBankName();
+        data.paymentNotes = profile.getPaymentNotes();
+        data.paymentQrUrl = profile.getPaymentQrUrl();
+        data.stageName = "Integration Test";
+        data.tone = "professional";
+        data.customSubject = "Test Invoice Reminder from " + businessName;
+        data.customBody = "This test email confirms that your email integration is successfully connected and capable of sending invoice reminders directly to your clients.";
+
+        EmailService.SendResult result = emailService.sendEmail(userId, recipient, profile.getEmail(), data);
+
+        if (!result.success) {
+            log.warn("[IntegrationController] Test email failed for user {}: {}", userId, result.error);
+            return ResponseEntity.status(HttpStatus.BAD_GATEWAY).body(Map.of(
+                    "success", false,
+                    "provider", result.provider != null ? result.provider : "none",
+                    "recipient", recipient,
+                    "error", result.error != null ? result.error : "Unknown delivery error",
+                    "message", "Email delivery failed: " + result.error
+            ));
+        }
+
         return ResponseEntity.ok(Map.of(
                 "success", true,
-                "message", "Email service test completed successfully"
+                "provider", result.provider != null ? result.provider : "connected_provider",
+                "providerMessageId", result.providerMessageId != null ? result.providerMessageId : "",
+                "recipient", recipient,
+                "message", "Test email successfully accepted and sent via " + result.provider + " to " + recipient
         ));
     }
 
@@ -638,7 +735,8 @@ public class IntegrationController {
                 + "  <script>\n"
                 + "    try {\n"
                 + "      if (window.opener) {\n"
-                + "        window.opener.postMessage(" + jsonPayload + ", '*');\n"
+                + "        var targetOrigin = window.location.origin;\n"
+                + "        window.opener.postMessage(" + jsonPayload + ", targetOrigin);\n"
                 + "        setTimeout(function() { window.close(); }, 800);\n"
                 + "      } else {\n"
                 + "        setTimeout(function() { window.location.href = '/'; }, 1500);\n"

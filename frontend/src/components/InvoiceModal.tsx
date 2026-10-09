@@ -140,11 +140,11 @@ export const InvoiceModal: React.FC<InvoiceModalProps> = ({
       <div className="bg-white rounded-lg max-w-xl w-full p-5 sm:p-6 shadow-2xl border border-[#e3e1ea] max-h-[92vh] overflow-y-auto my-auto">
         <div className="flex items-center justify-between pb-4 border-b border-[#e3e1ea]">
           <div>
-            <span className="font-label-caps text-[10px] uppercase text-[#747878] font-bold tracking-wider">
-              {isEditing ? 'UPDATE EXISTING INVOICE' : 'PORTAL ENTRY // NEW INVOICE'}
+            <span className="text-[11px] font-semibold text-[#64748b]">
+              {isEditing ? 'Edit Invoice' : 'New Invoice'}
             </span>
             <h2 className="text-xl font-bold text-[#1a1b22] tracking-tight">
-              {isEditing ? `Edit ${initialInvoice?.invoice_number}` : 'Create New Invoice'}
+              {isEditing ? `Invoice ${initialInvoice?.invoice_number}` : 'Create Invoice'}
             </h2>
           </div>
           <button

@@ -213,18 +213,28 @@ export const LandingView: React.FC<LandingViewProps> = ({
             © 2025 DueFlow. Simple invoice follow-up.
           </p>
           <div className="flex flex-wrap items-center justify-center gap-6">
-            <button onClick={() => setActiveModal('legal')} className="hover:text-[#1a1b22] transition-colors cursor-pointer">
+            <a
+              href="/privacy"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#1a1b22] transition-colors cursor-pointer"
+            >
               Privacy Policy
-            </button>
-            <button onClick={() => setActiveModal('legal')} className="hover:text-[#1a1b22] transition-colors cursor-pointer">
-              Terms
-            </button>
-            <button onClick={() => setActiveModal('legal')} className="hover:text-[#1a1b22] transition-colors cursor-pointer">
+            </a>
+            <a
+              href="/terms"
+              target="_blank"
+              rel="noopener noreferrer"
+              className="hover:text-[#1a1b22] transition-colors cursor-pointer"
+            >
+              Terms of Service
+            </a>
+            <button onClick={() => setActiveModal('howItWorks')} className="hover:text-[#1a1b22] transition-colors cursor-pointer">
               Security
             </button>
-            <button onClick={() => setActiveModal('legal')} className="hover:text-[#1a1b22] transition-colors cursor-pointer">
+            <a href="mailto:support@dueflow.in" className="hover:text-[#1a1b22] transition-colors cursor-pointer">
               Support
-            </button>
+            </a>
           </div>
         </div>
       </footer>
@@ -335,31 +345,6 @@ export const LandingView: React.FC<LandingViewProps> = ({
                 className="text-xs text-[#747878] hover:text-[#1a1b22] py-2 px-4 cursor-pointer"
               >
                 Close
-              </button>
-            </div>
-          </div>
-        </div>
-      )}
-
-      {/* Modal: Legal & Privacy */}
-      {activeModal === 'legal' && (
-        <div className="fixed inset-0 z-50 bg-black/60 flex items-center justify-center p-3 sm:p-4 overflow-y-auto">
-          <div className="bg-white rounded-lg max-w-md w-full p-5 sm:p-6 shadow-2xl border border-[#e3e1ea] max-h-[92vh] overflow-y-auto my-auto">
-            <h3 className="text-lg font-bold text-[#1a1b22] mb-2">Security, Privacy &amp; Trust</h3>
-            <p className="text-xs text-[#444748] leading-relaxed mb-4">
-              DueFlow keeps your data safe and private. Your client details and invoice information are used only to send your scheduled payment reminders. We never sell your data or send spam.
-            </p>
-            <div className="space-y-2 text-xs text-[#747878]">
-              <div>• Secure encrypted data storage</div>
-              <div>• Completely private and protected account</div>
-              <div>• Zero spam: only polite reminders you choose to send</div>
-            </div>
-            <div className="mt-6 flex justify-end">
-              <button
-                onClick={() => setActiveModal(null)}
-                className="px-5 py-2.5 bg-black text-white text-xs font-semibold rounded-lg hover:bg-neutral-800 transition-colors min-h-[44px] cursor-pointer active:scale-[0.98]"
-              >
-                Understood
               </button>
             </div>
           </div>

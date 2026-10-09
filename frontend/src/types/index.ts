@@ -17,7 +17,7 @@ export interface ReminderRule {
   offset_days: number; // -3, 0, 3, 7
   subject_line: string;
   scheduled_for: string; // "Oct 23, 2024 · 10:00 AM"
-  status: 'delivered' | 'scheduled' | 'sending' | 'failed' | 'cancelled';
+  status: 'delivered' | 'sent' | 'scheduled' | 'pending' | 'processing' | 'sending' | 'failed' | 'cancelled' | 'skipped';
   channel?: DispatchChannel;
   delivered_at?: string;
   error_message?: string;
@@ -149,6 +149,10 @@ export interface UserProfile {
   bank_ifsc?: string;
   bank_name?: string;
   bank_account_name?: string;
+  address?: string;
+  logo_url?: string;
+  payment_notes?: string;
+  payment_qr_url?: string;
   default_tone?: ToneTemplate;
   reminder_default?: string;
   default_reminder_channel?: 'email' | 'whatsapp' | 'both';

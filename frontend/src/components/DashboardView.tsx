@@ -375,19 +375,19 @@ export const DashboardView: React.FC<DashboardViewProps> = ({
               ))
             ) : (
               <tr>
-                <td colSpan={6} className="py-16 text-center text-[#747878] text-sm">
+                <td colSpan={7} className="py-16 text-center text-[#64748b] text-sm">
                   <div className="flex flex-col items-center justify-center max-w-sm mx-auto space-y-3">
-                    <span className="font-label-caps text-[11px] text-[#747878] uppercase tracking-[0.16em]">
-                      LEDGER EMPTY
+                    <span className="text-xs font-bold text-[#475569] uppercase tracking-wider">
+                      No Invoices Recorded
                     </span>
-                    <p className="text-xs text-[#444748] leading-relaxed">
-                      No invoices recorded yet. Create an invoice once, and DueFlow will handle the automated 4-step follow-up.
+                    <p className="text-xs text-[#64748b] leading-relaxed">
+                      Create an invoice, and DueFlow will handle automated professional reminder schedules.
                     </p>
                     <button
                       onClick={onAddInvoice}
-                      className="mt-2 bg-black hover:bg-[#1c1b1b] text-white px-5 py-2.5 rounded-lg text-xs font-semibold uppercase tracking-wider font-label-caps cursor-pointer shadow-xs active:scale-[0.98]"
+                      className="mt-2 bg-[#0f172a] hover:bg-[#1e293b] text-white px-5 py-2.5 rounded-lg text-xs font-semibold cursor-pointer shadow-xs active:scale-[0.98]"
                     >
-                      + Create First Invoice
+                      + Create Your First Invoice
                     </button>
                   </div>
                 </td>

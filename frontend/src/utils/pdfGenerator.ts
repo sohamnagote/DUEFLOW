@@ -202,11 +202,26 @@ export function generateInvoicePDF(invoice: Invoice, user?: UserProfile): void {
 
   addBankLine('UPI VPA', user?.upi_id, true);
   addBankLine('Beneficiary', user?.bank_account_name || user?.full_name);
-  addBankLine('Account No', user?.bank_account_no, true);
+  addBankLine('Account No', user?.bank_account || user?.bank_account_no, true);
   addBankLine('IFSC Code', user?.bank_ifsc, true);
   addBankLine('Bank & Branch', user?.bank_name);
+  addBankLine('Notes', user?.payment_notes);
 
-  y += 48;
+  // Embed Payment QR if available
+  if (user?.payment_qr_url && user.payment_qr_url.startsWith('data:image/')) {
+    try {
+      const qrSize = 26;
+      doc.addImage(user.payment_qr_url, 'PNG', totalBoxX + (totalBoxWidth - qrSize) / 2, y + 26, qrSize, qrSize);
+      doc.setFontSize(7);
+      doc.setFont('helvetica', 'normal');
+      doc.setTextColor(116, 120, 120);
+      doc.text('Scan UPI QR to Pay', totalBoxX + totalBoxWidth / 2, y + 26 + qrSize + 3.5, { align: 'center' });
+    } catch (e) {
+      console.warn('Could not add QR image to PDF:', e);
+    }
+  }
+
+  y += 58;
 
   // 7. Automated Cadence Steps (Audit Box)
   if (invoice.rules && invoice.rules.length > 0) {

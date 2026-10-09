@@ -97,6 +97,21 @@ mvn test
 
 ---
 
+## Google Cloud Auth Platform Branding & Consent Screen Reference
+
+Configure these exact public URLs in your **Google Cloud Console** under **APIs & Services > OAuth consent screen > Branding**:
+
+| Field | Production Value |
+|---|---|
+| **App Name** | `DueFlow` |
+| **Application Home Page** | `https://dueflow-kappa.vercel.app` |
+| **Application Privacy Policy Link** | `https://dueflow-kappa.vercel.app/privacy` |
+| **Application Terms of Service Link** | `https://dueflow-kappa.vercel.app/terms` |
+| **Authorized Domains** | `dueflow-kappa.vercel.app` |
+| **Authorized Redirect URI (Gmail OAuth)** | `https://dueflow-backend.onrender.com/api/integrations/email/google/callback` |
+
+---
+
 ## Deployment Guidance
 
 ### 1. Frontend (Vercel)

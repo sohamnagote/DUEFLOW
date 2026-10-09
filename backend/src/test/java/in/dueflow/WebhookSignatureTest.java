@@ -28,7 +28,7 @@ public class WebhookSignatureTest {
     @Test
     void testValidSvixSignatureVerification() throws Exception {
         String svixId = "msg_2X5Y7Z";
-        String svixTimestamp = "1728250000";
+        String svixTimestamp = String.valueOf(java.time.Instant.now().getEpochSecond());
         String rawBody = "{\"type\":\"email.delivered\",\"data\":{\"email_id\":\"msg_123\"}}";
 
         String toSign = svixId + "." + svixTimestamp + "." + rawBody;
@@ -46,7 +46,7 @@ public class WebhookSignatureTest {
     @Test
     void testTamperedPayloadFailsVerification() throws Exception {
         String svixId = "msg_2X5Y7Z";
-        String svixTimestamp = "1728250000";
+        String svixTimestamp = String.valueOf(java.time.Instant.now().getEpochSecond());
         String rawBody = "{\"type\":\"email.delivered\",\"data\":{\"email_id\":\"msg_123\"}}";
 
         String toSign = svixId + "." + svixTimestamp + "." + rawBody;

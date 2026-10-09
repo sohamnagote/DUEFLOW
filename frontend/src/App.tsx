@@ -13,6 +13,8 @@ import { InvoiceModal } from './components/InvoiceModal';
 import { EmailPreviewModal } from './components/EmailPreviewModal';
 import { ChannelConnectModal } from './components/ChannelConnectModal';
 import { GiveReminderModal } from './components/GiveReminderModal';
+import { PrivacyPolicyPage } from './components/PrivacyPolicyPage';
+import { TermsOfServicePage } from './components/TermsOfServicePage';
 import { NotificationToast, ToastMessage } from './components/NotificationToast';
 import {
   initialInvoices,
@@ -38,6 +40,18 @@ export default function App() {
   });
 
   // Navigation & View state inside App
+  const [currentPath, setCurrentPath] = useState<string>(() => {
+    return window.location.pathname.replace(/\/$/, '') || '/';
+  });
+
+  useEffect(() => {
+    const handlePopState = () => {
+      setCurrentPath(window.location.pathname.replace(/\/$/, '') || '/');
+    };
+    window.addEventListener('popstate', handlePopState);
+    return () => window.removeEventListener('popstate', handlePopState);
+  }, []);
+
   const [currentTab, setCurrentTab] = useState<'dashboard' | 'invoices' | 'clients' | 'reminders' | 'settings'>('dashboard');
   const [selectedInvoiceId, setSelectedInvoiceId] = useState<string | null>(null);
   const [showAuthScreen, setShowAuthScreen] = useState(false);
@@ -183,8 +197,8 @@ export default function App() {
           stage_name: l.occurrence_key || 'Automated Cadence Stage',
           status: l.status === 'delivered' ? 'sent' : (l.status as any),
           timestamp: new Date(l.attempted_at).toLocaleTimeString([], { hour: '2-digit', minute: '2-digit' }),
-          provider_message_id: l.provider_message_id || 'msg_resend',
-          details: l.error_code || 'Transactional email delivered via Resend.',
+          provider_message_id: l.provider_message_id || '',
+          details: l.error_code || (l.status === 'sent' || l.status === 'delivered' ? `Dispatched via ${l.provider || 'email provider'}` : 'Delivery pending or rejected'),
         }));
         setReminderLogs(mappedLogs);
       }
@@ -715,6 +729,15 @@ export default function App() {
     setShowAuthScreen(false);
     addToast('info', 'Signed Out', 'You have been logged out.');
   };
+
+  // Dedicated Public Routes (No Authentication Required)
+  if (currentPath === '/privacy') {
+    return <PrivacyPolicyPage />;
+  }
+
+  if (currentPath === '/terms') {
+    return <TermsOfServicePage />;
+  }
 
   // Auth / Login Modal Screen
   if (showAuthScreen) {

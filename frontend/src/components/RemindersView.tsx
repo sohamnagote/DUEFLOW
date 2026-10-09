@@ -173,19 +173,18 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         {/* Rendered Email Frame */}
         <div className="bg-[#f7f7f8] p-3 sm:p-6 rounded-lg border border-[#e3e1ea]">
           <div className="bg-white rounded-lg border border-[#e3e1ea] shadow-xs overflow-hidden">
-            {/* Email Header */}
-            <div className="bg-[#fbf8ff] px-4 sm:px-6 py-4 border-b border-[#e3e1ea] text-xs space-y-1">
+            <div className="bg-[#f8fafc] px-4 sm:px-6 py-4 border-b border-[#e2e8f0] text-xs space-y-1">
               <div className="flex items-center justify-between">
-                <span className="text-[#747878]">To: <strong className="text-[#1a1b22]">{sampleInvoice.client_email}</strong></span>
-                <span className="font-label-caps text-[10px] uppercase text-[#5b598b] font-bold">Via Resend SMTP</span>
+                <span className="text-[#64748b]">To: <strong className="text-[#0f172a]">{sampleInvoice.client_email}</strong></span>
+                <span className="text-[11px] font-semibold text-[#64748b]">Connected Provider (Gmail / Outlook)</span>
               </div>
               <div>
-                <span className="text-[#747878]">From: <strong className="text-[#1a1b22]">{user.business_name} &lt;reminders@dueflow.in&gt;</strong></span>
+                <span className="text-[#64748b]">From: <strong className="text-[#0f172a]">{user.business_name || user.full_name || 'DueFlow'} &lt;{user.email}&gt;</strong></span>
               </div>
               <div>
-                <span className="text-[#747878]">Reply-To: <strong className="text-[#1a1b22]">{user.email}</strong></span>
+                <span className="text-[#64748b]">Reply-To: <strong className="text-[#0f172a]">{user.email}</strong></span>
               </div>
-              <div className="pt-1 text-sm font-semibold text-[#1a1b22]">
+              <div className="pt-1 text-sm font-semibold text-[#0f172a]">
                 Subject: {previewEmail.subject}
               </div>
             </div>
