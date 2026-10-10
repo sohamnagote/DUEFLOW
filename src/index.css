@@ -208,6 +208,26 @@
   box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px #ba1a1a;
 }
 
+@media (max-width: 640px) {
+  /* Auto layout & comfortable touch targets for mobile buttons */
+  .btn-primary-pop,
+  .btn-secondary-pop,
+  .btn-action-primary,
+  .btn-action-secondary {
+    min-height: 44px;
+    padding-left: 1rem;
+    padding-right: 1rem;
+    font-size: 0.8125rem;
+    touch-action: manipulation;
+  }
+
+  /* Prevent text clipping / awkward wraps on mobile action buttons */
+  .btn-action-primary,
+  .btn-action-secondary {
+    white-space: nowrap;
+  }
+}
+
 @media (prefers-reduced-motion: reduce) {
   .btn-primary-pop,
   .btn-secondary-pop,

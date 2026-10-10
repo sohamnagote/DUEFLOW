@@ -101,20 +101,20 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         <div className="absolute -top-32 right-1/4 w-[480px] h-[480px] bg-[#bfebe6]/40 rounded-full blur-[100px] pointer-events-none opacity-60" />
         <div className="absolute top-1/2 left-1/3 w-[360px] h-[360px] bg-[#eae8e3]/60 rounded-full blur-[80px] pointer-events-none opacity-40" />
 
-        {/* Editorial Header Section */}
-        <section className="relative z-10 flex flex-col md:flex-row md:items-end justify-between gap-6 pb-8">
+        {/* Editorial Header Section with responsive auto layout */}
+        <section className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 pb-6 sm:pb-8">
           <div className="flex flex-col gap-1.5 max-w-xl">
             <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#15263c] tracking-tight">
               Invoices
             </h1>
-            <p className="text-base text-[#44474d] font-normal">
+            <p className="text-sm text-[#44474d] font-normal">
               Create and track invoices in their authentic currencies.
             </p>
           </div>
-          <div className="flex items-center gap-3">
+          <div className="flex items-center gap-3 w-full sm:w-auto">
             <button
               onClick={handleOpenNewModal}
-              className="btn-action-primary group inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-sm"
+              className="btn-action-primary group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium shadow-sm cursor-pointer"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px] text-[#fbf9f4] transition-transform duration-200 group-hover:rotate-90">
@@ -419,17 +419,17 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 />
               </div>
 
-              <div className="pt-3 flex justify-end gap-3 border-t border-[#15263c]/10">
+              <div className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 border-t border-[#15263c]/10">
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="btn-action-secondary px-4 py-2 text-xs font-semibold rounded-lg"
+                  className="btn-action-secondary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-action-primary px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm"
+                  className="btn-action-primary w-full sm:w-auto px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm"
                 >
                   Create Invoice
                 </button>

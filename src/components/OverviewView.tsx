@@ -45,11 +45,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </p>
           </div>
 
-          <div className="flex items-center gap-3 shrink-0">
+          <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
             {onClearData && (
               <button
                 onClick={onClearData}
-                className="btn-action-secondary text-xs text-[#74777d] hover:text-[#ba1a1a] px-3 py-2 rounded-lg"
+                className="btn-action-secondary w-full sm:w-auto text-xs text-[#74777d] hover:text-[#ba1a1a] px-3.5 py-2.5 rounded-lg justify-center"
                 title="Reset back to pristine empty state"
               >
                 Reset to empty state
@@ -57,7 +57,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             )}
             <button
               onClick={onNewInvoiceClick}
-              className="btn-action-primary text-sm font-semibold px-6 py-2.5 rounded-lg shadow-sm flex items-center gap-2"
+              className="btn-action-primary w-full sm:w-auto text-sm font-semibold px-6 py-2.5 rounded-lg shadow-sm flex items-center justify-center gap-2 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
               <span>New invoice</span>

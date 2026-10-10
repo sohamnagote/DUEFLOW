@@ -344,7 +344,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               onClick={handleSaveProfile}
               disabled={isSavingProfile}
-              className="btn-action-primary px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-start cursor-pointer"
+              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-stretch sm:self-start cursor-pointer"
             >
               {isSavingProfile ? 'Saving profile...' : 'Save profile'}
             </button>
@@ -564,7 +564,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               onClick={handleSavePayment}
               disabled={isSavingPayment}
-              className="btn-action-primary px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-start cursor-pointer"
+              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-stretch sm:self-start cursor-pointer"
             >
               {isSavingPayment ? 'Saving payment details...' : 'Save payment details'}
             </button>

@@ -404,26 +404,26 @@ export const LandingView: React.FC<LandingViewProps> = ({
               Create invoices, schedule reminders, and send professional follow-up emails through Gmail.
             </p>
 
-            {/* Phase E: CTA Actions with subtle staggered reveal */}
+            {/* Phase E: CTA Actions with responsive auto layout */}
             <div
-              className="flex items-center justify-center gap-4 sm:gap-5 mt-8 md:mt-10 transition-all duration-500 ease-out"
+              className="flex flex-col sm:flex-row items-stretch sm:items-center justify-center gap-3 sm:gap-5 mt-8 md:mt-10 w-full max-w-xs sm:max-w-none mx-auto transition-all duration-500 ease-out"
               style={{
                 opacity: prefersReducedMotion || ctaVisible ? 1 : 0,
                 transform: prefersReducedMotion || ctaVisible ? 'translateY(0px)' : 'translateY(8px)',
               }}
             >
-              {/* Primary Get Started button with tactile pop (no neon glow) */}
+              {/* Primary Get Started button with tactile pop */}
               <button
                 onClick={onGetStartedClick}
-                className="btn-primary-pop px-7 py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] inline-flex items-center justify-center cursor-pointer select-none"
+                className="btn-primary-pop w-full sm:w-auto px-7 py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] inline-flex items-center justify-center cursor-pointer select-none text-center"
               >
                 Get started
               </button>
 
-              {/* Secondary Sign In button beside Get Started (identifiable secondary button, matched height) */}
+              {/* Secondary Sign In button beside Get Started */}
               <button
                 onClick={onSignInClick}
-                className="btn-secondary-pop px-7 py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] inline-flex items-center justify-center cursor-pointer select-none"
+                className="btn-secondary-pop w-full sm:w-auto px-7 py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] inline-flex items-center justify-center cursor-pointer select-none text-center"
               >
                 Sign in
               </button>
@@ -644,7 +644,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
 
             {/* Get Started button revealed after heading */}
             <div
-              className="flex items-center justify-center gap-4 mt-4 transition-all"
+              className="flex items-center justify-center gap-4 mt-4 w-full max-w-xs sm:max-w-none transition-all"
               style={{
                 opacity: prefersReducedMotion || ctaSectionVisible ? 1 : 0,
                 transform: prefersReducedMotion || ctaSectionVisible ? 'translateY(0px)' : 'translateY(12px)',
@@ -655,7 +655,7 @@ export const LandingView: React.FC<LandingViewProps> = ({
             >
               <button
                 onClick={onGetStartedClick}
-                className="btn-primary-pop px-7 py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] inline-flex items-center justify-center cursor-pointer select-none"
+                className="btn-primary-pop w-full sm:w-auto px-7 py-3 rounded-full text-[11px] font-semibold uppercase tracking-[0.16em] inline-flex items-center justify-center cursor-pointer select-none text-center"
               >
                 GET STARTED
               </button>

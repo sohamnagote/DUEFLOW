@@ -40,8 +40,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] px-6 sm:px-14 py-8">
-      {/* Header (Exact Image 14) */}
-      <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-6 pb-8">
+      {/* Header (Exact Image 14 with mobile auto layout) */}
+      <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 pb-6 sm:pb-8">
         <div>
           <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] tracking-tight">
             Clients
@@ -52,7 +52,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
         </div>
         <button
           onClick={() => nameInputRef.current?.focus()}
-          className="btn-action-primary px-4 py-2 rounded-xl text-sm self-start sm:self-auto cursor-pointer"
+          className="btn-action-primary w-full sm:w-auto px-5 py-2.5 rounded-xl text-sm self-stretch sm:self-auto cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           <span>Add client</span>
@@ -237,7 +237,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               />
             </div>
 
-            <div className="pt-3 flex items-center justify-between border-t border-[#001126]/10">
+            <div className="pt-3 flex flex-col-reverse sm:flex-row sm:items-center justify-between gap-2.5 sm:gap-3 border-t border-[#001126]/10">
               <button
                 type="button"
                 onClick={() => {
@@ -247,13 +247,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   setBillingAddress('');
                   setInternalNotes('');
                 }}
-                className="btn-action-secondary px-4 py-2 text-xs font-semibold cursor-pointer"
+                className="btn-action-secondary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="btn-action-primary px-6 py-2.5 text-xs rounded-lg cursor-pointer"
+                className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-xs rounded-lg cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">check</span>
                 <span>Save client</span>

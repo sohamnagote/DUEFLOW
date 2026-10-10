@@ -237,7 +237,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
 
       {/* Section 1: Reminder Schedule */}
       <section className="space-y-4">
-        <div className="flex items-center justify-between">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
           <div>
             <h2 className="text-lg font-bold text-[#001126]">
               Reminder schedule
@@ -249,7 +249,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
           {rules.length > 0 && (
             <button
               onClick={() => setShowAddModal(true)}
-              className="btn-action-primary px-4 py-2 text-xs font-semibold rounded-lg shadow-sm"
+              className="btn-action-primary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-lg shadow-sm self-start sm:self-auto cursor-pointer"
             >
               + ADD REMINDER
             </button>
@@ -707,19 +707,19 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
               )}
 
               {/* Actions */}
-              <div className="pt-2 flex justify-end gap-2 border-t border-[#001126]/10">
+              <div className="pt-2 flex flex-col-reverse sm:flex-row justify-end gap-2.5 sm:gap-2 border-t border-[#001126]/10">
                 <button
                   type="button"
                   disabled={actionLoading}
                   onClick={() => setShowAddModal(false)}
-                  className="btn-action-secondary text-xs px-4 py-2 rounded-lg"
+                  className="btn-action-secondary w-full sm:w-auto text-xs px-4 py-2.5 rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
                   disabled={actionLoading}
-                  className="btn-action-primary text-xs px-5 py-2 rounded-lg shadow-sm font-semibold disabled:opacity-50"
+                  className="btn-action-primary w-full sm:w-auto text-xs px-5 py-2.5 rounded-lg shadow-sm font-semibold disabled:opacity-50 cursor-pointer"
                 >
                   {actionLoading ? 'Saving...' : 'Save Trigger'}
                 </button>

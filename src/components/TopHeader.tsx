@@ -213,7 +213,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           {/* Notifications Dropdown Panel */}
           {isNotificationsOpen && (
             <div
-              className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-4 z-50 animate-in fade-in slide-in-from-top-1"
+              className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-4 z-50 animate-in fade-in slide-in-from-top-1"
               role="dialog"
               aria-label="Notifications panel"
             >
@@ -320,7 +320,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           {/* Help Menu / Flyout */}
           {isHelpOpen && (
             <div
-              className="absolute right-0 top-full mt-2 w-80 sm:w-96 bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-5 z-50 animate-in fade-in slide-in-from-top-1"
+              className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-5 z-50 animate-in fade-in slide-in-from-top-1"
               role="dialog"
               aria-label="DueFlow guide"
             >
