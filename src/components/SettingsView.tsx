@@ -1,5 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../types';
+import { dueflowApi } from '../utils/api';
 
 interface SettingsViewProps {
   userProfile?: UserProfile;
@@ -10,24 +11,24 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   userProfile,
   onUpdateProfile,
 }) => {
-  const [fullName, setFullName] = useState(userProfile?.fullName || 'Alex Mercer');
-  const [email, setEmail] = useState(userProfile?.email || 'alex@dueflow.io');
+  const [fullName, setFullName] = useState(userProfile?.fullName || '');
+  const [email, setEmail] = useState(userProfile?.email || '');
   const [preferredCurrency, setPreferredCurrency] = useState<'INR' | 'USD'>(
     userProfile?.preferredCurrency || 'INR'
   );
   const [timezone, setTimezone] = useState(
-    userProfile?.timezone || '(UTC+00:00) Coordinated Universal Time (London)'
+    userProfile?.timezone || 'Asia/Kolkata'
   );
 
-  const [upiId, setUpiId] = useState(userProfile?.upiId || 'alexmercer@okaxis');
+  const [upiId, setUpiId] = useState(userProfile?.upiId || '');
   const [beneficiaryName, setBeneficiaryName] = useState(
-    userProfile?.beneficiaryName || 'Alex Mercer Design Studio LLC'
+    userProfile?.beneficiaryName || ''
   );
-  const [bankName, setBankName] = useState(userProfile?.bankName || 'Mercury Bank, San Francisco');
-  const [accountNumber, setAccountNumber] = useState(userProfile?.accountNumber || '987654321098');
-  const [routingNumber, setRoutingNumber] = useState(userProfile?.routingNumber || '121000358');
+  const [bankName, setBankName] = useState(userProfile?.bankName || '');
+  const [accountNumber, setAccountNumber] = useState(userProfile?.accountNumber || '');
+  const [routingNumber, setRoutingNumber] = useState(userProfile?.routingNumber || '');
   const [instructions, setInstructions] = useState(
-    userProfile?.paymentInstructions || 'Please include invoice number in the payment note'
+    userProfile?.paymentInstructions || ''
   );
 
   const [qrFile, setQrFile] = useState<string | null>(userProfile?.paymentQrUrl || null);
@@ -45,6 +46,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [paymentSaved, setPaymentSaved] = useState(false);
   const [paymentError, setPaymentError] = useState<string | null>(null);
 
+  // QR Code deletion state
+  const [showDeleteQrModal, setShowDeleteQrModal] = useState(false);
+  const [isDeletingQr, setIsDeletingQr] = useState(false);
+  const [isUploadingQr, setIsUploadingQr] = useState(false);
+  const [qrDeleteSuccess, setQrDeleteSuccess] = useState<string | null>(null);
+  const [qrDeleteError, setQrDeleteError] = useState<string | null>(null);
+
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
   // Load persisted user profile from backend database on mount
@@ -52,24 +60,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     let isMounted = true;
     const fetchProfile = async () => {
       try {
-        const res = await fetch('/api/user/profile');
-        if (!res.ok) throw new Error('Failed to load profile');
-        const data = await res.json();
-        if (data.success && data.profile && isMounted) {
-          const p = data.profile;
-          setFullName(p.fullName || 'Alex Mercer');
-          setEmail(p.email || 'alex@dueflow.io');
+        const p = await dueflowApi.getProfile();
+        if (isMounted && p) {
+          setFullName(p.fullName || '');
+          setEmail(p.email || '');
           if (p.preferredCurrency === 'USD' || p.preferredCurrency === 'INR') {
             setPreferredCurrency(p.preferredCurrency);
           }
           if (p.timezone) setTimezone(p.timezone);
-          if (p.upiId) setUpiId(p.upiId);
-          if (p.beneficiaryName) setBeneficiaryName(p.beneficiaryName);
-          if (p.bankName) setBankName(p.bankName);
-          if (p.accountNumber) setAccountNumber(p.accountNumber);
-          if (p.routingNumber) setRoutingNumber(p.routingNumber);
-          if (p.paymentInstructions) setInstructions(p.paymentInstructions);
-          if (p.paymentQrUrl) setQrFile(p.paymentQrUrl);
+          setUpiId(p.upiId || '');
+          setBeneficiaryName(p.beneficiaryName || '');
+          setBankName(p.bankName || '');
+          setAccountNumber(p.accountNumber || '');
+          setRoutingNumber(p.routingNumber || '');
+          setInstructions(p.paymentInstructions || '');
+          setQrFile(p.paymentQrUrl || null);
           if (typeof p.gmailConnected === 'boolean') setGmailConnected(p.gmailConnected);
           if (typeof p.automatedRemindersEnabled === 'boolean') {
             setAutomatedReminders(p.automatedRemindersEnabled);
@@ -93,38 +98,38 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setProfileError(null);
     setProfileSaved(false);
 
-    const payload = {
-      fullName,
-      email,
-      preferredCurrency,
-      timezone,
-    };
-
     try {
-      const res = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      await dueflowApi.updateProfile({
+        fullName,
+        email,
+        preferredCurrency,
+        timezone,
       });
 
-      if (!res.ok) {
-        const errData = await res.json().catch(() => ({}));
-        throw new Error(errData.error || `Server responded with status ${res.status}`);
-      }
-
-      const data = await res.json();
-      if (!data.success) {
-        throw new Error(data.error || 'Failed to save changes');
-      }
+      const updatedProfile: UserProfile = {
+        fullName,
+        email,
+        preferredCurrency,
+        timezone,
+        upiId,
+        beneficiaryName,
+        bankName,
+        accountNumber,
+        routingNumber,
+        paymentInstructions: instructions,
+        paymentQrUrl: qrFile,
+        gmailConnected,
+        automatedRemindersEnabled: automatedReminders,
+      };
 
       setProfileSaved(true);
-      if (onUpdateProfile && data.profile) {
-        onUpdateProfile(data.profile);
+      if (onUpdateProfile) {
+        onUpdateProfile(updatedProfile);
       }
       setTimeout(() => setProfileSaved(false), 3500);
     } catch (err: any) {
       console.error('Failed to save profile:', err);
-      setProfileError(err.message || 'Network error saving profile. Please try again.');
+      setProfileError(err.message || 'Error saving profile. Please check connection and try again.');
     } finally {
       setIsSavingProfile(false);
     }
@@ -135,49 +140,97 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     setPaymentError(null);
     setPaymentSaved(false);
 
-    const payload = {
-      upiId,
-      beneficiaryName,
-      bankName,
-      accountNumber,
-      routingNumber,
-      paymentInstructions: instructions,
-      paymentQrUrl: qrFile,
-    };
-
     try {
-      const res = await fetch('/api/user/profile', {
-        method: 'PUT',
-        headers: { 'Content-Type': 'application/json' },
-        body: JSON.stringify(payload),
+      await dueflowApi.updateProfile({
+        upiId,
+        beneficiaryName,
+        bankName,
+        accountNumber,
+        routingNumber,
+        paymentInstructions: instructions,
+        paymentQrUrl: qrFile,
       });
 
-      if (!res.ok) {
-        throw new Error('Failed to save payment configuration');
-      }
+      const updatedProfile: UserProfile = {
+        fullName,
+        email,
+        preferredCurrency,
+        timezone,
+        upiId,
+        beneficiaryName,
+        bankName,
+        accountNumber,
+        routingNumber,
+        paymentInstructions: instructions,
+        paymentQrUrl: qrFile,
+        gmailConnected,
+        automatedRemindersEnabled: automatedReminders,
+      };
 
-      const data = await res.json();
       setPaymentSaved(true);
-      if (onUpdateProfile && data.profile) {
-        onUpdateProfile(data.profile);
+      if (onUpdateProfile) {
+        onUpdateProfile(updatedProfile);
       }
       setTimeout(() => setPaymentSaved(false), 3500);
     } catch (err: any) {
       console.error('Failed to save payment details:', err);
-      setPaymentError(err.message || 'Error saving payment details.');
+      setPaymentError(err.message || 'Error saving payment details. Please check connection and try again.');
     } finally {
       setIsSavingPayment(false);
     }
   };
 
-  const handleQrUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+  // Keyboard shortcut listener to close delete confirmation modal on Escape
+  useEffect(() => {
+    const handleKeyDown = (e: KeyboardEvent) => {
+      if (e.key === 'Escape' && showDeleteQrModal && !isDeletingQr) {
+        setShowDeleteQrModal(false);
+        setQrDeleteError(null);
+      }
+    };
+    window.addEventListener('keydown', handleKeyDown);
+    return () => window.removeEventListener('keydown', handleKeyDown);
+  }, [showDeleteQrModal, isDeletingQr]);
+
+  const handleQrUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
     const file = e.target.files?.[0];
     if (file) {
-      const reader = new FileReader();
-      reader.onload = (event) => {
-        setQrFile(event.target?.result as string);
-      };
-      reader.readAsDataURL(file);
+      setIsUploadingQr(true);
+      setQrDeleteSuccess(null);
+      setQrDeleteError(null);
+      try {
+        const res = await dueflowApi.uploadQrCode(file);
+        setQrFile(res.qrCodeUrl);
+        setQrDeleteSuccess('Payment QR code uploaded and persisted successfully.');
+        setTimeout(() => setQrDeleteSuccess(null), 3500);
+      } catch (err: any) {
+        console.error('Failed to upload QR code:', err);
+        setQrDeleteError(err.message || 'Failed to upload QR code. Please try again.');
+      } finally {
+        setIsUploadingQr(false);
+      }
+    }
+  };
+
+  const handleConfirmDeleteQr = async () => {
+    if (isDeletingQr) return;
+    setIsDeletingQr(true);
+    setQrDeleteError(null);
+
+    try {
+      await dueflowApi.deleteQrCode();
+      setQrFile(null);
+      if (fileInputRef.current) {
+        fileInputRef.current.value = '';
+      }
+      setShowDeleteQrModal(false);
+      setQrDeleteSuccess('Payment QR code deleted successfully.');
+      setTimeout(() => setQrDeleteSuccess(null), 4000);
+    } catch (err: any) {
+      console.error('Error deleting payment QR code:', err);
+      setQrDeleteError(err.message || 'Failed to delete payment QR code. Please try again.');
+    } finally {
+      setIsDeletingQr(false);
     }
   };
 
@@ -245,6 +298,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
+                placeholder="e.g. Acme Studio LLC"
                 className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 text-xs text-[#001126] rounded border border-transparent focus:border-[#001126] focus:bg-[#ffffff] outline-none"
               />
             </div>
@@ -256,6 +310,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
+                placeholder="e.g. billing@acme.com"
                 className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 text-xs text-[#001126] rounded border border-transparent focus:border-[#001126] focus:bg-[#ffffff] outline-none"
               />
             </div>
@@ -289,7 +344,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               onClick={handleSaveProfile}
               disabled={isSavingProfile}
-              className="px-6 py-2.5 bg-[#15263c] text-[#fbf9f4] text-[11px] font-semibold uppercase tracking-[0.14em] rounded-[6px] hover:bg-[#001126] transition-all disabled:opacity-50 self-start"
+              className="btn-action-primary px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-start cursor-pointer"
             >
               {isSavingProfile ? 'Saving profile...' : 'Save profile'}
             </button>
@@ -344,6 +399,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="text"
                 value={beneficiaryName}
                 onChange={(e) => setBeneficiaryName(e.target.value)}
+                placeholder="e.g. Acme Studio LLC"
                 className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 text-xs text-[#001126] rounded border border-transparent focus:border-[#001126] focus:bg-[#ffffff] outline-none"
               />
             </div>
@@ -363,6 +419,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
+                  placeholder="e.g. HDFC Bank, Mumbai"
                   className="w-full px-3 py-2 bg-[#ffffff] text-xs text-[#001126] rounded border border-[#001126]/10 outline-none"
                 />
               </div>
@@ -374,6 +431,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
+                  placeholder="e.g. 0123456789"
                   className="w-full px-3 py-2 bg-[#ffffff] text-xs text-[#001126] rounded border border-[#001126]/10 outline-none"
                 />
               </div>
@@ -385,6 +443,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                   type="text"
                   value={routingNumber}
                   onChange={(e) => setRoutingNumber(e.target.value)}
+                  placeholder="e.g. HDFC0001234"
                   className="w-full px-3 py-2 bg-[#ffffff] text-xs text-[#001126] rounded border border-[#001126]/10 outline-none"
                 />
               </div>
@@ -400,12 +459,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               type="text"
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
+              placeholder="e.g. Please include invoice number in the payment note"
               className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 text-xs text-[#001126] rounded border border-transparent focus:border-[#001126] focus:bg-[#ffffff] outline-none"
             />
           </div>
 
           {/* Payment QR code */}
-          <div className="space-y-1.5">
+          <div className="space-y-2">
             <span className="text-xs font-bold text-[#001126] block">
               Payment QR code
             </span>
@@ -421,36 +481,90 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="hidden"
             />
 
-            <div
-              onClick={() => fileInputRef.current?.click()}
-              className="border border-dashed border-[#001126]/20 hover:border-[#001126]/40 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-[#fbf9f4]/50"
-            >
-              {qrFile ? (
-                <div className="flex flex-col items-center gap-2">
-                  <img src={qrFile} alt="Payment QR Code" className="w-28 h-28 object-contain rounded-lg shadow-2xs" />
-                  <span className="text-xs text-[#3d6562] font-semibold">QR Image Loaded • Click to replace</span>
+            {qrFile ? (
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-5 p-5 bg-[#ffffff] rounded-xl border border-[#001126]/10 shadow-2xs">
+                <div className="relative group shrink-0">
+                  <img
+                    src={qrFile}
+                    alt="Payment QR Code Preview"
+                    className="w-32 h-32 object-contain rounded-lg border border-[#001126]/10 bg-[#fbf9f4] p-1.5 shadow-2xs"
+                  />
                 </div>
-              ) : (
-                <>
-                  <div className="w-8 h-8 rounded bg-[#f0eee9] flex items-center justify-center mb-2 text-[#44474d]">
-                    <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                <div className="flex flex-col justify-between self-stretch py-1 text-center sm:text-left">
+                  <div>
+                    <div className="flex items-center justify-center sm:justify-start gap-2 text-xs font-bold text-[#001126]">
+                      <span className="material-symbols-outlined text-[18px] text-[#3d6562]">qr_code_scanner</span>
+                      <span>Payment QR code active</span>
+                    </div>
+                    <p className="text-xs text-[#44474d] mt-1 max-w-sm leading-relaxed">
+                      This QR code is attached to your invoices and payment reminder emails for instant scanning.
+                    </p>
                   </div>
-                  <span className="text-xs font-semibold text-[#001126]">
-                    Upload QR image (PNG, JPEG, WebP)
-                  </span>
-                  <span className="font-['Space_Mono'] text-[9px] uppercase tracking-wider text-[#44474d]/70 mt-1">
-                    MAX FILE SIZE 5MB • 1:1 ASPECT RATIO RECOMMENDED
-                  </span>
-                </>
-              )}
-            </div>
+
+                  {/* Two clearly distinguishable actions: Replace QR code and Delete QR code */}
+                  <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4 pt-3 border-t border-[#001126]/5">
+                    <button
+                      type="button"
+                      onClick={() => fileInputRef.current?.click()}
+                      className="btn-action-secondary inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg cursor-pointer"
+                      title="Upload a new QR image to replace the current one"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">sync</span>
+                      <span>Replace QR code</span>
+                    </button>
+
+                    <button
+                      type="button"
+                      disabled={isDeletingQr}
+                      onClick={() => {
+                        setQrDeleteError(null);
+                        setShowDeleteQrModal(true);
+                      }}
+                      className="btn-action-danger inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-[#ba1a1a]/30 text-[#ba1a1a] bg-transparent hover:bg-[#ba1a1a]/10 hover:border-[#ba1a1a]/50 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
+                      title="Remove this QR code from payment details"
+                    >
+                      <span className="material-symbols-outlined text-[16px]">delete</span>
+                      <span>Delete QR code</span>
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => fileInputRef.current?.click()}
+                className="border border-dashed border-[#001126]/20 hover:border-[#001126]/40 rounded-xl p-8 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-[#fbf9f4]/50"
+              >
+                <div className="w-8 h-8 rounded bg-[#f0eee9] flex items-center justify-center mb-2 text-[#44474d]">
+                  <span className="material-symbols-outlined text-[18px]">upload_file</span>
+                </div>
+                <span className="text-xs font-semibold text-[#001126]">
+                  Upload QR image (PNG, JPEG, WebP)
+                </span>
+                <span className="font-['Space_Mono'] text-[9px] uppercase tracking-wider text-[#44474d]/70 mt-1">
+                  MAX FILE SIZE 5MB • 1:1 ASPECT RATIO RECOMMENDED
+                </span>
+              </div>
+            )}
+
+            {qrDeleteSuccess && (
+              <span className="text-xs text-[#3d6562] font-semibold flex items-center gap-1.5 animate-fade-in pt-1">
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                {qrDeleteSuccess}
+              </span>
+            )}
+            {qrDeleteError && !showDeleteQrModal && (
+              <span className="text-xs text-[#ba1a1a] font-semibold flex items-center gap-1.5 animate-fade-in pt-1">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                {qrDeleteError}
+              </span>
+            )}
           </div>
 
           <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-3">
             <button
               onClick={handleSavePayment}
               disabled={isSavingPayment}
-              className="px-6 py-2.5 bg-[#15263c] text-[#fbf9f4] text-[11px] font-semibold uppercase tracking-[0.14em] rounded-[6px] hover:bg-[#001126] transition-all disabled:opacity-50 self-start"
+              className="btn-action-primary px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-start cursor-pointer"
             >
               {isSavingPayment ? 'Saving payment details...' : 'Save payment details'}
             </button>
@@ -488,7 +602,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center gap-2">
               <div className={`w-2 h-2 rounded-full ${gmailConnected ? 'bg-[#3d6562]' : 'bg-[#c4c6cd]'}`} />
               <span className="font-['Space_Mono'] text-[10px] text-[#44474d]">
-                {gmailConnected ? 'Connected (alex@dueflow.io)' : 'Not connected'}
+                {gmailConnected ? (email ? `Connected (${email})` : 'Connected') : 'Not connected'}
               </span>
             </div>
             <p className="text-xs text-[#44474d] max-w-md">
@@ -498,7 +612,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           <button
             onClick={() => setGmailConnected(!gmailConnected)}
-            className="inline-flex items-center gap-2.5 px-4 py-2.5 bg-[#ffffff] border border-[#001126]/10 rounded-lg text-xs font-semibold text-[#001126] hover:bg-[#f5f3ee] transition-all shadow-2xs shrink-0 self-start sm:self-auto"
+            className="btn-action-secondary px-4 py-2.5 text-xs font-semibold shrink-0 self-start sm:self-auto cursor-pointer"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -561,6 +675,80 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </p>
         </div>
       </div>
+
+      {/* Delete Payment QR Code Confirmation Dialog */}
+      {showDeleteQrModal && (
+        <div
+          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+          onClick={() => {
+            if (!isDeletingQr) {
+              setShowDeleteQrModal(false);
+              setQrDeleteError(null);
+            }
+          }}
+          role="dialog"
+          aria-modal="true"
+          aria-labelledby="delete-qr-dialog-title"
+        >
+          <div
+            className="bg-[#ffffff] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-xl border border-[#001126]/10 animate-in zoom-in-95 duration-200"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-start gap-3.5">
+              <div className="w-10 h-10 rounded-full bg-[#ffdad6]/60 text-[#ba1a1a] flex items-center justify-center shrink-0">
+                <span className="material-symbols-outlined text-[20px]">delete_forever</span>
+              </div>
+              <div className="space-y-1 min-w-0">
+                <h3 id="delete-qr-dialog-title" className="text-base font-bold text-[#001126]">
+                  Delete payment QR code?
+                </h3>
+                <p className="text-xs text-[#44474d] leading-relaxed">
+                  Your QR code will be removed from your payment details and will no longer appear on future invoices or reminders.
+                </p>
+              </div>
+            </div>
+
+            {qrDeleteError && (
+              <div className="p-3 rounded-lg bg-[#ffdad6]/30 border border-[#ba1a1a]/20 text-xs text-[#ba1a1a] flex items-center gap-2">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                <span>{qrDeleteError}</span>
+              </div>
+            )}
+
+            <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#001126]/5">
+              <button
+                type="button"
+                disabled={isDeletingQr}
+                onClick={() => {
+                  setShowDeleteQrModal(false);
+                  setQrDeleteError(null);
+                }}
+                className="btn-action-secondary px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer disabled:opacity-50"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                disabled={isDeletingQr}
+                onClick={handleConfirmDeleteQr}
+                className="btn-action-danger inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#ba1a1a] text-white hover:bg-[#93000a] active:scale-[0.98] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+              >
+                {isDeletingQr ? (
+                  <>
+                    <span className="material-symbols-outlined text-[15px] animate-spin">progress_activity</span>
+                    <span>Deleting...</span>
+                  </>
+                ) : (
+                  <>
+                    <span className="material-symbols-outlined text-[16px]">delete</span>
+                    <span>Delete QR code</span>
+                  </>
+                )}
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
     </div>
   );
 };

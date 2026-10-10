@@ -1,4 +1,4 @@
-import React, { useState } from 'react';
+import React, { useState, useRef } from 'react';
 import { Client } from '../types';
 
 interface ClientsViewProps {
@@ -17,6 +17,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [phone, setPhone] = useState('');
   const [billingAddress, setBillingAddress] = useState('');
   const [internalNotes, setInternalNotes] = useState('');
+  const nameInputRef = useRef<HTMLInputElement>(null);
 
   const handleSubmit = (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,11 +51,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           </p>
         </div>
         <button
-          onClick={() => {
-            setName('Acme Studio');
-            setEmail('billing@acme.com');
-          }}
-          className="inline-flex items-center gap-2 bg-[#001126] text-[#ffffff] px-4 py-2 rounded-xl text-sm font-semibold hover:bg-[#15263c] transition-all shadow-sm self-start sm:self-auto"
+          onClick={() => nameInputRef.current?.focus()}
+          className="btn-action-primary px-4 py-2 rounded-xl text-sm self-start sm:self-auto cursor-pointer"
         >
           <span className="material-symbols-outlined text-[18px]">add</span>
           <span>Add client</span>
@@ -105,11 +103,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </p>
 
               <button
-                onClick={() => {
-                  setName('Acme Studio');
-                  setEmail('billing@acme.com');
-                }}
-                className="inline-flex items-center gap-2 bg-[#001126] text-[#ffffff] px-5 py-2.5 rounded-xl text-xs font-semibold uppercase tracking-[0.14em] hover:bg-[#15263c] transition-all shadow-sm"
+                onClick={() => nameInputRef.current?.focus()}
+                className="btn-action-primary px-5 py-2.5 rounded-xl text-xs uppercase tracking-[0.14em] cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">person_add</span>
                 <span>Add your first client</span>
@@ -134,7 +129,8 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   </div>
                   <button
                     onClick={() => onDeleteClient(c.id)}
-                    className="text-[#74777d] hover:text-[#ba1a1a] p-1"
+                    className="btn-action-danger p-1.5 rounded-lg cursor-pointer"
+                    title="Delete client"
                   >
                     <span className="material-symbols-outlined text-[16px]">delete</span>
                   </button>
@@ -169,6 +165,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 CLIENT OR COMPANY NAME *
               </label>
               <input
+                ref={nameInputRef}
                 type="text"
                 value={name}
                 onChange={(e) => setName(e.target.value)}
@@ -250,13 +247,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   setBillingAddress('');
                   setInternalNotes('');
                 }}
-                className="text-xs font-semibold text-[#44474d] hover:text-[#001126]"
+                className="btn-action-secondary px-4 py-2 text-xs font-semibold cursor-pointer"
               >
                 Cancel
               </button>
               <button
                 type="submit"
-                className="px-6 py-2.5 bg-[#001126] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c] transition-all flex items-center gap-1.5 shadow-sm"
+                className="btn-action-primary px-6 py-2.5 text-xs rounded-lg cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[16px]">check</span>
                 <span>Save client</span>

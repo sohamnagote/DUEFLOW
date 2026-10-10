@@ -160,8 +160,7 @@ This is a gentle reminder that invoice {{invoice_number}} for {{total_amount}} i
 
 You can review payment details attached or scan the payment QR code below. Let me know if you have any questions!
 
-Warmly,
-Alex Mercer`,
+Warmly,`,
   },
   professional: {
     tone: 'professional',
@@ -172,8 +171,7 @@ This is a reminder that invoice {{invoice_number}} for {{total_amount}} is due o
 
 You can review payment details attached or scan the payment QR code.
 
-Thank you,
-Alex Mercer`,
+Thank you,`,
   },
   firm: {
     tone: 'firm',
@@ -184,24 +182,24 @@ According to our records, payment for invoice {{invoice_number}} totaling {{tota
 
 Please settle the outstanding balance using the payment instructions or QR code attached at your earliest convenience.
 
-Best regards,
-Alex Mercer`,
+Best regards,`,
   },
 };
 
 export const INITIAL_USER_PROFILE: UserProfile = {
-  fullName: 'Alex Mercer',
-  email: 'alex@dueflow.io',
+  fullName: '',
+  email: '',
   preferredCurrency: 'INR',
   timezone: '(UTC+00:00) Coordinated Universal Time (London)',
-  upiId: 'alexmercer@okaxis',
-  beneficiaryName: 'Alex Mercer Design Studio LLC',
-  bankName: 'Mercury Bank, San Francisco',
-  accountNumber: '987654321098',
-  routingNumber: '121000358',
-  paymentInstructions: 'Please include invoice number in the payment reference note.',
-  paymentQrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=upi://pay?pa=alexmercer@okaxis&pn=AlexMercer',
+  upiId: '',
+  beneficiaryName: '',
+  bankName: '',
+  accountNumber: '',
+  routingNumber: '',
+  paymentInstructions: '',
+  paymentQrUrl: '',
   gmailConnected: false,
   gmailEmail: undefined,
   automatedRemindersEnabled: true,
 };
+

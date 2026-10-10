@@ -8,7 +8,6 @@ interface OverviewViewProps {
   userPreferredCurrency?: string;
   onNewInvoiceClick: () => void;
   onAddClientClick: () => void;
-  onLoadSampleData?: () => void;
   onClearData?: () => void;
   onNavigateToInvoices?: () => void;
   onNavigateToClients?: () => void;
@@ -21,7 +20,6 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   userPreferredCurrency = 'INR',
   onNewInvoiceClick,
   onAddClientClick,
-  onLoadSampleData,
   onClearData,
   onNavigateToInvoices,
   onNavigateToClients,
@@ -51,7 +49,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             {onClearData && (
               <button
                 onClick={onClearData}
-                className="text-xs text-[#74777d] hover:text-[#ba1a1a] px-3 py-2 border border-[#001126]/10 rounded-lg hover:bg-[#f5f3ee] transition-all"
+                className="btn-action-secondary text-xs text-[#74777d] hover:text-[#ba1a1a] px-3 py-2 rounded-lg"
                 title="Reset back to pristine empty state"
               >
                 Reset to empty state
@@ -59,7 +57,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             )}
             <button
               onClick={onNewInvoiceClick}
-              className="bg-[#001126] text-[#ffffff] text-sm font-semibold px-6 py-2.5 rounded-lg hover:bg-[#15263c] transition-all shadow-sm flex items-center gap-2"
+              className="btn-action-primary text-sm font-semibold px-6 py-2.5 rounded-lg shadow-sm flex items-center gap-2"
             >
               <span className="material-symbols-outlined text-[18px]">add</span>
               <span>New invoice</span>
@@ -244,27 +242,42 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
 
             <div className="space-y-2.5">
-              <div className="p-3 bg-[#f5f3ee] rounded-xl flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-[#001126]">Acme Corp • INV-2024-001</h4>
-                  <p className="font-['Space_Mono'] text-[10px] text-[#74777d]">Due in 2 days • Scheduled tomorrow 9:00 AM</p>
-                </div>
-                <span className="font-['Space_Mono'] text-[9px] uppercase px-2 py-0.5 rounded bg-[#001126]/8 text-[#001126]">Queued</span>
-              </div>
-              <div className="p-3 bg-[#f5f3ee] rounded-xl flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-[#001126]">Stellar Labs • INV-2024-003</h4>
-                  <p className="font-['Space_Mono'] text-[10px] text-[#74777d]">Due today • Scheduled today 2:00 PM</p>
-                </div>
-                <span className="font-['Space_Mono'] text-[9px] uppercase px-2 py-0.5 rounded bg-[#001126]/8 text-[#001126]">Queued</span>
-              </div>
-              <div className="p-3 bg-[#f5f3ee] rounded-xl flex items-center justify-between">
-                <div>
-                  <h4 className="text-xs font-semibold text-[#001126]">Nexus Studio • INV-2024-000</h4>
-                  <p className="font-['Space_Mono'] text-[10px] text-[#74777d]">Overdue by 3 days • Sent yesterday</p>
-                </div>
-                <span className="font-['Space_Mono'] text-[9px] uppercase px-2 py-0.5 rounded bg-[#001126] text-white">Sent</span>
-              </div>
+              {(() => {
+                const pendingReminders = invoices.filter(
+                  (inv) => inv.status === 'pending' || inv.status === 'overdue'
+                );
+                if (pendingReminders.length === 0) {
+                  return (
+                    <div className="p-5 bg-[#f5f3ee] rounded-xl text-center">
+                      <p className="text-xs text-[#74777d]">No active reminders queued</p>
+                      <p className="text-[10px] text-[#74777d]/80 mt-0.5">
+                        Reminders queue when unpaid invoices are created.
+                      </p>
+                    </div>
+                  );
+                }
+                return pendingReminders.slice(0, 4).map((inv) => (
+                  <div key={inv.id} className="p-3 bg-[#f5f3ee] rounded-xl flex items-center justify-between">
+                    <div>
+                      <h4 className="text-xs font-semibold text-[#001126]">
+                        {inv.clientName || 'Client'} • {inv.invoiceNumber}
+                      </h4>
+                      <p className="font-['Space_Mono'] text-[10px] text-[#74777d]">
+                        {inv.status === 'overdue' ? `Overdue • Due ${inv.dueDate}` : `Due ${inv.dueDate}`}
+                      </p>
+                    </div>
+                    <span
+                      className={`font-['Space_Mono'] text-[9px] uppercase px-2 py-0.5 rounded ${
+                        inv.status === 'overdue'
+                          ? 'bg-[#ba1a1a]/10 text-[#ba1a1a]'
+                          : 'bg-[#001126]/8 text-[#001126]'
+                      }`}
+                    >
+                      {inv.status === 'overdue' ? 'Overdue' : 'Queued'}
+                    </span>
+                  </div>
+                ));
+              })()}
             </div>
           </div>
         </div>
@@ -283,17 +296,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </h1>
         </div>
         <div className="flex items-center gap-3">
-          {onLoadSampleData && (
-            <button
-              onClick={onLoadSampleData}
-              className="text-xs font-medium text-[#44474d] hover:text-[#001126] px-4 py-2 rounded-lg border border-[#001126]/10 hover:bg-[#f5f3ee] transition-all"
-            >
-              Load sample data
-            </button>
-          )}
           <button
             onClick={onNewInvoiceClick}
-            className="bg-[#001126] text-[#ffffff] text-sm font-semibold px-7 py-2.5 rounded-lg hover:bg-[#15263c] transition-all shadow-sm flex items-center gap-2"
+            className="btn-action-primary text-sm font-semibold px-7 py-2.5 rounded-lg shadow-sm flex items-center gap-2"
           >
             <span className="material-symbols-outlined text-[18px]">add</span>
             <span>New invoice</span>
@@ -372,13 +377,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         <div className="flex flex-col sm:flex-row items-center gap-4 w-full justify-center">
           <button
             onClick={onNewInvoiceClick}
-            className="w-full sm:w-auto bg-[#001126] text-[#ffffff] text-sm font-semibold px-8 py-3 rounded-lg hover:bg-[#15263c] transition-all shadow-sm"
+            className="btn-action-primary w-full sm:w-auto text-sm font-semibold px-8 py-3 rounded-lg shadow-sm"
           >
             Create your first invoice
           </button>
           <button
             onClick={onAddClientClick}
-            className="text-sm text-[#3d6562] hover:text-[#244d4a] transition-all underline underline-offset-4 decoration-1 py-2 px-4"
+            className="text-sm text-[#3d6562] hover:text-[#244d4a] transition-all underline underline-offset-4 decoration-1 py-2 px-4 hover:opacity-90 active:scale-[0.98] inline-block"
           >
             Add a client first
           </button>

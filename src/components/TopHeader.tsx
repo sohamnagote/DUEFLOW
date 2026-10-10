@@ -8,6 +8,7 @@ interface TopHeaderProps {
   onOpenMobileSidebar: () => void;
   onOpenLandingPage: () => void;
   onOpenSettings?: () => void;
+  onSwitchAccount?: () => void;
   onSignOut?: () => void;
   onNavigateToTab?: (tab: DueflowTab) => void;
   invoices?: Invoice[];
@@ -28,6 +29,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   onOpenMobileSidebar,
   onOpenLandingPage,
   onOpenSettings,
+  onSwitchAccount,
   onSignOut,
   onNavigateToTab,
   invoices = [],
@@ -41,6 +43,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   const notificationsRef = useRef<HTMLDivElement>(null);
   const helpRef = useRef<HTMLDivElement>(null);
   const profileRef = useRef<HTMLDivElement>(null);
+  const profileCloseTimeoutRef = useRef<ReturnType<typeof setTimeout> | null>(null);
+
+  const handleProfileMouseEnter = () => {
+    if (profileCloseTimeoutRef.current) {
+      clearTimeout(profileCloseTimeoutRef.current);
+      profileCloseTimeoutRef.current = null;
+    }
+    setIsProfileOpen(true);
+  };
+
+  const handleProfileMouseLeave = () => {
+    profileCloseTimeoutRef.current = setTimeout(() => {
+      setIsProfileOpen(false);
+    }, 180);
+  };
 
   // Close menus on outside click
   useEffect(() => {
@@ -70,6 +87,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     return () => {
       document.removeEventListener('mousedown', handlePointerDown);
       document.removeEventListener('keydown', handleKeyDown);
+      if (profileCloseTimeoutRef.current) clearTimeout(profileCloseTimeoutRef.current);
     };
   }, []);
 
@@ -119,8 +137,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
     return list;
   }, [invoices]);
 
-  const userName = userProfile?.fullName || 'Alex Mercer';
-  const userEmail = userProfile?.email || 'alex@dueflow.io';
+  const userName = userProfile?.fullName || 'User';
+  const userEmail = userProfile?.email || 'Not configured';
   const userCurrency = userProfile?.preferredCurrency || 'INR';
 
   const tabLabels: Record<DueflowTab, string> = {
@@ -416,15 +434,20 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           )}
         </div>
 
-        {/* 3. Functional Profile Menu per Requirement 7 & Screenshot 5 */}
-        <div className="relative" ref={profileRef}>
+        {/* 3. Functional Profile Menu with Hover & Click toggle (No cyan glow) */}
+        <div
+          className="relative"
+          ref={profileRef}
+          onMouseEnter={handleProfileMouseEnter}
+          onMouseLeave={handleProfileMouseLeave}
+        >
           <button
             onClick={() => {
               setIsProfileOpen(!isProfileOpen);
               setIsNotificationsOpen(false);
               setIsHelpOpen(false);
             }}
-            className="w-8 h-8 rounded-full bg-[#001126] flex items-center justify-center cursor-pointer shadow-xs hover:bg-[#15263c] transition-colors focus:ring-2 focus:ring-[#9ec9c4]"
+            className="w-8 h-8 rounded-full bg-[#001126] hover:bg-[#15263c] flex items-center justify-center cursor-pointer shadow-xs transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#001126]/20 border border-transparent hover:border-[#001126]/20"
             aria-label="User account menu"
             aria-expanded={isProfileOpen}
             aria-haspopup="true"
@@ -436,60 +459,74 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           {/* Profile Dropdown Menu */}
           {isProfileOpen && (
             <div
-              className="absolute right-0 top-full mt-2 w-64 bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-3 z-50 animate-in fade-in slide-in-from-top-1"
+              className="absolute right-0 top-full pt-2 z-50 animate-in fade-in slide-in-from-top-1 duration-200"
               role="menu"
               aria-label="Account options"
             >
-              {/* User Identity Info */}
-              <div className="p-3 bg-[#fbf9f4] rounded-xl border border-[#001126]/5 mb-2">
-                <div className="flex items-center gap-2.5">
-                  <div className="w-8 h-8 rounded-full bg-[#001126] text-[#ffffff] flex items-center justify-center font-bold text-xs">
-                    {userName.charAt(0)}
+              <div className="w-64 bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-3">
+                {/* User Identity Info */}
+                <div className="p-3 bg-[#fbf9f4] rounded-xl border border-[#001126]/5 mb-2">
+                  <div className="flex items-center gap-2.5">
+                    <div className="w-8 h-8 rounded-full bg-[#001126] text-[#ffffff] flex items-center justify-center font-bold text-xs shrink-0">
+                      {userName.charAt(0).toUpperCase()}
+                    </div>
+                    <div className="min-w-0">
+                      <p className="text-sm font-bold text-[#001126] truncate">{userName}</p>
+                      <p className="font-['Space_Mono'] text-[10px] text-[#74777d] truncate">{userEmail}</p>
+                    </div>
                   </div>
-                  <div className="min-w-0">
-                    <p className="text-sm font-bold text-[#001126] truncate">{userName}</p>
-                    <p className="font-['Space_Mono'] text-[10px] text-[#74777d] truncate">{userEmail}</p>
+                  <div className="mt-2.5 pt-2 border-t border-[#001126]/5 flex items-center justify-between text-[10px]">
+                    <span className="text-[#74777d]">Preferred currency:</span>
+                    <span className="font-semibold text-[#001126]">
+                      {userCurrency === 'INR' ? 'Indian Rupee (INR ₹)' : 'US Dollar (USD $)'}
+                    </span>
                   </div>
                 </div>
-                <div className="mt-2.5 pt-2 border-t border-[#001126]/5 flex items-center justify-between text-[10px]">
-                  <span className="text-[#74777d]">Preferred currency:</span>
-                  <span className="font-semibold text-[#001126]">
-                    {userCurrency === 'INR' ? 'Indian Rupee (INR ₹)' : 'US Dollar (USD $)'}
-                  </span>
+
+                {/* Action Buttons */}
+                <div className="space-y-1">
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      if (onOpenSettings) onOpenSettings();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    role="menuitem"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#44474d]">tune</span>
+                    <span>Settings</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      if (onSwitchAccount) onSwitchAccount();
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    role="menuitem"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#44474d]">switch_account</span>
+                    <span>Switch account</span>
+                  </button>
+
+                  <div className="border-t border-[#001126]/10 my-1" />
+
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      if (onSignOut) {
+                        onSignOut();
+                      } else {
+                        onOpenLandingPage();
+                      }
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    role="menuitem"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">logout</span>
+                    <span>Sign out</span>
+                  </button>
                 </div>
-              </div>
-
-              {/* Action Buttons */}
-              <div className="space-y-1">
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    if (onOpenSettings) onOpenSettings();
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left"
-                  role="menuitem"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[#44474d]">tune</span>
-                  <span>Settings</span>
-                </button>
-
-                <div className="border-t border-[#001126]/10 my-1" />
-
-                <button
-                  onClick={() => {
-                    setIsProfileOpen(false);
-                    if (onSignOut) {
-                      onSignOut();
-                    } else {
-                      onOpenLandingPage();
-                    }
-                  }}
-                  className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-lg transition-colors text-left"
-                  role="menuitem"
-                >
-                  <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">logout</span>
-                  <span>Sign out</span>
-                </button>
               </div>
             </div>
           )}

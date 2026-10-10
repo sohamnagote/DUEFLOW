@@ -1,4 +1,11 @@
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { AmbientShaderCanvas } from './AmbientShaderCanvas';
+import {
+  signInWithGooglePopup,
+  signInWithEmailPassword,
+  signUpWithEmailPassword,
+  sendPasswordResetEmail,
+} from '../utils/auth';
 
 interface SignInViewProps {
   onSignInSuccess: () => void;
@@ -12,36 +19,138 @@ export const SignInView: React.FC<SignInViewProps> = ({
   initialMode = 'login',
 }) => {
   const [authMode, setAuthMode] = useState<'login' | 'signup' | 'forgot'>(initialMode);
-  const [email, setEmail] = useState('alex@dueflow.io');
-  const [password, setPassword] = useState('••••••••••••');
-  const [fullName, setFullName] = useState('Alex Mercer');
+  const [email, setEmail] = useState('');
+  const [password, setPassword] = useState('');
+  const [fullName, setFullName] = useState('');
   const [resetSent, setResetSent] = useState(false);
+  const [isLoading, setIsLoading] = useState(false);
+  const [authError, setAuthError] = useState<string | null>(null);
 
-  const handleSubmit = (e: React.FormEvent) => {
-    e.preventDefault();
-    if (authMode === 'forgot') {
-      setResetSent(true);
+  // Staged entrance animation sequence:
+  // Step 1: Shader already moving (Phase A)
+  // Step 2: Header and Back link (t ~60ms)
+  // Step 3: Welcome heading (t ~180ms)
+  // Step 4: Description (t ~300ms)
+  // Step 5: Login form card (t ~420ms)
+  // Step 6: Google button & bottom switcher (t ~540ms)
+  const [stepHeader, setStepHeader] = useState(false);
+  const [stepHeading, setStepHeading] = useState(false);
+  const [stepDesc, setStepDesc] = useState(false);
+  const [stepForm, setStepForm] = useState(false);
+  const [stepExtra, setStepExtra] = useState(false);
+  const [prefersReducedMotion, setPrefersReducedMotion] = useState(false);
+
+  useEffect(() => {
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    if (motionQuery.matches) {
+      setPrefersReducedMotion(true);
+      setStepHeader(true);
+      setStepHeading(true);
+      setStepDesc(true);
+      setStepForm(true);
+      setStepExtra(true);
       return;
     }
-    onSignInSuccess();
+
+    const onMotionChange = (e: MediaQueryListEvent) => {
+      if (e.matches) {
+        setPrefersReducedMotion(true);
+        setStepHeader(true);
+        setStepHeading(true);
+        setStepDesc(true);
+        setStepForm(true);
+        setStepExtra(true);
+      }
+    };
+    motionQuery.addEventListener('change', onMotionChange);
+
+    // Staggered sequence (delays ~80-140ms between groups, total < 1.2s)
+    const t1 = setTimeout(() => setStepHeader(true), 60);
+    const t2 = setTimeout(() => setStepHeading(true), 180);
+    const t3 = setTimeout(() => setStepDesc(true), 300);
+    const t4 = setTimeout(() => setStepForm(true), 420);
+    const t5 = setTimeout(() => setStepExtra(true), 540);
+
+    return () => {
+      clearTimeout(t1);
+      clearTimeout(t2);
+      clearTimeout(t3);
+      clearTimeout(t4);
+      clearTimeout(t5);
+      motionQuery.removeEventListener('change', onMotionChange);
+    };
+  }, []);
+
+  const handleGoogleSignIn = async () => {
+    setAuthError(null);
+    setIsLoading(true);
+    try {
+      await signInWithGooglePopup();
+      onSignInSuccess();
+    } catch (err: any) {
+      console.error('Google Sign-In failed:', err);
+      setAuthError(err?.message || 'Google Sign-In could not be completed. Please try again.');
+    } finally {
+      setIsLoading(false);
+    }
+  };
+
+  const handleSubmit = async (e: React.FormEvent) => {
+    e.preventDefault();
+    setAuthError(null);
+    setIsLoading(true);
+
+    try {
+      if (authMode === 'forgot') {
+        await sendPasswordResetEmail(email);
+        setResetSent(true);
+        return;
+      }
+
+      if (authMode === 'signup') {
+        await signUpWithEmailPassword(email, password, fullName);
+        onSignInSuccess();
+        return;
+      }
+
+      if (authMode === 'login') {
+        await signInWithEmailPassword(email, password);
+        onSignInSuccess();
+        return;
+      }
+    } catch (err: any) {
+      console.error('Authentication error:', err);
+      setAuthError(err?.message || 'Authentication failed. Please verify your credentials.');
+    } finally {
+      setIsLoading(false);
+    }
   };
 
   return (
-    <div className="w-full min-h-screen bg-[#fbf9f4] font-['Hanken_Grotesk'] text-[#1b1c19] flex flex-col justify-between selection:bg-[#bfebe6] selection:text-[#00201e] relative overflow-hidden">
-      {/* Top Header */}
-      <header className="fixed top-0 left-0 w-full z-50 bg-[#fbf9f4]/85 backdrop-blur-xl border-b border-[#c4c6cd]/30">
+    <div className="w-full min-h-screen bg-transparent font-['Hanken_Grotesk'] text-[#1b1c19] flex flex-col selection:bg-[#bfebe6] selection:text-[#00201e] relative overflow-hidden">
+      {/* Living WebGL Ambient Aura Shader (exact same component as Landing page) */}
+      <AmbientShaderCanvas opacity={0.88} fadeOnScroll={false} />
+
+      {/* Top Header - Fades in subtly, no bottom border line */}
+      <header
+        className="fixed top-0 left-0 w-full z-50 bg-[#fbf9f4]/25 backdrop-blur-md transition-all duration-500 ease-out"
+        style={{
+          opacity: prefersReducedMotion || stepHeader ? 1 : 0,
+          transform: prefersReducedMotion || stepHeader ? 'translateY(0px)' : 'translateY(-6px)',
+        }}
+      >
         <div className="h-20 w-full px-6 md:px-14 flex items-center justify-between">
           <div className="flex items-center gap-3 sm:gap-5">
             <button
               onClick={onBackToLanding}
-              className="text-[22px] leading-[28px] font-semibold tracking-tight lowercase text-[#001126] hover:opacity-80 transition-opacity"
+              className="text-[22px] leading-[28px] font-semibold tracking-tight lowercase text-[#001126] hover:opacity-80 transition-opacity cursor-pointer"
             >
               dueflow
             </button>
-            <span className="text-[#c4c6cd]">/</span>
+            <span className="text-[#c4c6cd]/60">/</span>
             <button
               onClick={onBackToLanding}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#44474d] hover:text-[#001126] transition-colors group"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#44474d] hover:text-[#001126] transition-colors group cursor-pointer"
               title="Return to public landing page"
             >
               <span className="material-symbols-outlined text-[15px] transition-transform group-hover:-translate-x-0.5">arrow_back</span>
@@ -50,7 +159,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-[#001126] flex items-center justify-center">
+            <div className="w-8 h-8 rounded-full bg-[#001126] hover:bg-[#15263c] flex items-center justify-center transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] border border-transparent hover:border-[#001126]/20">
               <span className="material-symbols-outlined text-[#ffffff] text-[18px]">person</span>
             </div>
           </div>
@@ -58,23 +167,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
       </header>
 
       {/* Main Login / Registration / Forgot Password Area */}
-      <main className="w-full pt-28 pb-12 flex-1 flex flex-col items-center justify-center relative">
-        {/* Ambient blurred gradient aura in background */}
-        <div className="absolute top-1/2 left-1/2 -translate-x-1/2 -translate-y-1/2 w-[500px] sm:w-[600px] h-[500px] sm:h-[600px] rounded-full blur-[120px] opacity-40 pointer-events-none bg-gradient-to-tr from-[#9EC9C4] via-[#E98F7B] to-[#D9D0E8]" />
-
-        {/* Decorative dot-matrix in top right */}
-        <div className="absolute top-28 right-12 hidden md:grid grid-cols-3 gap-2 opacity-30 pointer-events-none">
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-          <div className="w-1.5 h-1.5 rounded-full bg-[#001126]" />
-        </div>
-
+      <main className="w-full pt-28 pb-12 flex-1 flex flex-col items-center justify-center relative z-10">
         <div className="w-full max-w-[420px] mx-auto px-4 sm:px-6 relative z-10">
           {authMode !== 'login' && (
             <div className="mb-4">
@@ -83,7 +176,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   setAuthMode('login');
                   setResetSent(false);
                 }}
-                className="inline-flex items-center gap-1.5 text-xs text-[#44474d] hover:text-[#001126] transition-colors font-medium"
+                className="inline-flex items-center gap-1.5 text-xs text-[#44474d] hover:text-[#001126] transition-colors font-medium cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[15px]">arrow_back</span>
                 <span>Back to Sign In</span>
@@ -91,16 +184,28 @@ export const SignInView: React.FC<SignInViewProps> = ({
             </div>
           )}
 
-          {/* Eyebrow & Titles */}
+          {/* Heading & Subtitle with staged smooth fade & upward movement */}
           <div className="text-center mb-8">
-            <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] mb-2 tracking-tight">
+            <h1
+              className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] mb-2 tracking-tight transition-all duration-800 ease-out"
+              style={{
+                opacity: prefersReducedMotion || stepHeading ? 1 : 0,
+                transform: prefersReducedMotion || stepHeading ? 'translateY(0px)' : 'translateY(10px)',
+              }}
+            >
               {authMode === 'login'
-                ? 'Welcome to Dueflow'
+                ? 'Welcome to DueFlow'
                 : authMode === 'signup'
                 ? 'Create your account'
                 : 'Reset your password'}
             </h1>
-            <p className="text-sm leading-[22px] text-[#44474d]">
+            <p
+              className="text-sm leading-[22px] text-[#44474d] transition-all duration-600 ease-out"
+              style={{
+                opacity: prefersReducedMotion || stepDesc ? 1 : 0,
+                transform: prefersReducedMotion || stepDesc ? 'translateY(0px)' : 'translateY(8px)',
+              }}
+            >
               {authMode === 'login'
                 ? 'Sign in to manage your invoices and payment follow-ups.'
                 : authMode === 'signup'
@@ -109,12 +214,19 @@ export const SignInView: React.FC<SignInViewProps> = ({
             </p>
           </div>
 
-          {/* Form Card */}
-          <div className="bg-[#fbf9f4]/75 backdrop-blur-md p-6 sm:p-10 rounded-xl shadow-xs border border-[#001126]/[0.08] relative">
+          {/* Translucent Form Card with smooth entrance & shader visible underneath */}
+          <div
+            className="p-6 sm:p-10 rounded-2xl shadow-sm border border-[#001126]/[0.08] relative backdrop-blur-md transition-all duration-600 ease-out"
+            style={{
+              backgroundColor: 'rgba(255, 255, 255, 0.45)',
+              opacity: prefersReducedMotion || stepForm ? 1 : 0,
+              transform: prefersReducedMotion || stepForm ? 'translateY(0px)' : 'translateY(10px)',
+            }}
+          >
             {authMode === 'forgot' && resetSent ? (
               <div className="space-y-5 text-center py-2">
-                <div className="w-12 h-12 rounded-full bg-[#bfebe6] mx-auto flex items-center justify-center text-[#00201e]">
-                  <span className="material-symbols-outlined text-[24px]">mark_email_read</span>
+                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 mx-auto flex items-center justify-center text-[#071426]">
+                  <span className="material-symbols-outlined text-[24px] text-[#071426]">mark_email_read</span>
                 </div>
                 <h3 className="text-base font-bold text-[#001126]">Check your inbox</h3>
                 <p className="text-xs text-[#44474d] leading-relaxed">
@@ -126,23 +238,31 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     setAuthMode('login');
                     setResetSent(false);
                   }}
-                  className="w-full py-3 bg-[#001126] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c]"
+                  className="w-full py-3 bg-[#071426] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c] transition-colors cursor-pointer"
                 >
                   Return to Sign In
                 </button>
               </div>
             ) : (
               <form className="space-y-5" onSubmit={handleSubmit}>
+                {authError && (
+                  <div className="p-3.5 bg-red-500/10 border border-red-500/20 text-[#b91c1c] text-xs rounded-lg flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0 text-[#b91c1c]">error</span>
+                    <span>{authError}</span>
+                  </div>
+                )}
+
                 {authMode === 'signup' && (
                   <div className="space-y-1">
                     <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d]">
                       FULL NAME
                     </label>
                     <input
-                      className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[4px] border border-[#001126]/10 focus:outline-none focus:border-[#001126] focus:ring-4 focus:ring-[#9EC9C4]/25 transition-all"
-                      placeholder="Alex Mercer"
+                      className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 focus:outline-none focus:border-[#071426] focus:ring-2 focus:ring-[#071426]/15 transition-all"
+                      placeholder="Your full name"
                       required
                       type="text"
+                      disabled={isLoading}
                       value={fullName}
                       onChange={(e) => setFullName(e.target.value)}
                     />
@@ -155,10 +275,11 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     EMAIL ADDRESS
                   </label>
                   <input
-                    className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[4px] border border-[#001126]/10 focus:outline-none focus:border-[#001126] focus:ring-4 focus:ring-[#9EC9C4]/25 transition-all"
+                    className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 focus:outline-none focus:border-[#071426] focus:ring-2 focus:ring-[#071426]/15 transition-all"
                     placeholder="you@example.com"
                     required
                     type="email"
+                    disabled={isLoading}
                     value={email}
                     onChange={(e) => setEmail(e.target.value)}
                   />
@@ -174,7 +295,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                       {authMode === 'login' && (
                         <button
                           type="button"
-                          className="font-['Space_Mono'] text-[10px] text-[#001126] hover:underline"
+                          className="font-['Space_Mono'] text-[10px] text-[#001126] hover:underline cursor-pointer"
                           onClick={() => setAuthMode('forgot')}
                         >
                           Forgot password?
@@ -182,10 +303,11 @@ export const SignInView: React.FC<SignInViewProps> = ({
                       )}
                     </div>
                     <input
-                      className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[4px] border border-[#001126]/10 focus:outline-none focus:border-[#001126] focus:ring-4 focus:ring-[#9EC9C4]/25 transition-all"
+                      className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 focus:outline-none focus:border-[#071426] focus:ring-2 focus:ring-[#071426]/15 transition-all"
                       placeholder="Enter your password"
                       required
                       type="password"
+                      disabled={isLoading}
                       value={password}
                       onChange={(e) => setPassword(e.target.value)}
                     />
@@ -194,35 +316,45 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
                 {/* Primary Submit Button */}
                 <button
-                  className="w-full py-3.5 bg-[#001126] text-[#ffffff] text-[11px] font-semibold uppercase tracking-[0.14em] rounded-[6px] hover:opacity-95 active:scale-[0.99] transition-all shadow-sm"
+                  className="w-full py-3.5 bg-[#071426] text-[#ffffff] text-[11px] font-semibold uppercase tracking-[0.14em] rounded-[6px] hover:bg-[#15263c] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#071426]/25 transition-all shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   type="submit"
+                  disabled={isLoading}
                 >
-                  {authMode === 'login'
+                  {isLoading
+                    ? 'Processing...'
+                    : authMode === 'login'
                     ? 'Sign In'
                     : authMode === 'signup'
                     ? 'Create Account'
                     : 'Send Reset Link'}
                 </button>
 
-                {/* Divider (Only on login or signup) */}
+                {/* Google Sign-in & Switcher - Animated in last */}
                 {authMode !== 'forgot' && (
-                  <>
+                  <div
+                    className="transition-all duration-500 ease-out"
+                    style={{
+                      opacity: prefersReducedMotion || stepExtra ? 1 : 0,
+                      transform: prefersReducedMotion || stepExtra ? 'translateY(0px)' : 'translateY(6px)',
+                    }}
+                  >
                     <div className="relative flex items-center justify-center my-5">
                       <div className="absolute inset-0 flex items-center">
                         <div className="w-full border-t border-[#001126]/10" />
                       </div>
-                      <div className="relative px-3 bg-[#fbf9f4] font-['Space_Mono'] text-[10px] uppercase text-[#44474d] tracking-[0.14em]">
+                      <div className="relative px-3 bg-[#ffffff]/60 backdrop-blur-xs font-['Space_Mono'] text-[10px] uppercase text-[#44474d] tracking-[0.14em] rounded-sm">
                         Or
                       </div>
                     </div>
 
-                    {/* Google Sign-in */}
+                    {/* Google Sign-in Button */}
                     <button
-                      className="w-full py-3 px-4 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[4px] border border-[#001126]/10 hover:bg-[#f5f3ee] transition-all flex items-center justify-center gap-3 shadow-2xs"
+                      className="w-full py-3 px-4 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 hover:bg-[#f8f9fa] hover:border-[#001126]/25 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#001126]/15 transition-all flex items-center justify-center gap-3 shadow-2xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       type="button"
-                      onClick={onSignInSuccess}
+                      disabled={isLoading}
+                      onClick={handleGoogleSignIn}
                     >
-                      <svg className="w-4 h-4" viewBox="0 0 24 24">
+                      <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
                         <path
                           d="M22.56 12.25c0-.78-.07-1.53-.2-2.25H12v4.26h5.92c-.26 1.37-1.04 2.53-2.21 3.31v2.77h3.57c2.08-1.92 3.28-4.74 3.28-8.09z"
                           fill="#4285F4"
@@ -240,22 +372,30 @@ export const SignInView: React.FC<SignInViewProps> = ({
                           fill="#EA4335"
                         />
                       </svg>
-                      <span className="font-semibold text-[#001126]">Continue with Google</span>
+                      <span className="font-semibold text-[#001126]">
+                        {isLoading ? 'Connecting to Google...' : 'Continue with Google'}
+                      </span>
                     </button>
-                  </>
+                  </div>
                 )}
               </form>
             )}
           </div>
 
           {/* Bottom Switcher */}
-          <div className="mt-6 text-center space-y-2">
+          <div
+            className="mt-6 text-center space-y-2 transition-all duration-500 ease-out"
+            style={{
+              opacity: prefersReducedMotion || stepExtra ? 1 : 0,
+              transform: prefersReducedMotion || stepExtra ? 'translateY(0px)' : 'translateY(6px)',
+            }}
+          >
             {authMode === 'login' ? (
               <p className="text-sm text-[#44474d]">
                 New to DueFlow?{' '}
                 <button
                   onClick={() => setAuthMode('signup')}
-                  className="text-[#001126] font-semibold hover:underline"
+                  className="text-[#001126] font-semibold hover:underline cursor-pointer"
                 >
                   Create account
                 </button>
@@ -265,7 +405,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                 Already have an account?{' '}
                 <button
                   onClick={() => setAuthMode('login')}
-                  className="text-[#001126] font-semibold hover:underline"
+                  className="text-[#001126] font-semibold hover:underline cursor-pointer"
                 >
                   Sign in
                 </button>
@@ -274,33 +414,6 @@ export const SignInView: React.FC<SignInViewProps> = ({
           </div>
         </div>
       </main>
-
-      {/* Editorial Footer: DUEFLOW text removed from bottom-left corner per Requirement 1! */}
-      <footer className="w-full bg-[#fbf9f4] border-t border-[#c4c6cd]/30 py-8">
-        <div className="w-full px-6 md:px-14 flex items-center justify-between">
-          <div />
-
-          {/* Privacy and Terms links open in new browser tabs per Requirement 3 */}
-          <div className="flex items-center gap-6">
-            <a
-              className="font-['Space_Mono'] text-[10px] uppercase text-[#44474d]/70 hover:text-[#001126] transition-colors tracking-[0.14em]"
-              href="/privacy"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Privacy
-            </a>
-            <a
-              className="font-['Space_Mono'] text-[10px] uppercase text-[#44474d]/70 hover:text-[#001126] transition-colors tracking-[0.14em]"
-              href="/terms"
-              target="_blank"
-              rel="noopener noreferrer"
-            >
-              Terms
-            </a>
-          </div>
-        </div>
-      </footer>
     </div>
   );
 };

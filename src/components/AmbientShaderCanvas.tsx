@@ -9,8 +9,8 @@ interface AmbientShaderCanvasProps {
 
 export const AmbientShaderCanvas: React.FC<AmbientShaderCanvasProps> = ({
   className = 'fixed inset-0 pointer-events-none z-0',
-  opacity = 0.82,
-  fadeOnScroll = true,
+  opacity = 0.88,
+  fadeOnScroll = false,
   fadeDistance,
 }) => {
   const containerRef = useRef<HTMLDivElement | null>(null);
@@ -43,11 +43,12 @@ void main() {
   gl_Position = vec4(a_position, 0.0, 1.0);
 }`;
 
-    // Fragment Shader: Smooth looping chromatic ribbon dome with fade
+    // Fragment Shader: Continuous full-page flowing ambient aura shader
     const fs = `precision highp float;
 uniform float u_time;
 uniform vec2 u_resolution;
 uniform vec2 u_mouse;
+uniform float u_scroll;
 uniform float u_fade;
 
 // 2D Simplex Noise
@@ -80,7 +81,11 @@ float snoise(vec2 v) {
 }
 
 void main() {
+    // Viewport-relative coordinates centered at screen center
     vec2 p = (gl_FragCoord.xy - 0.5 * u_resolution.xy) / min(u_resolution.x, u_resolution.y);
+    
+    // Normalized scroll parameter
+    float scrollProgress = u_scroll / min(u_resolution.x, u_resolution.y);
     
     // Seamless harmonic loop period: exactly 14.0 seconds per cycle
     const float LOOP_PERIOD = 14.0;
@@ -93,24 +98,26 @@ void main() {
     vec2 orb2 = vec2(cos(angle * 2.0), sin(angle * 2.0));
     vec2 orb3 = vec2(sin(angle + 1.570796), cos(angle + 1.570796));
     
-    // Smooth mouse responsiveness
-    vec2 mouseOffset = (u_mouse / u_resolution - 0.5) * 0.12;
+    // Smooth mouse tilt
+    vec2 mouseOffset = (u_mouse / u_resolution - 0.5) * 0.10;
     vec2 centerPos = p - mouseOffset;
     
-    // Undulating breathing aura dome
+    // Hero Dome positioning with natural vertical scroll drift
     float breathe = 1.0 + 0.07 * sin(angle);
     vec2 domePos = centerPos;
-    domePos.y += 0.07 + 0.03 * cos(angle);
+    domePos.y += 0.07 + 0.03 * cos(angle) - scrollProgress * 0.40;
     
+    // Primary hero ribbon dome
     float arcDist = length(vec2(domePos.x * 0.65, (domePos.y + 0.52) * breathe));
-    float ribbon = smoothstep(0.96 * breathe, 0.58, arcDist) * smoothstep(0.18, 0.54 * breathe, arcDist);
+    float heroRibbon = smoothstep(0.96 * breathe, 0.58, arcDist) * smoothstep(0.18, 0.54 * breathe, arcDist);
     
-    // Seamless periodic noise fields
-    float n1 = snoise(centerPos * 1.55 + orb1 * 0.52);
-    float n2 = snoise(centerPos * 2.40 + orb2 * 0.36 + vec2(orb1.y, -orb1.x) * 0.22);
-    float n3 = snoise(centerPos * 3.10 - orb3 * 0.28);
+    // Continuous multi-octave noise fields with continuous scroll translation
+    vec2 scrollCoord = centerPos + vec2(0.0, scrollProgress * 0.25);
+    float n1 = snoise(scrollCoord * 1.45 + orb1 * 0.48);
+    float n2 = snoise(scrollCoord * 2.25 + orb2 * 0.32 + vec2(orb1.y, -orb1.x) * 0.20);
+    float n3 = snoise(scrollCoord * 3.10 - orb3 * 0.26);
     
-    vec2 warpedUV = centerPos + vec2(n1, n2) * 0.17 + orb1 * 0.04;
+    vec2 warpedUV = centerPos + vec2(n1, n2) * 0.18 + orb1 * 0.05 + vec2(0.0, scrollProgress * 0.12);
     
     // DueFlow Distinctive Brand Palette
     vec3 colIvory    = vec3(0.984, 0.976, 0.957); // #fbf9f4
@@ -121,27 +128,32 @@ void main() {
     vec3 colPeach    = vec3(0.949, 0.713, 0.654); // #F2B6A7
     vec3 colLavender = vec3(0.851, 0.815, 0.909); // #D9D0E8
     
-    // Fluid chromatic gradient flowing horizontally across the aura
-    float xFactor = clamp((warpedUV.x + 0.62 + 0.06 * sin(angle)) * 0.88, 0.0, 1.0);
-    vec3 auraColor = mix(colTeal, colCoral, smoothstep(0.08, 0.46, xFactor));
-    auraColor = mix(auraColor, colPeach, smoothstep(0.40, 0.74, xFactor));
-    auraColor = mix(auraColor, colLavender, smoothstep(0.70, 0.98, xFactor));
+    // Full-page ambient color currents: smooth chromatic blend across entire viewport
+    float xFactor = clamp((warpedUV.x + 0.58 + 0.10 * sin(angle + warpedUV.y * 1.6)) * 0.88, 0.0, 1.0);
+    vec3 auraColor = mix(colTeal, colCoral, smoothstep(0.06, 0.44, xFactor));
+    auraColor = mix(auraColor, colPeach, smoothstep(0.38, 0.74, xFactor));
+    auraColor = mix(auraColor, colLavender, smoothstep(0.68, 0.98, xFactor));
     
-    // Signature DueFlow deep navy crest atop the dome
+    // Hero deep navy crest atop the dome
     float crestDist = abs(arcDist - 0.74);
     float navyCrest = smoothstep(0.18, 0.015, crestDist) * smoothstep(-0.45, 0.12, domePos.x + n1 * 0.22);
-    auraColor = mix(auraColor, colNavy, clamp(navyCrest * 0.94, 0.0, 1.0));
+    auraColor = mix(auraColor, colNavy, clamp(navyCrest * 0.92, 0.0, 1.0));
     
-    // Accent teal undertone
-    float innerAccent = smoothstep(0.40, 0.22, arcDist) * smoothstep(-0.25, 0.35, domePos.x);
-    auraColor = mix(auraColor, colDeepTeal, clamp(innerAccent * 0.42, 0.0, 1.0));
+    // Ambient teal & deep-teal undertones flowing across the whole page
+    float flowAccent = smoothstep(0.38, 0.18, abs(sin(warpedUV.y * 2.2 + warpedUV.x * 1.3 + angle * 0.6) - 0.32));
+    auraColor = mix(auraColor, colDeepTeal, clamp(flowAccent * 0.26, 0.0, 1.0));
     
-    // Dynamic intensity modulated by fade
-    float intensity = ribbon * (0.86 + 0.28 * n2 + 0.12 * n3);
-    intensity = clamp(intensity * u_fade, 0.0, 1.0);
+    // Full-page continuous ambient flow (guarantees the shader covers the entire page without blank gaps)
+    float wave1 = sin(warpedUV.y * 2.0 + warpedUV.x * 1.2 + angle * 0.7);
+    float wave2 = cos(warpedUV.x * 1.6 - warpedUV.y * 1.5 - angle * 0.5);
+    float fullPageAmbient = 0.34 + 0.16 * wave1 + 0.12 * wave2 + 0.16 * n2;
+    
+    // Combined intensity: hero dome provides dramatic focus in hero; full-page ambient provides seamless luminous flow everywhere
+    float intensity = clamp(heroRibbon * 0.65 + fullPageAmbient * 0.42 + 0.06 * n3, 0.16, 0.88);
+    intensity = intensity * u_fade;
     
     // Subtle organic film grain texture
-    float grain = (fract(sin(dot(gl_FragCoord.xy + fract(u_time * 0.87), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.022;
+    float grain = (fract(sin(dot(gl_FragCoord.xy + fract(u_time * 0.87), vec2(12.9898, 78.233))) * 43758.5453) - 0.5) * 0.016;
     vec3 finalColor = mix(colIvory, auraColor, intensity * 0.82) + grain * intensity;
     
     gl_FragColor = vec4(finalColor, 1.0);
@@ -186,6 +198,7 @@ void main() {
     const uTime = gl.getUniformLocation(prog, 'u_time');
     const uRes = gl.getUniformLocation(prog, 'u_resolution');
     const uMouse = gl.getUniformLocation(prog, 'u_mouse');
+    const uScroll = gl.getUniformLocation(prog, 'u_scroll');
     const uFade = gl.getUniformLocation(prog, 'u_fade');
 
     // Smooth mouse coordinates with lerp
@@ -194,16 +207,43 @@ void main() {
     let currentMouseX = targetMouseX;
     let currentMouseY = targetMouseY;
 
+    // Smooth scroll position tracking
+    let targetScrollY = window.scrollY || window.pageYOffset || 0;
+    let currentScrollY = targetScrollY;
+
     const handleMouseMove = (e: MouseEvent) => {
       targetMouseX = e.clientX;
       targetMouseY = e.clientY;
     };
     window.addEventListener('mousemove', handleMouseMove, { passive: true });
 
-    // HiDPI aware viewport sizing
+    // Optional legacy scroll-fade (disabled by default for full-page coverage)
+    const handleScroll = () => {
+      targetScrollY = window.scrollY || window.pageYOffset || 0;
+      if (fadeOnScroll && container) {
+        const threshold = fadeDistance || Math.max(window.innerHeight * 0.72, 480);
+        const progress = Math.min(Math.max(targetScrollY / threshold, 0), 1);
+        const smoothFade = 1.0 - (progress * progress * (3.0 - 2.0 * progress));
+        fadeRef.current = smoothFade;
+        const currentOpacity = Math.max(0, Math.min(1, opacity * smoothFade));
+        container.style.opacity = currentOpacity.toFixed(3);
+        container.style.visibility = currentOpacity <= 0.005 ? 'hidden' : 'visible';
+      }
+    };
+    window.addEventListener('scroll', handleScroll, { passive: true });
+
+    // Accessibility: respects prefers-reduced-motion
+    const motionQuery = window.matchMedia('(prefers-reduced-motion: reduce)');
+    let prefersReducedMotion = motionQuery.matches;
+    const handleMotionChange = (e: MediaQueryListEvent) => {
+      prefersReducedMotion = e.matches;
+    };
+    motionQuery.addEventListener('change', handleMotionChange);
+
+    // HiDPI aware viewport sizing with performance cap (1.5 max DPR)
     const syncSize = () => {
       if (!canvas) return;
-      const dpr = Math.min(window.devicePixelRatio || 1, 2);
+      const dpr = Math.min(window.devicePixelRatio || 1, 1.5);
       const w = Math.floor((canvas.clientWidth || window.innerWidth) * dpr);
       const h = Math.floor((canvas.clientHeight || window.innerHeight) * dpr);
       if (canvas.width !== w || canvas.height !== h) {
@@ -213,46 +253,20 @@ void main() {
     };
     syncSize();
 
-    // Scroll Fade Logic: Fades away smoothly as user scrolls down
-    const updateScrollFade = () => {
-      if (!fadeOnScroll || !container) {
-        fadeRef.current = 1.0;
-        return;
-      }
-
-      const scrollY = window.scrollY || window.pageYOffset || 0;
-      // Fade completely over roughly 70% of viewport height or provided fadeDistance
-      const threshold = fadeDistance || Math.max(window.innerHeight * 0.72, 480);
-      const progress = Math.min(Math.max(scrollY / threshold, 0), 1);
-      
-      // Smoothstep easing: 1 - (3t^2 - 2t^3)
-      const smoothFade = 1.0 - (progress * progress * (3.0 - 2.0 * progress));
-      fadeRef.current = smoothFade;
-
-      const currentOpacity = Math.max(0, Math.min(1, opacity * smoothFade));
-      
-      container.style.opacity = currentOpacity.toFixed(3);
-      // Gentle parallax translation upward as it fades away
-      container.style.transform = `translate3d(0, ${(-scrollY * 0.22).toFixed(1)}px, 0)`;
-      container.style.visibility = currentOpacity <= 0.005 ? 'hidden' : 'visible';
-    };
-
-    // Initial update
-    updateScrollFade();
-
-    window.addEventListener('scroll', updateScrollFade, { passive: true });
-    window.addEventListener('resize', () => {
-      syncSize();
-      updateScrollFade();
-    });
+    window.addEventListener('resize', syncSize);
 
     const startTime = performance.now();
 
     const render = (now: number) => {
       if (isDisposed) return;
 
-      // When completely scrolled past, throttle draw calls to preserve GPU/battery
-      if (fadeRef.current <= 0.005) {
+      // Throttle when page is hidden in background tab
+      if (document.hidden) {
+        animationFrameId = requestAnimationFrame(render);
+        return;
+      }
+
+      if (fadeOnScroll && fadeRef.current <= 0.005) {
         animationFrameId = requestAnimationFrame(render);
         return;
       }
@@ -264,11 +278,15 @@ void main() {
       currentMouseX += (targetMouseX - currentMouseX) * 0.06;
       currentMouseY += (targetMouseY - currentMouseY) * 0.06;
 
-      const elapsedSeconds = (now - startTime) * 0.001;
+      // Lerp scroll
+      currentScrollY += (targetScrollY - currentScrollY) * 0.08;
+
+      const elapsedSeconds = prefersReducedMotion ? 2.5 : (now - startTime) * 0.001;
 
       if (uTime) gl.uniform1f(uTime, elapsedSeconds);
       if (uRes) gl.uniform2f(uRes, canvas.width, canvas.height);
       if (uMouse) gl.uniform2f(uMouse, currentMouseX, currentMouseY);
+      if (uScroll) gl.uniform1f(uScroll, currentScrollY);
       if (uFade) gl.uniform1f(uFade, fadeRef.current);
 
       gl.drawArrays(gl.TRIANGLE_STRIP, 0, 4);
@@ -281,9 +299,10 @@ void main() {
     return () => {
       isDisposed = true;
       cancelAnimationFrame(animationFrameId);
-      window.removeEventListener('scroll', updateScrollFade);
+      window.removeEventListener('scroll', handleScroll);
       window.removeEventListener('mousemove', handleMouseMove);
       window.removeEventListener('resize', syncSize);
+      motionQuery.removeEventListener('change', handleMotionChange);
       if (prog) gl.deleteProgram(prog);
       if (vertShader) gl.deleteShader(vertShader);
       if (fragShader) gl.deleteShader(fragShader);
@@ -297,12 +316,12 @@ void main() {
       className={className}
       style={{
         opacity,
-        willChange: 'opacity, transform',
-        transition: 'opacity 0.15s ease-out',
+        willChange: 'opacity',
+        pointerEvents: 'none',
       }}
       aria-hidden="true"
     >
-      <canvas ref={canvasRef} className="w-full h-full block" />
+      <canvas ref={canvasRef} className="w-full h-full block pointer-events-none" />
     </div>
   );
 };

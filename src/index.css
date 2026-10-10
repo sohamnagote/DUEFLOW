@@ -63,3 +63,159 @@
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(21, 38, 60, 0.32);
 }
+
+/* Tactile Button Interaction Utilities (Premium, subtle, no neon glow) */
+.btn-primary-pop {
+  background-color: #071426;
+  color: #ffffff;
+  box-shadow: 0 2px 8px -1px rgba(7, 20, 38, 0.22);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease;
+  will-change: transform, box-shadow;
+}
+
+.btn-primary-pop:hover {
+  transform: translateY(-2px) scale(1.03);
+  box-shadow: 0 8px 22px -3px rgba(7, 20, 38, 0.32);
+  background-color: #0e1e36;
+}
+
+.btn-primary-pop:active {
+  transform: translateY(0px) scale(0.98);
+  box-shadow: 0 2px 6px -1px rgba(7, 20, 38, 0.2);
+}
+
+.btn-secondary-pop {
+  background-color: rgba(255, 255, 255, 0.55);
+  color: #071426;
+  border: 1px solid rgba(7, 20, 38, 0.18);
+  backdrop-filter: blur(8px);
+  -webkit-backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px -1px rgba(7, 20, 38, 0.08);
+  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease, border-color 200ms ease;
+  will-change: transform, box-shadow;
+}
+
+.btn-secondary-pop:hover {
+  transform: translateY(-2px) scale(1.02);
+  background-color: rgba(255, 255, 255, 0.85);
+  border-color: rgba(7, 20, 38, 0.32);
+  box-shadow: 0 6px 16px -2px rgba(7, 20, 38, 0.14);
+}
+
+.btn-secondary-pop:active {
+  transform: translateY(0px) scale(0.98);
+  box-shadow: 0 2px 4px -1px rgba(7, 20, 38, 0.08);
+}
+
+/* Workspace Micro-interaction Utilities */
+.btn-action-primary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #071426;
+  color: #ffffff;
+  font-weight: 600;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 3px 0 rgba(7, 20, 38, 0.18);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease;
+  will-change: transform;
+}
+
+.btn-action-primary:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  box-shadow: 0 4px 12px 0 rgba(7, 20, 38, 0.22);
+  background-color: #15263c;
+}
+
+.btn-action-primary:active:not(:disabled) {
+  transform: translateY(0px) scale(0.98);
+}
+
+.btn-action-primary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px #071426;
+}
+
+.btn-action-primary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-action-secondary {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  background-color: #ffffff;
+  color: #1b1c19;
+  border: 1px solid rgba(7, 20, 38, 0.12);
+  font-weight: 500;
+  border-radius: 0.5rem;
+  box-shadow: 0 1px 2px 0 rgba(7, 20, 38, 0.05);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease, border-color 180ms ease;
+  will-change: transform;
+}
+
+.btn-action-secondary:hover:not(:disabled) {
+  transform: translateY(-1.5px);
+  background-color: #f8f7f4;
+  border-color: rgba(7, 20, 38, 0.24);
+  box-shadow: 0 3px 8px 0 rgba(7, 20, 38, 0.09);
+}
+
+.btn-action-secondary:active:not(:disabled) {
+  transform: translateY(0px) scale(0.98);
+}
+
+.btn-action-secondary:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px rgba(7, 20, 38, 0.4);
+}
+
+.btn-action-secondary:disabled {
+  opacity: 0.5;
+  cursor: not-allowed;
+  transform: none !important;
+  box-shadow: none !important;
+}
+
+.btn-action-danger {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  gap: 0.5rem;
+  color: #ba1a1a;
+  background-color: transparent;
+  font-weight: 500;
+  border-radius: 0.5rem;
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease, color 180ms ease;
+}
+
+.btn-action-danger:hover:not(:disabled) {
+  background-color: rgba(186, 26, 26, 0.08);
+  color: #93000a;
+}
+
+.btn-action-danger:active:not(:disabled) {
+  transform: scale(0.98);
+}
+
+.btn-action-danger:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px #ba1a1a;
+}
+
+@media (prefers-reduced-motion: reduce) {
+  .btn-primary-pop,
+  .btn-secondary-pop,
+  .btn-action-primary,
+  .btn-action-secondary,
+  .btn-action-danger {
+    animation: none !important;
+    transform: none !important;
+    transition: background-color 100ms ease, border-color 100ms ease, opacity 100ms ease !important;
+  }
+}

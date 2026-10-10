@@ -27,122 +27,58 @@ const ai = new GoogleGenAI({
   },
 });
 
-// Persistent User Profile file storage
-const DATA_DIR = path.resolve(__dirname, 'data');
-const PROFILE_FILE = path.join(DATA_DIR, 'user_profile.json');
+import http from 'http';
 
-const DEFAULT_PROFILE = {
-  fullName: 'Alex Mercer',
-  email: 'alex@dueflow.io',
-  preferredCurrency: 'INR',
-  timezone: '(UTC+00:00) Coordinated Universal Time (London)',
-  upiId: 'alexmercer@okaxis',
-  beneficiaryName: 'Alex Mercer Design Studio LLC',
-  bankName: 'Mercury Bank, San Francisco',
-  accountNumber: '987654321098',
-  routingNumber: '121000358',
-  paymentInstructions: 'Please include invoice number in the payment reference note.',
-  paymentQrUrl: 'https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=upi://pay?pa=alexmercer@okaxis&pn=AlexMercer',
-  gmailConnected: false,
-  gmailEmail: null,
-  automatedRemindersEnabled: true,
-};
+const BACKEND_HOST = process.env.BACKEND_HOST || 'localhost';
+const BACKEND_PORT = process.env.BACKEND_PORT ? parseInt(process.env.BACKEND_PORT, 10) : 8081;
 
-function ensureProfileFile(): any {
-  try {
-    if (!fs.existsSync(DATA_DIR)) {
-      fs.mkdirSync(DATA_DIR, { recursive: true });
-    }
-    if (!fs.existsSync(PROFILE_FILE)) {
-      fs.writeFileSync(PROFILE_FILE, JSON.stringify(DEFAULT_PROFILE, null, 2), 'utf-8');
-      return DEFAULT_PROFILE;
-    }
-    const raw = fs.readFileSync(PROFILE_FILE, 'utf-8');
-    const parsed = JSON.parse(raw);
-    return { ...DEFAULT_PROFILE, ...parsed };
-  } catch (err) {
-    console.error('Error reading profile file:', err);
-    return DEFAULT_PROFILE;
+// Authoritative Proxy: Routes all business API calls to Spring Boot / Supabase PostgreSQL backend
+app.use('/api', (req, res, next) => {
+  // Pass AI Studio Gemini routes to local Express handlers below
+  if (
+    req.path.startsWith('/campaign') ||
+    req.path.startsWith('/image') ||
+    req.path.startsWith('/chat')
+  ) {
+    return next();
   }
-}
 
-function saveProfileFile(profile: any): void {
-  if (!fs.existsSync(DATA_DIR)) {
-    fs.mkdirSync(DATA_DIR, { recursive: true });
-  }
-  fs.writeFileSync(PROFILE_FILE, JSON.stringify(profile, null, 2), 'utf-8');
-}
+  const options: http.RequestOptions = {
+    hostname: BACKEND_HOST,
+    port: BACKEND_PORT,
+    path: `/api${req.url}`,
+    method: req.method,
+    headers: {
+      ...req.headers,
+      host: `${BACKEND_HOST}:${BACKEND_PORT}`,
+    },
+  };
 
-// Health & status check
-app.get('/api/health', (req, res) => {
-  res.json({
-    status: 'ok',
-    hasApiKey: !!process.env.GEMINI_API_KEY,
-    timestamp: new Date().toISOString(),
+  const proxyReq = http.request(options, (proxyRes) => {
+    res.writeHead(proxyRes.statusCode || 500, proxyRes.headers);
+    proxyRes.pipe(res);
   });
-});
 
-// User Profile & Currency endpoints
-app.get('/api/user/profile', (req, res) => {
-  try {
-    const profile = ensureProfileFile();
-    res.json({ success: true, profile });
-  } catch (error: any) {
-    console.error('Failed to get user profile:', error);
-    res.status(500).json({ success: false, error: 'Failed to retrieve profile' });
-  }
-});
-
-app.put('/api/user/profile', (req, res) => {
-  try {
-    const current = ensureProfileFile();
-    const updates = req.body || {};
-
-    // Validate preferred currency if provided
-    if (updates.preferredCurrency && updates.preferredCurrency !== 'INR' && updates.preferredCurrency !== 'USD') {
-      return res.status(400).json({
+  proxyReq.on('error', (err) => {
+    console.error(`[Proxy Error] Failed to proxy ${req.method} /api${req.url} to Java backend:`, err.message);
+    if (!res.headersSent) {
+      res.status(502).json({
         success: false,
-        error: 'Invalid currency. Supported currencies: INR or USD',
+        error: 'Backend Unavailable',
+        message: `Could not connect to Spring Boot backend at http://${BACKEND_HOST}:${BACKEND_PORT}`,
       });
     }
+  });
 
-    const updated = {
-      ...current,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    saveProfileFile(updated);
-    res.json({ success: true, profile: updated });
-  } catch (error: any) {
-    console.error('Failed to update user profile:', error);
-    res.status(500).json({ success: false, error: 'Failed to save profile changes' });
-  }
-});
-
-app.post('/api/user/profile', (req, res) => {
-  try {
-    const current = ensureProfileFile();
-    const updates = req.body || {};
-
-    if (updates.preferredCurrency && updates.preferredCurrency !== 'INR' && updates.preferredCurrency !== 'USD') {
-      return res.status(400).json({
-        success: false,
-        error: 'Invalid currency. Supported currencies: INR or USD',
-      });
-    }
-
-    const updated = {
-      ...current,
-      ...updates,
-      updatedAt: new Date().toISOString(),
-    };
-
-    saveProfileFile(updated);
-    res.json({ success: true, profile: updated });
-  } catch (error: any) {
-    console.error('Failed to update user profile:', error);
-    res.status(500).json({ success: false, error: 'Failed to save profile changes' });
+  // If express.json() already parsed the body, serialize it
+  if (req.body && Object.keys(req.body).length > 0 && typeof req.body === 'object') {
+    const bodyData = JSON.stringify(req.body);
+    proxyReq.setHeader('Content-Length', Buffer.byteLength(bodyData));
+    proxyReq.setHeader('Content-Type', 'application/json');
+    proxyReq.write(bodyData);
+    proxyReq.end();
+  } else {
+    req.pipe(proxyReq);
   }
 });
 

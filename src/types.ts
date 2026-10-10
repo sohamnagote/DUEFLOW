@@ -3,7 +3,7 @@ export type InvoiceStatus = 'paid' | 'pending' | 'overdue' | 'draft';
 export interface Invoice {
   id: string;
   invoiceNumber: string;
-  clientId: string;
+  clientId?: string;
   clientName: string;
   clientEmail: string;
   amount: number;
@@ -36,6 +36,9 @@ export interface ReminderScheduleRule {
   days: number;
   tone: 'friendly' | 'professional' | 'firm';
   enabled: boolean;
+  sendTime?: string;
+  timezone?: string;
+  invoiceId?: string;
 }
 
 export interface ReminderQueueItem {

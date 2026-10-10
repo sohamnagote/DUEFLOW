@@ -1,0 +1,151 @@
+package com.dueflow.service;
+
+import com.dueflow.domain.ReminderHistory;
+import com.dueflow.domain.ReminderRule;
+import com.dueflow.domain.ScheduledReminder;
+import com.dueflow.dto.ReminderHistoryDto;
+import com.dueflow.dto.ReminderRuleDto;
+import com.dueflow.dto.ScheduledReminderDto;
+import com.dueflow.exception.ResourceNotFoundException;
+import com.dueflow.repository.ReminderHistoryRepository;
+import com.dueflow.repository.ReminderRuleRepository;
+import com.dueflow.repository.ScheduledReminderRepository;
+import org.springframework.data.domain.Page;
+import org.springframework.data.domain.PageRequest;
+import org.springframework.stereotype.Service;
+import org.springframework.transaction.annotation.Transactional;
+
+import java.util.List;
+import java.util.stream.Collectors;
+
+@Service
+public class ReminderService {
+
+    private final ReminderRuleRepository reminderRuleRepository;
+    private final ScheduledReminderRepository scheduledReminderRepository;
+    private final ReminderHistoryRepository reminderHistoryRepository;
+    private final ReminderSchedulerService reminderSchedulerService;
+    private final ReminderScheduleCalculator reminderScheduleCalculator;
+    private final com.dueflow.repository.InvoiceRepository invoiceRepository;
+
+    public ReminderService(
+            ReminderRuleRepository reminderRuleRepository,
+            ScheduledReminderRepository scheduledReminderRepository,
+            ReminderHistoryRepository reminderHistoryRepository,
+            ReminderSchedulerService reminderSchedulerService,
+            ReminderScheduleCalculator reminderScheduleCalculator,
+            com.dueflow.repository.InvoiceRepository invoiceRepository) {
+        this.reminderRuleRepository = reminderRuleRepository;
+        this.scheduledReminderRepository = scheduledReminderRepository;
+        this.reminderHistoryRepository = reminderHistoryRepository;
+        this.reminderSchedulerService = reminderSchedulerService;
+        this.reminderScheduleCalculator = reminderScheduleCalculator;
+        this.invoiceRepository = invoiceRepository;
+    }
+
+    @Transactional
+    public List<ReminderRuleDto> getReminderRules(String userId) {
+        List<ReminderRule> rules = reminderRuleRepository.findByUserIdOrderByCreatedAtAsc(userId);
+        if (rules.isEmpty()) {
+            rules = createDefaultRules(userId);
+        }
+        return rules.stream().map(ReminderRuleDto::fromEntity).collect(Collectors.toList());
+    }
+
+    @Transactional
+    public ReminderRuleDto createReminderRule(String userId, ReminderRuleDto dto) {
+        ReminderRule rule = new ReminderRule();
+        rule.setUserId(userId);
+        rule.setLabel(dto.getLabel());
+        rule.setTiming(dto.getTiming());
+        rule.setDaysOffset(dto.getDaysOffset());
+        rule.setSendTime(dto.getSendTime() != null ? dto.getSendTime() : "09:00");
+        rule.setTone(dto.getTone() != null ? dto.getTone() : "FRIENDLY");
+        rule.setTimezone(dto.getTimezone() != null && !dto.getTimezone().isBlank() ? dto.getTimezone() : "Asia/Kolkata");
+        rule.setInvoiceId(dto.getInvoiceId() != null && !dto.getInvoiceId().isBlank() ? dto.getInvoiceId() : null);
+        rule.setCustomSubject(dto.getCustomSubject());
+        rule.setCustomMessage(dto.getCustomMessage());
+        rule.setEnabled(dto.isEnabled());
+
+        ReminderRule saved = reminderRuleRepository.save(rule);
+        recalculateRemindersForUser(userId);
+        return ReminderRuleDto.fromEntity(saved);
+    }
+
+    @Transactional
+    public ReminderRuleDto updateReminderRule(String userId, String ruleId, ReminderRuleDto dto) {
+        ReminderRule rule = reminderRuleRepository.findByIdAndUserId(ruleId, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Reminder rule not found"));
+
+        rule.setLabel(dto.getLabel());
+        rule.setTiming(dto.getTiming());
+        rule.setDaysOffset(dto.getDaysOffset());
+        rule.setSendTime(dto.getSendTime());
+        rule.setTone(dto.getTone());
+        if (dto.getTimezone() != null && !dto.getTimezone().isBlank()) {
+            rule.setTimezone(dto.getTimezone());
+        }
+        rule.setInvoiceId(dto.getInvoiceId() != null && !dto.getInvoiceId().isBlank() ? dto.getInvoiceId() : null);
+        rule.setCustomSubject(dto.getCustomSubject());
+        rule.setCustomMessage(dto.getCustomMessage());
+        rule.setEnabled(dto.isEnabled());
+
+        ReminderRule updated = reminderRuleRepository.save(rule);
+        recalculateRemindersForUser(userId);
+        return ReminderRuleDto.fromEntity(updated);
+    }
+
+    @Transactional
+    public void deleteReminderRule(String userId, String ruleId) {
+        reminderRuleRepository.deleteByIdAndUserId(ruleId, userId);
+        recalculateRemindersForUser(userId);
+    }
+
+    private void recalculateRemindersForUser(String userId) {
+        List<com.dueflow.domain.Invoice> activeInvoices = invoiceRepository.findByUserIdOrderByCreatedAtDesc(userId);
+        for (com.dueflow.domain.Invoice inv : activeInvoices) {
+            if (inv.getStatus() != com.dueflow.domain.InvoiceStatus.PAID && inv.getStatus() != com.dueflow.domain.InvoiceStatus.CANCELLED) {
+                reminderScheduleCalculator.cancelFutureRemindersForInvoice(inv.getId());
+                reminderScheduleCalculator.scheduleRemindersForInvoice(inv);
+            }
+        }
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScheduledReminderDto> getUpcomingReminders(String userId) {
+        return scheduledReminderRepository.findByUserIdOrderByScheduledAtAsc(userId).stream()
+                .map(ScheduledReminderDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ScheduledReminderDto> getInvoiceReminders(String userId, String invoiceId) {
+        return scheduledReminderRepository.findByInvoiceId(invoiceId).stream()
+                .filter(r -> r.getUserId().equals(userId))
+                .map(ScheduledReminderDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional(readOnly = true)
+    public List<ReminderHistoryDto> getReminderHistory(String userId, int page, int size) {
+        Page<ReminderHistory> historyPage = reminderHistoryRepository.findByUserIdOrderByAttemptedAtDesc(
+                userId,
+                PageRequest.of(page, Math.min(size, 100))
+        );
+        return historyPage.getContent().stream()
+                .map(ReminderHistoryDto::fromEntity)
+                .collect(Collectors.toList());
+    }
+
+    @Transactional
+    public void triggerReminder(String userId, String reminderId) {
+        reminderSchedulerService.triggerReminderManually(reminderId, userId);
+    }
+
+    private List<ReminderRule> createDefaultRules(String userId) {
+        ReminderRule r1 = new ReminderRule(userId, "3 days before due date", "BEFORE", 3, "FRIENDLY");
+        ReminderRule r2 = new ReminderRule(userId, "On due date", "ON_DUE_DATE", 0, "FRIENDLY");
+        ReminderRule r3 = new ReminderRule(userId, "3 days overdue", "AFTER", 3, "URGENT");
+        return reminderRuleRepository.saveAll(List.of(r1, r2, r3));
+    }
+}

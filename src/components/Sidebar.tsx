@@ -1,4 +1,5 @@
-import React from 'react';
+import React, { useState, useRef, useEffect } from 'react';
+import { UserProfile } from '../types';
 
 export type DueflowTab = 'overview' | 'invoices' | 'clients' | 'reminders' | 'settings';
 
@@ -8,6 +9,10 @@ interface SidebarProps {
   isOpenMobile: boolean;
   onCloseMobile: () => void;
   onBackToLanding: () => void;
+  userProfile?: UserProfile;
+  onOpenSettings?: () => void;
+  onSwitchAccount?: () => void;
+  onSignOut?: () => void;
 }
 
 export const Sidebar: React.FC<SidebarProps> = ({
@@ -16,7 +21,28 @@ export const Sidebar: React.FC<SidebarProps> = ({
   isOpenMobile,
   onCloseMobile,
   onBackToLanding,
+  userProfile,
+  onOpenSettings,
+  onSwitchAccount,
+  onSignOut,
 }) => {
+  const [isProfileMenuOpen, setIsProfileMenuOpen] = useState(false);
+  const profileMenuRef = useRef<HTMLDivElement>(null);
+
+  useEffect(() => {
+    const handleOutsideClick = (e: MouseEvent) => {
+      if (profileMenuRef.current && !profileMenuRef.current.contains(e.target as Node)) {
+        setIsProfileMenuOpen(false);
+      }
+    };
+    if (isProfileMenuOpen) {
+      document.addEventListener('mousedown', handleOutsideClick);
+    }
+    return () => {
+      document.removeEventListener('mousedown', handleOutsideClick);
+    };
+  }, [isProfileMenuOpen]);
+
   const navItems: { id: DueflowTab; label: string; icon: string }[] = [
     { id: 'overview', label: 'Overview', icon: 'grid_view' },
     { id: 'invoices', label: 'Invoices', icon: 'receipt_long' },
@@ -41,18 +67,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
         />
       )}
 
-      {/* Sidebar */}
+      {/* Main Sidebar */}
       <aside
-        className={`fixed left-0 top-0 h-full w-64 bg-[#f5f3ee] border-r border-[#e4e2dd] z-50 flex flex-col justify-between py-6 transition-transform duration-200 ease-in-out lg:translate-x-0 ${
-          isOpenMobile ? 'translate-x-0 shadow-xl' : '-translate-x-full'
+        className={`fixed top-0 bottom-0 left-0 z-40 w-64 bg-[#fbf9f4] border-r border-[#e4e2dd] flex flex-col justify-between py-6 transition-transform duration-200 ease-in-out lg:translate-x-0 ${
+          isOpenMobile ? 'translate-x-0 shadow-2xl' : '-translate-x-full'
         }`}
       >
-        <div className="flex flex-col">
-          {/* Logo & Register marks */}
-          <div className="px-6 mb-8 flex items-center justify-between">
+        <div className="space-y-6">
+          {/* Logo & Brand */}
+          <div className="px-6 flex items-center justify-between">
             <span
-              onClick={() => handleNavClick('overview')}
-              className="text-[22px] leading-[28px] font-bold tracking-tight lowercase text-[#15263c] cursor-pointer"
+              onClick={onBackToLanding}
+              className="text-xl font-bold tracking-tight text-[#001126] font-['Plus_Jakarta_Sans'] cursor-pointer hover:opacity-80 transition-opacity"
             >
               dueflow
             </span>
@@ -103,11 +129,79 @@ export const Sidebar: React.FC<SidebarProps> = ({
           </div>
         </div>
 
-        {/* User Profile Card */}
-        <div className="px-3">
+        {/* User Profile Card & Dropdown Menu */}
+        <div className="px-3 relative" ref={profileMenuRef}>
+          {isProfileMenuOpen && (
+            <div className="absolute bottom-full left-3 right-3 mb-2 bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-3 z-50 animate-in fade-in slide-in-from-bottom-2 duration-150">
+              {/* User Identity Info */}
+              <div className="p-3 bg-[#fbf9f4] rounded-xl border border-[#001126]/5 mb-2">
+                <p className="text-sm font-bold text-[#001126] truncate">
+                  {userProfile?.fullName || 'My Account'}
+                </p>
+                <p className="font-['Space_Mono'] text-[10px] text-[#74777d] truncate mt-0.5">
+                  {userProfile?.email || 'Authenticated User'}
+                </p>
+              </div>
+
+              {/* Menu Actions */}
+              <div className="space-y-1 text-xs">
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    if (onSwitchAccount) onSwitchAccount();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#44474d]">
+                    switch_account
+                  </span>
+                  <span>Switch account</span>
+                </button>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    if (onOpenSettings) {
+                      onOpenSettings();
+                    } else {
+                      handleNavClick('settings');
+                    }
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#44474d]">
+                    tune
+                  </span>
+                  <span>Settings</span>
+                </button>
+
+                <div className="border-t border-[#001126]/10 my-1" />
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsProfileMenuOpen(false);
+                    if (onSignOut) onSignOut();
+                  }}
+                  className="w-full flex items-center gap-2.5 px-3 py-2 font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                >
+                  <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">
+                    logout
+                  </span>
+                  <span>Sign out</span>
+                </button>
+              </div>
+            </div>
+          )}
+
           <div
-            onClick={() => handleNavClick('settings')}
+            onClick={() => setIsProfileMenuOpen(!isProfileMenuOpen)}
             className="p-2 rounded-lg hover:bg-[#f0eee9] transition-colors flex items-center justify-between cursor-pointer border border-[#e4e2dd]/60"
+            role="button"
+            aria-expanded={isProfileMenuOpen}
+            aria-label="User account menu"
           >
             <div className="flex items-center gap-3 min-w-0">
               <div className="w-8 h-8 rounded-full bg-[#001126] flex items-center justify-center shrink-0">
@@ -115,14 +209,18 @@ export const Sidebar: React.FC<SidebarProps> = ({
               </div>
               <div className="flex flex-col min-w-0">
                 <span className="text-sm font-semibold text-[#1b1c19] truncate">
-                  Alex Mercer
+                  {userProfile?.fullName || 'My Account'}
                 </span>
                 <span className="font-['Space_Mono'] text-[10px] text-[#44474d] truncate">
-                  alex@dueflow.io
+                  {userProfile?.email || 'Account options'}
                 </span>
               </div>
             </div>
-            <span className="material-symbols-outlined text-[#44474d] text-[18px] shrink-0">
+            <span
+              className={`material-symbols-outlined text-[#44474d] text-[18px] shrink-0 transition-transform duration-200 ${
+                isProfileMenuOpen ? 'rotate-180' : ''
+              }`}
+            >
               expand_more
             </span>
           </div>

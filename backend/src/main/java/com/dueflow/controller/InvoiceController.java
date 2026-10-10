@@ -1,0 +1,87 @@
+package com.dueflow.controller;
+
+import com.dueflow.domain.Invoice;
+import com.dueflow.dto.InvoiceDto;
+import com.dueflow.security.SecurityUtils;
+import com.dueflow.service.InvoiceService;
+import com.dueflow.service.PdfGenerationService;
+import jakarta.validation.Valid;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.http.MediaType;
+import org.springframework.http.ResponseEntity;
+import org.springframework.web.bind.annotation.*;
+
+import java.util.List;
+import java.util.Map;
+
+@RestController
+@RequestMapping("/api/invoices")
+public class InvoiceController {
+
+    private final InvoiceService invoiceService;
+    private final PdfGenerationService pdfGenerationService;
+
+    public InvoiceController(InvoiceService invoiceService, PdfGenerationService pdfGenerationService) {
+        this.invoiceService = invoiceService;
+        this.pdfGenerationService = pdfGenerationService;
+    }
+
+    @GetMapping
+    public ResponseEntity<List<InvoiceDto>> getInvoices(@RequestParam(value = "search", required = false) String search) {
+        String userId = SecurityUtils.getRequiredUserId();
+        if (search != null && !search.isBlank()) {
+            return ResponseEntity.ok(invoiceService.searchInvoices(userId, search));
+        }
+        return ResponseEntity.ok(invoiceService.getInvoices(userId));
+    }
+
+    @GetMapping("/{id}")
+    public ResponseEntity<InvoiceDto> getInvoice(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(invoiceService.getInvoice(id, userId));
+    }
+
+    @PostMapping
+    public ResponseEntity<InvoiceDto> createInvoice(@Valid @RequestBody InvoiceDto dto) {
+        String userId = SecurityUtils.getRequiredUserId();
+        InvoiceDto created = invoiceService.createInvoice(userId, dto);
+        return ResponseEntity.status(HttpStatus.CREATED).body(created);
+    }
+
+    @PutMapping("/{id}")
+    public ResponseEntity<InvoiceDto> updateInvoice(@PathVariable String id, @Valid @RequestBody InvoiceDto dto) {
+        String userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(invoiceService.updateInvoice(id, userId, dto));
+    }
+
+    @DeleteMapping("/{id}")
+    public ResponseEntity<Map<String, String>> deleteInvoice(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        invoiceService.deleteInvoice(id, userId);
+        return ResponseEntity.ok(Map.of("message", "Invoice deleted successfully"));
+    }
+
+    @PostMapping("/{id}/mark-paid")
+    public ResponseEntity<InvoiceDto> markAsPaid(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(invoiceService.markInvoiceAsPaid(id, userId));
+    }
+
+    @GetMapping("/{id}/pdf")
+    public ResponseEntity<byte[]> downloadInvoicePdf(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        Invoice invoice = invoiceService.getInvoiceEntity(id, userId);
+
+        byte[] pdfBytes = pdfGenerationService.generateInvoicePdf(invoice);
+
+        HttpHeaders headers = new HttpHeaders();
+        headers.setContentType(MediaType.APPLICATION_PDF);
+        String filename = (invoice.getInvoiceNumber() != null ? invoice.getInvoiceNumber() : "invoice") + ".pdf";
+        headers.set(HttpHeaders.CONTENT_DISPOSITION, "inline; filename=\"" + filename + "\"");
+
+        return ResponseEntity.ok()
+                .headers(headers)
+                .body(pdfBytes);
+    }
+}

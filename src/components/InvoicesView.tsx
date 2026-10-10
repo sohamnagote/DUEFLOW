@@ -1,9 +1,10 @@
 import React, { useState } from 'react';
-import { Invoice, InvoiceStatus, UserProfile } from '../types';
+import { Invoice, Client, InvoiceStatus, UserProfile } from '../types';
 import { formatCurrency, getCurrencySymbol, SupportedCurrency } from '../utils/currency';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
+  clients?: Client[];
   userPreferredCurrency?: 'INR' | 'USD';
   userProfile?: UserProfile;
   onAddInvoice: (inv: Omit<Invoice, 'id'>) => void;
@@ -13,6 +14,7 @@ interface InvoicesViewProps {
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
   invoices,
+  clients = [],
   userPreferredCurrency = 'INR',
   userProfile,
   onAddInvoice,
@@ -26,20 +28,20 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
   const [currency, setCurrency] = useState<SupportedCurrency>(userPreferredCurrency);
-  const [amount, setAmount] = useState(userPreferredCurrency === 'INR' ? '25000' : '2400');
-  const [invoiceNumber, setInvoiceNumber] = useState(
-    `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`
-  );
-  const [dueDate, setDueDate] = useState('2026-10-25');
-  const [description, setDescription] = useState('Creative design system & autonomous ledger sprint');
+  const [amount, setAmount] = useState('');
+  const [invoiceNumber, setInvoiceNumber] = useState('');
+  const [dueDate, setDueDate] = useState('');
+  const [description, setDescription] = useState('');
 
   // Sync default currency when opening modal
   const handleOpenNewModal = () => {
     setCurrency(userPreferredCurrency);
-    if (!amount || amount === '2400' || amount === '25000') {
-      setAmount(userPreferredCurrency === 'INR' ? '25000' : '2400');
-    }
-    setInvoiceNumber(`INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`);
+    setAmount('');
+    setInvoiceNumber('');
+    setDueDate('');
+    setDescription('');
+    setClientName('');
+    setClientEmail('');
     setIsModalOpen(true);
   };
 
@@ -47,20 +49,31 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     e.preventDefault();
     if (!clientName || !amount) return;
 
+    const finalInvoiceNumber =
+      invoiceNumber.trim() ||
+      `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
+    const finalDueDate =
+      dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const finalDescription = description.trim() || 'Services rendered';
+    const trimmedName = clientName.trim();
+    const matchedClient = (clients || []).find(
+      (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
+    );
+
     onAddInvoice({
-      invoiceNumber,
-      clientId: `cli-${Date.now()}`,
-      clientName,
-      clientEmail: clientEmail || `${clientName.toLowerCase().replace(/\s+/g, '')}@example.com`,
+      invoiceNumber: finalInvoiceNumber,
+      clientId: matchedClient ? matchedClient.id : undefined,
+      clientName: trimmedName,
+      clientEmail: clientEmail.trim() || (matchedClient ? matchedClient.email : `${trimmedName.toLowerCase().replace(/\s+/g, '')}@example.com`),
       amount: parseFloat(amount) || 0,
       currency,
       issueDate: new Date().toISOString().split('T')[0],
-      dueDate,
+      dueDate: finalDueDate,
       status: 'pending',
-      description,
+      description: finalDescription,
       items: [
         {
-          description,
+          description: finalDescription,
           quantity: 1,
           rate: parseFloat(amount) || 0,
         },
@@ -71,6 +84,10 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     setIsModalOpen(false);
     setClientName('');
     setClientEmail('');
+    setAmount('');
+    setInvoiceNumber('');
+    setDueDate('');
+    setDescription('');
   };
 
   const handlePrintPdf = () => {
@@ -97,7 +114,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           <div className="flex items-center gap-3">
             <button
               onClick={handleOpenNewModal}
-              className="group relative inline-flex items-center gap-2 bg-[#15263c] text-[#fbf9f4] px-4 py-2 rounded-xl text-sm font-medium shadow-sm hover:opacity-95 transition-all duration-200 active:scale-[0.98]"
+              className="btn-action-primary group inline-flex items-center gap-2 px-4 py-2 rounded-xl text-sm font-medium shadow-sm"
               type="button"
             >
               <span className="material-symbols-outlined text-[18px] text-[#fbf9f4] transition-transform duration-200 group-hover:rotate-90">
@@ -164,7 +181,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
               <button
                 onClick={handleOpenNewModal}
-                className="group relative inline-flex items-center gap-2.5 bg-[#15263c] text-[#fbf9f4] px-6 py-3 rounded-xl text-sm font-semibold shadow-md hover:bg-[#001126] transition-all duration-200 active:scale-[0.98]"
+                className="btn-action-primary group inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold shadow-md"
                 type="button"
               >
                 <span className="material-symbols-outlined text-[20px] text-[#fbf9f4] transition-transform duration-200 group-hover:scale-110">
@@ -229,7 +246,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         <div className="flex items-center justify-end gap-1.5">
                           <button
                             onClick={() => setSelectedInvoiceForDetails(inv)}
-                            className="px-2 py-1 text-xs text-[#15263c] hover:bg-[#f5f3ee] rounded border border-[#15263c]/10 font-medium"
+                            className="px-2.5 py-1 text-xs text-[#15263c] hover:bg-[#15263c]/10 rounded-lg border border-[#15263c]/15 font-medium transition-all duration-150 active:scale-[0.97]"
                             title="View Invoice & PDF Preview"
                           >
                             View
@@ -237,7 +254,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           {inv.status !== 'paid' ? (
                             <button
                               onClick={() => onUpdateStatus(inv.id, 'paid')}
-                              className="px-2 py-1 bg-[#3d6562]/10 text-[#3d6562] hover:bg-[#3d6562]/20 rounded text-[11px] font-semibold"
+                              className="px-2.5 py-1 bg-[#3d6562]/10 text-[#3d6562] hover:bg-[#3d6562]/20 rounded-lg text-[11px] font-semibold transition-all duration-150 active:scale-[0.97]"
                               title="Mark invoice as paid"
                             >
                               Mark paid
@@ -245,7 +262,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           ) : (
                             <button
                               onClick={() => onUpdateStatus(inv.id, 'pending')}
-                              className="px-2 py-1 bg-[#001126]/10 text-[#001126] hover:bg-[#001126]/20 rounded text-[11px] font-semibold"
+                              className="px-2.5 py-1 bg-[#001126]/10 text-[#001126] hover:bg-[#001126]/20 rounded-lg text-[11px] font-semibold transition-all duration-150 active:scale-[0.97]"
                               title="Mark invoice as pending"
                             >
                               Mark pending
@@ -253,7 +270,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                           )}
                           <button
                             onClick={() => onDeleteInvoice(inv.id)}
-                            className="text-[#74777d] hover:text-[#ba1a1a] p-1 rounded"
+                            className="text-[#74777d] hover:text-[#ba1a1a] hover:bg-[#ba1a1a]/10 p-1 rounded-lg transition-all duration-150 active:scale-[0.95]"
                             title="Delete invoice"
                           >
                             <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -297,12 +314,25 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 </label>
                 <input
                   type="text"
+                  list="client-suggestions"
                   value={clientName}
-                  onChange={(e) => setClientName(e.target.value)}
+                  onChange={(e) => {
+                    const val = e.target.value;
+                    setClientName(val);
+                    const matched = (clients || []).find((c) => c.name.toLowerCase() === val.trim().toLowerCase());
+                    if (matched && matched.email) {
+                      setClientEmail(matched.email);
+                    }
+                  }}
                   placeholder="e.g. Acme Corp"
                   className="w-full px-3 py-2 bg-[#fbf9f4] text-sm rounded border border-[#15263c]/15 focus:outline-none focus:border-[#15263c]"
                   required
                 />
+                <datalist id="client-suggestions">
+                  {(clients || []).map((c) => (
+                    <option key={c.id} value={c.name}>{c.email}</option>
+                  ))}
+                </datalist>
               </div>
 
               <div>
@@ -393,13 +423,13 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="px-4 py-2 text-xs font-semibold text-[#74777d]"
+                  className="btn-action-secondary px-4 py-2 text-xs font-semibold rounded-lg"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="px-5 py-2.5 bg-[#15263c] text-[#fbf9f4] text-xs font-semibold rounded-lg hover:bg-[#001126] transition-colors"
+                  className="btn-action-primary px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm"
                 >
                   Create Invoice
                 </button>
@@ -440,14 +470,14 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               <div className="flex items-center gap-2">
                 <button
                   onClick={handlePrintPdf}
-                  className="inline-flex items-center gap-1.5 px-3 py-1.5 bg-[#15263c] text-[#ffffff] rounded-lg text-xs font-semibold hover:bg-[#001126] transition-colors"
+                  className="btn-action-primary inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold"
                 >
                   <span className="material-symbols-outlined text-[16px]">print</span>
                   <span>Print / PDF</span>
                 </button>
                 <button
                   onClick={() => setSelectedInvoiceForDetails(null)}
-                  className="text-[#74777d] hover:text-[#001126] p-1"
+                  className="text-[#74777d] hover:text-[#001126] hover:bg-[#15263c]/5 p-1 rounded-lg transition-colors active:scale-95"
                 >
                   <span className="material-symbols-outlined text-[20px]">close</span>
                 </button>
@@ -488,9 +518,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     PAYABLE TO:
                   </span>
                   <p className="text-sm font-bold text-[#001126]">
-                    {userProfile?.beneficiaryName || userProfile?.fullName || 'Alex Mercer Studio LLC'}
+                    {userProfile?.beneficiaryName || userProfile?.fullName || 'Business Name'}
                   </p>
-                  <p className="text-[#44474d]">{userProfile?.email || 'alex@dueflow.io'}</p>
+                  {userProfile?.email && <p className="text-[#44474d]">{userProfile.email}</p>}
                   {userProfile?.upiId && (
                     <p className="font-['Space_Mono'] text-[11px] text-[#3d6562]">
                       UPI ID: {userProfile.upiId}

@@ -3,9 +3,12 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import { Invoice, Client, InvoiceStatus, UserProfile } from './types';
-import { INITIAL_INVOICES, INITIAL_CLIENTS, INITIAL_USER_PROFILE } from './data/dueflowData';
+import { INITIAL_USER_PROFILE } from './data/dueflowData';
+import { dueflowApi } from './utils/api';
+import { getActiveUser, signOutUser } from './utils/auth';
+import { supabase } from './utils/supabase';
 import { Sidebar, DueflowTab } from './components/Sidebar';
 import { TopHeader } from './components/TopHeader';
 import { LandingView } from './components/LandingView';
@@ -17,6 +20,7 @@ import { InvoicesView } from './components/InvoicesView';
 import { ClientsView } from './components/ClientsView';
 import { RemindersView } from './components/RemindersView';
 import { SettingsView } from './components/SettingsView';
+import { SwitchAccountModal } from './components/SwitchAccountModal';
 
 export default function App() {
   // Determine initial page from URL path to support direct opens/refreshes of /privacy, /terms, etc.
@@ -39,6 +43,9 @@ export default function App() {
   // Sidebar mobile drawer state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
 
+  // Switch Account Modal state
+  const [isSwitchAccountOpen, setIsSwitchAccountOpen] = useState(false);
+
   // Persistent User Profile state (INR default)
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
 
@@ -46,30 +53,73 @@ export default function App() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
-  // Fetch persisted profile from backend database on mount
-  useEffect(() => {
-    let isMounted = true;
-    const fetchProfile = async () => {
-      try {
-        const res = await fetch('/api/user/profile');
-        if (res.ok) {
-          const data = await res.json();
-          if (data.success && data.profile && isMounted) {
-            setUserProfile((prev) => ({
-              ...prev,
-              ...data.profile,
-            }));
-          }
-        }
-      } catch (err) {
-        console.warn('Could not load remote profile:', err);
+  // Comprehensive data loader from verified PostgreSQL backend
+  const refreshAllUserData = useCallback(async () => {
+    try {
+      const [profileData, invData, clientData, activeUser] = await Promise.allSettled([
+        dueflowApi.getProfile(),
+        dueflowApi.getInvoices(),
+        dueflowApi.getClients(),
+        getActiveUser(),
+      ]);
+
+      if (profileData.status === 'fulfilled' && profileData.value) {
+        const authUser = activeUser.status === 'fulfilled' ? activeUser.value : null;
+        setUserProfile((prev) => ({
+          ...prev,
+          ...profileData.value,
+          fullName: profileData.value.fullName || authUser?.name || prev.fullName,
+          email: profileData.value.email || authUser?.email || prev.email,
+        }));
+      } else if (activeUser.status === 'fulfilled' && activeUser.value) {
+        setUserProfile((prev) => ({
+          ...prev,
+          fullName: activeUser.value?.name || prev.fullName,
+          email: activeUser.value?.email || prev.email,
+        }));
       }
-    };
-    fetchProfile();
-    return () => {
-      isMounted = false;
-    };
+
+      if (invData.status === 'fulfilled') {
+        setInvoices(invData.value || []);
+      } else {
+        console.warn('Backend invoices query rejected:', invData.reason);
+      }
+
+      if (clientData.status === 'fulfilled') {
+        setClients(clientData.value || []);
+      } else {
+        console.warn('Backend clients query rejected:', clientData.reason);
+      }
+    } catch (err) {
+      console.warn('Could not load remote account data:', err);
+    }
   }, []);
+
+  // Fetch persisted profile, invoices and clients on mount
+  useEffect(() => {
+    refreshAllUserData();
+  }, [refreshAllUserData]);
+
+  // Supabase Auth listener: handles session changes, account switching, and logout
+  useEffect(() => {
+    const {
+      data: { subscription },
+    } = supabase.auth.onAuthStateChange(async (event, session) => {
+      if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
+        if (session?.user) {
+          await refreshAllUserData();
+        }
+      } else if (event === 'SIGNED_OUT') {
+        setInvoices([]);
+        setClients([]);
+        setUserProfile(INITIAL_USER_PROFILE);
+      }
+    });
+
+    return () => {
+      subscription.unsubscribe();
+    };
+  }, [refreshAllUserData]);
 
   // Listen to browser forward/back buttons
   useEffect(() => {
@@ -97,53 +147,107 @@ export default function App() {
 
   const navigateToApp = () => {
     setPageMode('app');
+    refreshAllUserData();
   };
 
-  // Handlers for invoices
-  const handleAddInvoice = (newInv: Omit<Invoice, 'id'>) => {
-    const created: Invoice = {
-      ...newInv,
-      id: `inv-${Date.now()}`,
-    };
-    setInvoices((prev) => [created, ...prev]);
-    setActiveTab('invoices');
+  const handleSignOut = async () => {
+    await signOutUser();
+    setUserProfile(INITIAL_USER_PROFILE);
+    setInvoices([]);
+    setClients([]);
+    navigateToSignIn();
   };
 
-  const handleUpdateStatus = (id: string, status: InvoiceStatus) => {
+  const handleAccountSwitched = async () => {
+    setInvoices([]);
+    setClients([]);
+    setUserProfile(INITIAL_USER_PROFILE);
+    await refreshAllUserData();
+    setPageMode('app');
+  };
+
+  // Handlers for invoices - strictly calls database and removes false fallbacks
+  const handleAddInvoice = async (newInv: Omit<Invoice, 'id'>) => {
+    try {
+      const created = await dueflowApi.createInvoice(newInv);
+      setInvoices((prev) => [created, ...prev]);
+      try {
+        const updatedClients = await dueflowApi.getClients();
+        setClients(updatedClients);
+      } catch (_) {}
+      setActiveTab('invoices');
+    } catch (err: any) {
+      console.error('Invoice creation failed on backend:', err);
+      alert(err?.message || 'Could not save invoice to database. Please check required fields.');
+    }
+  };
+
+  const handleUpdateStatus = async (id: string, status: InvoiceStatus) => {
+    // Optimistic UI with sync
     setInvoices((prev) =>
       prev.map((inv) => (inv.id === id ? { ...inv, status } : inv))
     );
+    try {
+      if (status === 'paid') {
+        await dueflowApi.markInvoicePaid(id);
+      } else {
+        await dueflowApi.updateInvoice(id, { status });
+      }
+    } catch (err: any) {
+      console.warn('Could not sync status update with backend:', err);
+      // Re-fetch to guarantee consistency
+      try {
+        const fresh = await dueflowApi.getInvoices();
+        setInvoices(fresh);
+      } catch (_) {}
+    }
   };
 
-  const handleDeleteInvoice = (id: string) => {
+  const handleDeleteInvoice = async (id: string) => {
     setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+    try {
+      await dueflowApi.deleteInvoice(id);
+    } catch (err: any) {
+      console.warn('Could not sync invoice delete with backend:', err);
+      try {
+        const fresh = await dueflowApi.getInvoices();
+        setInvoices(fresh);
+      } catch (_) {}
+    }
   };
 
-  // Handlers for clients
-  const handleAddClient = (
+  // Handlers for clients - strictly calls database
+  const handleAddClient = async (
     newCli: Omit<Client, 'id' | 'totalInvoiced' | 'totalOutstanding' | 'invoicesCount' | 'createdAt'>
   ) => {
-    const created: Client = {
-      ...newCli,
-      id: `cli-${Date.now()}`,
-      totalInvoiced: 0,
-      totalOutstanding: 0,
-      invoicesCount: 0,
-      createdAt: new Date().toISOString().split('T')[0],
-    };
-    setClients((prev) => [created, ...prev]);
+    try {
+      const created = await dueflowApi.createClient(newCli);
+      setClients((prev) => [created, ...prev]);
+    } catch (err: any) {
+      console.error('Client creation failed on backend:', err);
+      alert(err?.message || 'Could not save client to database. Please check required fields.');
+    }
   };
 
-  const handleDeleteClient = (id: string) => {
+  const handleDeleteClient = async (id: string) => {
     setClients((prev) => prev.filter((c) => c.id !== id));
+    try {
+      await dueflowApi.deleteClient(id);
+    } catch (err: any) {
+      console.warn('Could not sync client delete with backend:', err);
+      try {
+        const fresh = await dueflowApi.getClients();
+        setClients(fresh);
+      } catch (_) {}
+    }
   };
 
-  // Screen: Privacy Policy Route (/privacy per Requirement 3)
+  // Screen: Privacy Policy Route (/privacy)
   if (pageMode === 'privacy') {
     return <PrivacyView onBackToLanding={navigateToLanding} />;
   }
 
-  // Screen: Terms of Service Route (/terms per Requirement 3)
+  // Screen: Terms of Service Route (/terms)
   if (pageMode === 'terms') {
     return <TermsView onBackToLanding={navigateToLanding} />;
   }
@@ -154,11 +258,17 @@ export default function App() {
       <LandingView
         onSignInClick={navigateToSignIn}
         onGetStartedClick={navigateToApp}
+        userProfile={userProfile}
+        onOpenSettings={() => {
+          setActiveTab('settings');
+          setPageMode('app');
+        }}
+        onSignOut={handleSignOut}
       />
     );
   }
 
-  // Screen 2: Sign-in Screen (with canonical Back to landing page in header)
+  // Screen 2: Sign-in Screen
   if (pageMode === 'signin') {
     return (
       <SignInView
@@ -171,24 +281,29 @@ export default function App() {
   // Screen 3: Core Dueflow Dashboard App
   return (
     <div className="relative min-h-screen w-full bg-[#fbf9f4] font-['Hanken_Grotesk'] text-[#1b1c19]">
-      {/* Sidebar Navigation with Back to landing page directly below Settings (Requirement 4 & Screenshot 3) */}
+      {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
         onSelectTab={setActiveTab}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onBackToLanding={navigateToLanding}
+        userProfile={userProfile}
+        onOpenSettings={() => setActiveTab('settings')}
+        onSwitchAccount={() => setIsSwitchAccountOpen(true)}
+        onSignOut={handleSignOut}
       />
 
       {/* Main View Area */}
       <div className="pl-0 lg:pl-64 flex flex-col min-h-screen w-full">
-        {/* Top Header with Functional Notification Bell, Help Icon, and Profile Menu (Requirement 7 & Screenshot 5) */}
+        {/* Top Header */}
         <TopHeader
           activeTab={activeTab}
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onOpenLandingPage={navigateToLanding}
           onOpenSettings={() => setActiveTab('settings')}
-          onSignOut={navigateToSignIn}
+          onSwitchAccount={() => setIsSwitchAccountOpen(true)}
+          onSignOut={handleSignOut}
           onNavigateToTab={(tab) => setActiveTab(tab)}
           invoices={invoices}
           userProfile={userProfile}
@@ -203,10 +318,6 @@ export default function App() {
               userPreferredCurrency={userProfile.preferredCurrency}
               onNewInvoiceClick={() => setActiveTab('invoices')}
               onAddClientClick={() => setActiveTab('clients')}
-              onLoadSampleData={() => {
-                setInvoices(INITIAL_INVOICES);
-                setClients(INITIAL_CLIENTS);
-              }}
               onClearData={() => {
                 setInvoices([]);
                 setClients([]);
@@ -220,6 +331,7 @@ export default function App() {
           {activeTab === 'invoices' && (
             <InvoicesView
               invoices={invoices}
+              clients={clients}
               userPreferredCurrency={userProfile.preferredCurrency}
               userProfile={userProfile}
               onAddInvoice={handleAddInvoice}
@@ -239,6 +351,8 @@ export default function App() {
           {activeTab === 'reminders' && (
             <RemindersView
               userPreferredCurrency={userProfile.preferredCurrency}
+              invoices={invoices}
+              userProfile={userProfile}
             />
           )}
 
@@ -250,6 +364,17 @@ export default function App() {
           )}
         </main>
       </div>
+
+      {/* Account Switching Dialog Modal */}
+      <SwitchAccountModal
+        isOpen={isSwitchAccountOpen}
+        onClose={() => setIsSwitchAccountOpen(false)}
+        currentAccount={{
+          name: userProfile.fullName,
+          email: userProfile.email,
+        }}
+        onAccountSwitched={handleAccountSwitched}
+      />
     </div>
   );
 }

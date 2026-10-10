@@ -6,3 +6,10 @@ coverage/
 *.log
 .env*
 !.env.example
+.tools/
+target/
+backend/target/
+*.class
+.idea/
+*.iml
+data/
