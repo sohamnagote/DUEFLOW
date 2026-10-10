@@ -1,7 +1,8 @@
 import { supabase } from './supabase';
 import { Invoice, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem } from '../types';
 
-const API_BASE = (import.meta.env.VITE_API_BASE_URL ? import.meta.env.VITE_API_BASE_URL.replace(/\/+$/, '') : '') + '/api';
+const rawApiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
+const API_BASE = (rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '') + '/api';
 
 /**
  * Returns the current JWT access token from Supabase session, if available.

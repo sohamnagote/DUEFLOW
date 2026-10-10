@@ -13,3 +13,4 @@ backend/target/
 .idea/
 *.iml
 data/
+.vercel
