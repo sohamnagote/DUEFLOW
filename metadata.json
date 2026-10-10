@@ -1,0 +1,6 @@
+{
+  "name": "DueFlow — Invoicing & AI Email Follow-up Studio",
+  "description": "Create invoices, schedule automated reminders, generate complete email marketing campaigns with Gemini, and get paid without chasing.",
+  "requestFramePermissions": [],
+  "majorCapabilities": ["MAJOR_CAPABILITY_SERVER_SIDE_GEMINI_API"]
+}

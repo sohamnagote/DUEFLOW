@@ -1,0 +1,17 @@
+{
+  "fullName": "Alex Mercer",
+  "email": "alex@dueflow.io",
+  "preferredCurrency": "INR",
+  "timezone": "(UTC+00:00) Coordinated Universal Time (London)",
+  "upiId": "alexmercer@okaxis",
+  "beneficiaryName": "Alex Mercer Design Studio LLC",
+  "bankName": "Mercury Bank, San Francisco",
+  "accountNumber": "987654321098",
+  "routingNumber": "121000358",
+  "paymentInstructions": "Please include invoice number in the payment reference note.",
+  "paymentQrUrl": "https://api.qrserver.com/v1/create-qr-code/?size=240x240&data=upi://pay?pa=alexmercer@okaxis&pn=AlexMercer",
+  "gmailConnected": false,
+  "gmailEmail": null,
+  "automatedRemindersEnabled": true,
+  "updatedAt": "2026-10-10T09:59:29.694Z"
+}
