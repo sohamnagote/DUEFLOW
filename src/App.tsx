@@ -23,12 +23,14 @@ import { SettingsView } from './components/SettingsView';
 import { SwitchAccountModal } from './components/SwitchAccountModal';
 
 export default function App() {
-  // Determine initial page from URL path to support direct opens/refreshes of /privacy, /terms, etc.
+  // Determine initial page from URL path to support direct opens/refreshes of /dashboard, /privacy, /terms, etc.
   const getInitialPageMode = (): 'landing' | 'signin' | 'app' | 'privacy' | 'terms' => {
     if (typeof window === 'undefined') return 'landing';
     const path = window.location.pathname.toLowerCase();
+    const hasAuthCode = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
     if (path === '/privacy') return 'privacy';
     if (path === '/terms') return 'terms';
+    if (path === '/dashboard' || path === '/app' || hasAuthCode) return 'app';
     if (path === '/signin' || path === '/login') return 'signin';
     return 'landing';
   };
@@ -36,6 +38,9 @@ export default function App() {
   const [pageMode, setPageMode] = useState<'landing' | 'signin' | 'app' | 'privacy' | 'terms'>(
     getInitialPageMode
   );
+
+  // Authentication session check state
+  const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   // App navigation tab: 'overview' | 'invoices' | 'clients' | 'reminders' | 'settings'
   const [activeTab, setActiveTab] = useState<DueflowTab>('overview');
@@ -95,9 +100,34 @@ export default function App() {
     }
   }, []);
 
-  // Fetch persisted profile, invoices and clients on mount
+  // Check initial session & handle OAuth callback parameters if present
   useEffect(() => {
-    refreshAllUserData();
+    let isMounted = true;
+    const initializeAuth = async () => {
+      try {
+        const { data: { session } } = await supabase.auth.getSession();
+        if (!isMounted) return;
+        const authenticated = Boolean(session?.user);
+        setIsAuthenticated(authenticated);
+
+        // If URL contains OAuth callback tokens / code, clean them up cleanly
+        if (typeof window !== 'undefined' && (window.location.hash.includes('access_token=') || window.location.search.includes('code='))) {
+          const cleanUrl = window.location.pathname.startsWith('/dashboard') ? '/dashboard' : '/';
+          window.history.replaceState(null, '', cleanUrl);
+        }
+
+        if (authenticated) {
+          await refreshAllUserData();
+        }
+      } catch (err) {
+        if (isMounted) setIsAuthenticated(false);
+      }
+    };
+
+    initializeAuth();
+    return () => {
+      isMounted = false;
+    };
   }, [refreshAllUserData]);
 
   // Supabase Auth listener: handles session changes, account switching, and logout
@@ -105,14 +135,41 @@ export default function App() {
     const {
       data: { subscription },
     } = supabase.auth.onAuthStateChange(async (event, session) => {
+      const hasUser = Boolean(session?.user);
+      setIsAuthenticated(hasUser);
+
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
-        if (session?.user) {
+        if (hasUser) {
           await refreshAllUserData();
+          // Clean callback hashes or queries from URL if present
+          if (typeof window !== 'undefined' && (window.location.hash.includes('access_token=') || window.location.search.includes('code='))) {
+            const cleanUrl = window.location.pathname.startsWith('/dashboard') ? '/dashboard' : '/';
+            window.history.replaceState(null, '', cleanUrl);
+          }
+          // Redirect from signin or landing to dashboard on successful sign in
+          setPageMode((prev) => {
+            if (prev === 'signin' || prev === 'landing') {
+              if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
+                window.history.pushState(null, '', '/dashboard');
+              }
+              return 'app';
+            }
+            return prev;
+          });
         }
       } else if (event === 'SIGNED_OUT') {
         setInvoices([]);
         setClients([]);
         setUserProfile(INITIAL_USER_PROFILE);
+        setPageMode((prev) => {
+          if (prev === 'app') {
+            if (window.location.pathname !== '/signin') {
+              window.history.pushState(null, '', '/signin');
+            }
+            return 'signin';
+          }
+          return prev;
+        });
       }
     });
 
@@ -120,6 +177,27 @@ export default function App() {
       subscription.unsubscribe();
     };
   }, [refreshAllUserData]);
+
+  // Route protection and redirection enforcement
+  useEffect(() => {
+    if (isAuthenticated === null) return; // Still verifying session
+
+    // Req 7: If user is already authenticated and opens /signin, redirect them to dashboard
+    if (pageMode === 'signin' && isAuthenticated) {
+      if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
+        window.history.replaceState(null, '', '/dashboard');
+      }
+      setPageMode('app');
+    }
+
+    // Req 8: Protect dashboard so unauthenticated users are redirected to /signin
+    if (pageMode === 'app' && !isAuthenticated) {
+      if (window.location.pathname !== '/signin') {
+        window.history.replaceState(null, '', '/signin');
+      }
+      setPageMode('signin');
+    }
+  }, [pageMode, isAuthenticated]);
 
   // Listen to browser forward/back buttons
   useEffect(() => {
@@ -146,6 +224,9 @@ export default function App() {
   };
 
   const navigateToApp = () => {
+    if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
+      window.history.pushState(null, '', '/dashboard');
+    }
     setPageMode('app');
     refreshAllUserData();
   };
@@ -155,6 +236,7 @@ export default function App() {
     setUserProfile(INITIAL_USER_PROFILE);
     setInvoices([]);
     setClients([]);
+    setIsAuthenticated(false);
     navigateToSignIn();
   };
 
@@ -163,7 +245,7 @@ export default function App() {
     setClients([]);
     setUserProfile(INITIAL_USER_PROFILE);
     await refreshAllUserData();
-    setPageMode('app');
+    navigateToApp();
   };
 
   // Handlers for invoices - strictly calls database and removes false fallbacks

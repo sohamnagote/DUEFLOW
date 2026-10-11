@@ -22,6 +22,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [fullName, setFullName] = useState('');
+  const [verificationSent, setVerificationSent] = useState(false);
   const [resetSent, setResetSent] = useState(false);
   const [isLoading, setIsLoading] = useState(false);
   const [authError, setAuthError] = useState<string | null>(null);
@@ -85,8 +86,11 @@ export const SignInView: React.FC<SignInViewProps> = ({
     setAuthError(null);
     setIsLoading(true);
     try {
-      await signInWithGooglePopup();
-      onSignInSuccess();
+      const result = await signInWithGooglePopup();
+      if (result) {
+        onSignInSuccess();
+      }
+      // If it falls back to full OAuth redirect, browser leaves page
     } catch (err: any) {
       console.error('Google Sign-In failed:', err);
       setAuthError(err?.message || 'Google Sign-In could not be completed. Please try again.');
@@ -108,14 +112,23 @@ export const SignInView: React.FC<SignInViewProps> = ({
       }
 
       if (authMode === 'signup') {
-        await signUpWithEmailPassword(email, password, fullName);
-        onSignInSuccess();
+        const signupData = await signUpWithEmailPassword(email, password, fullName);
+        // If Supabase requires email verification, session is null
+        if (signupData?.session) {
+          onSignInSuccess();
+        } else {
+          setVerificationSent(true);
+        }
         return;
       }
 
       if (authMode === 'login') {
-        await signInWithEmailPassword(email, password);
-        onSignInSuccess();
+        const signinData = await signInWithEmailPassword(email, password);
+        if (signinData?.session) {
+          onSignInSuccess();
+        } else {
+          setAuthError('Authentication succeeded but session could not be established.');
+        }
         return;
       }
     } catch (err: any) {
@@ -237,6 +250,26 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   onClick={() => {
                     setAuthMode('login');
                     setResetSent(false);
+                  }}
+                  className="w-full py-3 bg-[#071426] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c] transition-colors cursor-pointer"
+                >
+                  Return to Sign In
+                </button>
+              </div>
+            ) : verificationSent ? (
+              <div className="space-y-5 text-center py-2">
+                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 mx-auto flex items-center justify-center text-[#071426]">
+                  <span className="material-symbols-outlined text-[24px] text-[#071426]">mark_email_read</span>
+                </div>
+                <h3 className="text-base font-bold text-[#001126]">Verify your email</h3>
+                <p className="text-xs text-[#44474d] leading-relaxed">
+                  A verification link was sent to <span className="font-semibold text-[#001126]">{email}</span>. Please click the link to confirm your account and access your dashboard.
+                </p>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setAuthMode('login');
+                    setVerificationSent(false);
                   }}
                   className="w-full py-3 bg-[#071426] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c] transition-colors cursor-pointer"
                 >

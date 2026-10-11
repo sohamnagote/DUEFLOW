@@ -19,15 +19,25 @@ declare global {
 }
 
 /**
+ * Computes an environment-aware post-authentication redirect URL.
+ * Always resolves to current origin on local or deployed domains.
+ */
+export function getDashboardRedirectUrl(): string {
+  if (typeof window === 'undefined') return '/';
+  return `${window.location.origin}/`;
+}
+
+/**
  * Initiates Google OAuth Sign-In via Supabase Auth with Google provider.
  * Supports account selection prompt ('select_account') for clean account switching.
+ * Redirects to the current frontend origin / dashboard route.
  */
 export async function signInWithGoogle(prompt: 'select_account' | 'consent' = 'select_account'): Promise<void> {
   if (typeof window === 'undefined') return;
   const { error } = await supabase.auth.signInWithOAuth({
     provider: 'google',
     options: {
-      redirectTo: `${window.location.origin}/`,
+      redirectTo: getDashboardRedirectUrl(),
       queryParams: {
         access_type: 'offline',
         prompt,
@@ -119,6 +129,7 @@ export async function signUpWithEmailPassword(email: string, password: string, f
     email,
     password,
     options: {
+      emailRedirectTo: getDashboardRedirectUrl(),
       data: {
         full_name: fullName,
       },

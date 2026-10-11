@@ -338,10 +338,10 @@ export const LandingView: React.FC<LandingViewProps> = ({
       <main className="w-full pt-20 bg-transparent min-h-screen relative z-10">
         {/* Hero Section */}
         <div className="flex flex-col w-full relative min-h-[calc(100vh-5rem)] justify-between overflow-hidden select-none">
-          <div className="relative z-10 w-full max-w-4xl mx-auto px-6 md:px-14 py-16 md:py-28 flex flex-col items-center text-center my-auto">
+          <div className="relative z-10 w-full max-w-4xl mx-auto px-4 sm:px-6 md:px-14 py-12 sm:py-16 md:py-28 flex flex-col items-center text-center my-auto box-border">
             {/* Phase B: Eyebrow - Fades in 0->100% with subtle upward 8px movement */}
             <span
-              className="font-['Space_Mono'] text-[10px] uppercase tracking-[0.28em] text-[#44474d]/75 mb-6 md:mb-8 inline-block transition-all duration-500 ease-out"
+              className="font-['Space_Mono'] text-[9px] sm:text-[10px] uppercase tracking-[0.22em] sm:tracking-[0.28em] text-[#44474d]/75 mb-4 sm:mb-6 md:mb-8 inline-block transition-all duration-500 ease-out max-w-full px-2"
               style={{
                 opacity: prefersReducedMotion || eyebrowVisible ? 1 : 0,
                 transform: prefersReducedMotion || eyebrowVisible ? 'translateY(0px)' : 'translateY(8px)',
@@ -350,46 +350,73 @@ export const LandingView: React.FC<LandingViewProps> = ({
               Invoice follow-ups, simplified
             </span>
 
-            {/* Phase D: Hero Headline (Letter-by-letter sequential reveal, accessible to screen readers, responsive 62px desktop) */}
+            {/* Phase D: Hero Headline (Letter-by-letter sequential reveal, accessible to screen readers, responsive clamp sizing) */}
             <h1
-              className="text-[39px] sm:text-[53px] md:text-[62px] leading-[43px] sm:leading-[57px] md:leading-[66px] font-extrabold text-[#001126] tracking-tight uppercase max-w-3xl sm:max-w-4xl text-center select-none"
+              className="w-full max-w-full sm:max-w-3xl md:max-w-4xl text-[30px] min-[360px]:text-[34px] min-[390px]:text-[37px] sm:text-[50px] md:text-[62px] leading-[1.12] sm:leading-[1.1] md:leading-[66px] font-extrabold text-[#001126] tracking-tight uppercase text-center select-none box-border px-1 break-words"
               aria-label="GET PAID. WITHOUT THE CHASING."
             >
-              <span className="inline-block" aria-hidden="true">
-                {line1.split('').map((char, index) => {
-                  const isVisible = prefersReducedMotion || index < visibleCount;
-                  return (
-                    <span
-                      key={`l1-${index}`}
-                      className="inline-block transition-all duration-300 ease-out"
-                      style={{
-                        opacity: isVisible ? 1 : 0,
-                        transform: isVisible ? 'translateY(0px)' : 'translateY(8px)',
-                      }}
-                    >
-                      {char === ' ' ? '\u00A0' : char}
+              {/* Line 1: GET PAID. */}
+              <span className="inline-block max-w-full" aria-hidden="true">
+                {line1.split(' ').map((word, wordIndex, wordsArr) => (
+                  <React.Fragment key={`l1-word-${wordIndex}`}>
+                    <span className="inline-block whitespace-nowrap">
+                      {word.split('').map((char, charIndex) => {
+                        const letterIndex =
+                          wordsArr.slice(0, wordIndex).join(' ').length +
+                          (wordIndex > 0 ? 1 : 0) +
+                          charIndex;
+                        const isVisible = prefersReducedMotion || letterIndex < visibleCount;
+                        return (
+                          <span
+                            key={`l1-c-${wordIndex}-${charIndex}`}
+                            className="inline-block transition-all duration-300 ease-out"
+                            style={{
+                              opacity: isVisible ? 1 : 0,
+                              transform: isVisible ? 'translateY(0px)' : 'translateY(8px)',
+                            }}
+                          >
+                            {char}
+                          </span>
+                        );
+                      })}
                     </span>
-                  );
-                })}
+                    {wordIndex < wordsArr.length - 1 && ' '}
+                  </React.Fragment>
+                ))}
               </span>
+
+              {/* Responsive line break: explicit on sm+, natural flow on mobile */}
               <br className="hidden sm:inline" />{' '}
-              <span className="inline-block" aria-hidden="true">
-                {line2.split('').map((char, index) => {
-                  const globalIndex = line1.length + index;
-                  const isVisible = prefersReducedMotion || globalIndex < visibleCount;
-                  return (
-                    <span
-                      key={`l2-${index}`}
-                      className="inline-block transition-all duration-300 ease-out"
-                      style={{
-                        opacity: isVisible ? 1 : 0,
-                        transform: isVisible ? 'translateY(0px)' : 'translateY(8px)',
-                      }}
-                    >
-                      {char === ' ' ? '\u00A0' : char}
+
+              {/* Line 2: WITHOUT THE CHASING. */}
+              <span className="inline-block max-w-full" aria-hidden="true">
+                {line2.split(' ').map((word, wordIndex, wordsArr) => (
+                  <React.Fragment key={`l2-word-${wordIndex}`}>
+                    <span className="inline-block whitespace-nowrap">
+                      {word.split('').map((char, charIndex) => {
+                        const letterIndex =
+                          line1.length +
+                          wordsArr.slice(0, wordIndex).join(' ').length +
+                          (wordIndex > 0 ? 1 : 0) +
+                          charIndex;
+                        const isVisible = prefersReducedMotion || letterIndex < visibleCount;
+                        return (
+                          <span
+                            key={`l2-c-${wordIndex}-${charIndex}`}
+                            className="inline-block transition-all duration-300 ease-out"
+                            style={{
+                              opacity: isVisible ? 1 : 0,
+                              transform: isVisible ? 'translateY(0px)' : 'translateY(8px)',
+                            }}
+                          >
+                            {char}
+                          </span>
+                        );
+                      })}
                     </span>
-                  );
-                })}
+                    {wordIndex < wordsArr.length - 1 && ' '}
+                  </React.Fragment>
+                ))}
               </span>
             </h1>
 
