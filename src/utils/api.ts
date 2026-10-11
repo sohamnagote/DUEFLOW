@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Invoice, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem } from '../types';
+import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem } from '../types';
 
 const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
 const cleanRawUrl = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '';
@@ -62,10 +62,18 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
       } else if (errorData.error) {
         errorMsg = errorData.error;
       }
-      if (errorData.details && typeof errorData.details === 'object') {
-        const fieldDetails = Object.entries(errorData.details)
-          .map(([k, v]) => `${k}: ${v}`)
-          .join(', ');
+      if (errorData.details) {
+        let fieldDetails = '';
+        if (Array.isArray(errorData.details)) {
+          fieldDetails = errorData.details
+            .map((d: any) => (typeof d === 'string' ? d : `${d.field || ''}: ${d.message || ''}`.replace(/^:\s*/, '')))
+            .filter(Boolean)
+            .join(', ');
+        } else if (typeof errorData.details === 'object') {
+          fieldDetails = Object.entries(errorData.details)
+            .map(([k, v]) => `${k}: ${v}`)
+            .join(', ');
+        }
         if (fieldDetails) {
           errorMsg = `${errorMsg} (${fieldDetails})`;
         }
@@ -92,49 +100,87 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 export const dueflowApi = {
   // --- Profile & Payment Settings ---
   async getProfile(): Promise<UserProfile> {
-    const profile = await request<any>('/user/profile');
+    let rawProfile: any = null;
+    try {
+      rawProfile = await request<any>('/user/profile');
+    } catch (_) {
+      try {
+        rawProfile = await request<any>('/profile');
+      } catch (err) {
+        console.warn('Could not load user profile from either endpoint:', err);
+      }
+    }
+    const profile = rawProfile?.profile || rawProfile || {};
     const payment = await request<any>('/settings/payment').catch(() => ({}));
     return {
-      fullName: profile.fullName || '',
+      fullName: profile.fullName || profile.full_name || profile.name || '',
       email: profile.email || '',
-      preferredCurrency: profile.preferredCurrency || 'INR',
+      preferredCurrency: (profile.preferredCurrency || profile.preferred_currency || 'INR') as 'INR' | 'USD',
       timezone: profile.timezone || 'Asia/Kolkata',
-      upiId: payment.upiId || '',
-      beneficiaryName: payment.beneficiaryName || '',
-      bankName: payment.bankName || '',
-      accountNumber: payment.accountNumber || '',
-      routingNumber: payment.routingNumber || '',
-      paymentInstructions: payment.paymentInstructions || '',
-      paymentQrUrl: payment.paymentQrUrl || null,
+      upiId: payment.upiId || payment.upi_id || profile.upiId || profile.upi_id || '',
+      beneficiaryName: payment.beneficiaryName || payment.beneficiary_name || profile.beneficiaryName || profile.businessName || '',
+      bankName: payment.bankName || payment.bank_name || profile.bankName || '',
+      accountNumber: payment.accountNumber || payment.account_number || profile.bankAccount || '',
+      routingNumber: payment.routingNumber || payment.routing_number || profile.bankIfsc || '',
+      paymentInstructions: payment.paymentInstructions || payment.payment_instructions || profile.paymentNotes || '',
+      paymentQrUrl: payment.paymentQrUrl || payment.payment_qr_url || profile.paymentQrUrl || null,
       gmailConnected: false,
-      automatedRemindersEnabled: profile.automatedRemindersEnabled ?? true,
+      automatedRemindersEnabled: profile.automatedRemindersEnabled ?? profile.emailRemindersEnabled ?? true,
     };
   },
 
   async updateProfile(profile: Partial<UserProfile>): Promise<void> {
-    await request('/user/profile', {
-      method: 'PUT',
-      body: JSON.stringify({
-        fullName: profile.fullName,
-        email: profile.email,
-        preferredCurrency: profile.preferredCurrency,
-        timezone: profile.timezone,
-        automatedRemindersEnabled: profile.automatedRemindersEnabled,
-      }),
-    });
+    const profilePayload = {
+      fullName: profile.fullName,
+      full_name: profile.fullName,
+      name: profile.fullName,
+      email: profile.email,
+      preferredCurrency: profile.preferredCurrency,
+      preferred_currency: profile.preferredCurrency,
+      timezone: profile.timezone,
+      automatedRemindersEnabled: profile.automatedRemindersEnabled,
+      emailRemindersEnabled: profile.automatedRemindersEnabled,
+    };
+
+    try {
+      await request('/user/profile', {
+        method: 'PUT',
+        body: JSON.stringify(profilePayload),
+      });
+    } catch (_) {
+      try {
+        await request('/profile', {
+          method: 'PUT',
+          body: JSON.stringify(profilePayload),
+        });
+      } catch (err) {
+        console.warn('Failed to sync profile update:', err);
+      }
+    }
 
     await request('/settings/payment', {
       method: 'PUT',
       body: JSON.stringify({
         upiId: profile.upiId,
+        upi_id: profile.upiId,
         beneficiaryName: profile.beneficiaryName,
+        beneficiary_name: profile.beneficiaryName,
+        businessName: profile.beneficiaryName,
         bankName: profile.bankName,
+        bank_name: profile.bankName,
         accountNumber: profile.accountNumber,
+        account_number: profile.accountNumber,
+        bankAccount: profile.accountNumber,
         routingNumber: profile.routingNumber,
+        routing_number: profile.routingNumber,
+        bankIfsc: profile.routingNumber,
         paymentInstructions: profile.paymentInstructions,
+        payment_instructions: profile.paymentInstructions,
+        paymentNotes: profile.paymentInstructions,
         paymentQrUrl: profile.paymentQrUrl,
+        payment_qr_url: profile.paymentQrUrl,
       }),
-    });
+    }).catch(() => {});
   },
 
   async uploadQrCode(file: File): Promise<{ qrCodeUrl: string }> {
@@ -157,21 +203,87 @@ export const dueflowApi = {
 
   // --- Clients ---
   async getClients(): Promise<Client[]> {
-    return request<Client[]>('/clients');
+    const raw = await request<any>('/clients');
+    const list: any[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.clients)
+      ? raw.clients
+      : [];
+
+    return list.map((c: any) => ({
+      id: c.id || '',
+      name: c.name || 'Unnamed Client',
+      email: c.email || '',
+      phone: c.phone || undefined,
+      billingAddress: c.billingAddress || c.billing_address || c.address || undefined,
+      internalNotes: c.internalNotes || c.internal_notes || c.notes || undefined,
+      totalInvoiced: Number(c.totalInvoiced ?? c.total_invoiced ?? 0),
+      totalOutstanding: Number(c.totalOutstanding ?? c.total_outstanding ?? c.pending_balance ?? 0),
+      invoicesCount: Number(c.invoicesCount ?? c.invoices_count ?? 0),
+      createdAt: c.createdAt || c.created_at || new Date().toISOString(),
+    }));
   },
 
   async createClient(client: Partial<Client>): Promise<Client> {
-    return request<Client>('/clients', {
+    const payload = {
+      name: client.name?.trim(),
+      email: client.email?.trim(),
+      phone: client.phone?.trim() || undefined,
+      billingAddress: client.billingAddress?.trim() || undefined,
+      billing_address: client.billingAddress?.trim() || undefined,
+      address: client.billingAddress?.trim() || undefined,
+      internalNotes: client.internalNotes?.trim() || undefined,
+      internal_notes: client.internalNotes?.trim() || undefined,
+      notes: client.internalNotes?.trim() || undefined,
+    };
+    const raw = await request<any>('/clients', {
       method: 'POST',
-      body: JSON.stringify(client),
+      body: JSON.stringify(payload),
     });
+    const c = raw?.client || raw || {};
+    return {
+      id: c.id || '',
+      name: c.name || client.name || 'Unnamed Client',
+      email: c.email || client.email || '',
+      phone: c.phone || client.phone,
+      billingAddress: c.billingAddress || c.billing_address || c.address || client.billingAddress,
+      internalNotes: c.internalNotes || c.internal_notes || c.notes || client.internalNotes,
+      totalInvoiced: Number(c.totalInvoiced ?? c.total_invoiced ?? 0),
+      totalOutstanding: Number(c.totalOutstanding ?? c.total_outstanding ?? c.pending_balance ?? 0),
+      invoicesCount: Number(c.invoicesCount ?? c.invoices_count ?? 0),
+      createdAt: c.createdAt || c.created_at || new Date().toISOString(),
+    };
   },
 
   async updateClient(id: string, client: Partial<Client>): Promise<Client> {
-    return request<Client>(`/clients/${id}`, {
+    const payload = {
+      name: client.name?.trim(),
+      email: client.email?.trim(),
+      phone: client.phone?.trim() || undefined,
+      billingAddress: client.billingAddress?.trim() || undefined,
+      billing_address: client.billingAddress?.trim() || undefined,
+      address: client.billingAddress?.trim() || undefined,
+      internalNotes: client.internalNotes?.trim() || undefined,
+      internal_notes: client.internalNotes?.trim() || undefined,
+      notes: client.internalNotes?.trim() || undefined,
+    };
+    const raw = await request<any>(`/clients/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(client),
+      body: JSON.stringify(payload),
     });
+    const c = raw?.client || raw || {};
+    return {
+      id: c.id || id,
+      name: c.name || client.name || 'Unnamed Client',
+      email: c.email || client.email || '',
+      phone: c.phone || client.phone,
+      billingAddress: c.billingAddress || c.billing_address || c.address || client.billingAddress,
+      internalNotes: c.internalNotes || c.internal_notes || c.notes || client.internalNotes,
+      totalInvoiced: Number(c.totalInvoiced ?? c.total_invoiced ?? 0),
+      totalOutstanding: Number(c.totalOutstanding ?? c.total_outstanding ?? c.pending_balance ?? 0),
+      invoicesCount: Number(c.invoicesCount ?? c.invoices_count ?? 0),
+      createdAt: c.createdAt || c.created_at || new Date().toISOString(),
+    };
   },
 
   async deleteClient(id: string): Promise<void> {
@@ -181,67 +293,142 @@ export const dueflowApi = {
   // --- Invoices ---
   async getInvoices(search?: string): Promise<Invoice[]> {
     const query = search ? `?search=${encodeURIComponent(search)}` : '';
-    const data = await request<any[]>(`/invoices${query}`);
-    return data.map((inv) => ({
-      id: inv.id,
-      invoiceNumber: inv.invoiceNumber,
-      clientId: inv.clientId,
-      clientName: inv.clientName,
-      clientEmail: inv.clientEmail,
-      amount: inv.amount || inv.totalAmount,
-      currency: inv.currency,
-      issueDate: inv.issueDate,
-      dueDate: inv.dueDate,
-      status: (inv.status || 'UNPAID').toLowerCase() as any,
-      description: inv.description || '',
-      items: inv.items?.map((it: any) => ({
-        description: it.description,
-        quantity: it.quantity,
-        rate: it.unitPrice,
-      })),
-      remindersSentCount: inv.remindersSentCount || 0,
-    }));
+    const raw = await request<any>(`/invoices${query}`);
+    const list: any[] = Array.isArray(raw)
+      ? raw
+      : Array.isArray(raw?.invoices)
+      ? raw.invoices
+      : [];
+
+    return list.map((inv: any) => {
+      const rawStatus = (inv.status || inv.operational_status || 'UNPAID').toLowerCase();
+      const status: InvoiceStatus =
+        rawStatus === 'paid' ? 'paid' :
+        rawStatus === 'overdue' ? 'overdue' :
+        rawStatus === 'draft' ? 'draft' : 'pending';
+
+      const amount = Number(inv.amount ?? inv.totalAmount ?? inv.total_amount ?? 0);
+      return {
+        id: inv.id || '',
+        invoiceNumber: inv.invoiceNumber || inv.invoice_number || '',
+        clientId: inv.clientId || inv.client_id || undefined,
+        clientName: inv.clientName || inv.client_name || inv.client_name_snapshot || 'Client',
+        clientEmail: inv.clientEmail || inv.client_email || inv.client_email_snapshot || '',
+        amount,
+        currency: inv.currency || 'INR',
+        issueDate: inv.issueDate || inv.issue_date || new Date().toISOString().split('T')[0],
+        dueDate: inv.dueDate || inv.due_date || new Date().toISOString().split('T')[0],
+        status,
+        description: inv.description || inv.notes || '',
+        items: Array.isArray(inv.items) && inv.items.length > 0
+          ? inv.items.map((it: any) => ({
+              description: it.description || 'Item',
+              quantity: Number(it.quantity || 1),
+              rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? amount),
+            }))
+          : [
+              {
+                description: inv.description || inv.notes || 'Services rendered',
+                quantity: 1,
+                rate: amount,
+              },
+            ],
+        remindersSentCount: Number(inv.remindersSentCount ?? inv.reminders_sent_count ?? 0),
+      };
+    });
   },
 
   async createInvoice(invoice: any): Promise<Invoice> {
+    const invNumber = (invoice.invoiceNumber && String(invoice.invoiceNumber).trim()) ||
+      ('INV-' + Math.floor(100000 + Math.random() * 900000));
+    const issueDate = invoice.issueDate || new Date().toISOString().split('T')[0];
+    const dueDate = invoice.dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    const clientName = invoice.clientName || 'Client';
+    const clientEmail = invoice.clientEmail || `${clientName.toLowerCase().replace(/\s+/g, '')}@example.com`;
+    const amount = Number(invoice.amount || 0);
+    const currency = invoice.currency || 'INR';
+    const description = invoice.description || 'Services rendered';
+
+    const payload = {
+      clientId: invoice.clientId || undefined,
+      client_id: invoice.clientId || undefined,
+      clientName,
+      client_name: clientName,
+      clientEmail,
+      client_email: clientEmail,
+      invoiceNumber: invNumber,
+      invoice_number: invNumber,
+      amount,
+      totalAmount: amount,
+      total_amount: amount,
+      currency,
+      issueDate,
+      issue_date: issueDate,
+      dueDate,
+      due_date: dueDate,
+      status: (invoice.status || 'UNPAID').toUpperCase(),
+      description,
+      notes: description,
+      items: (invoice.items && invoice.items.length > 0)
+        ? invoice.items.map((it: any) => ({
+            description: it.description || 'Service item',
+            quantity: Number(it.quantity || 1),
+            unitPrice: Number(it.rate !== undefined ? it.rate : (it.unitPrice ?? amount)),
+            unit_price: Number(it.rate !== undefined ? it.rate : (it.unitPrice ?? amount)),
+            rate: Number(it.rate !== undefined ? it.rate : (it.unitPrice ?? amount)),
+            amount: Number((it.quantity || 1) * (it.rate !== undefined ? it.rate : (it.unitPrice ?? amount))),
+          }))
+        : [
+            {
+              description,
+              quantity: 1,
+              unitPrice: amount,
+              unit_price: amount,
+              rate: amount,
+              amount,
+            },
+          ],
+    };
+
     const raw = await request<any>('/invoices', {
       method: 'POST',
-      body: JSON.stringify({
-        clientId: invoice.clientId || undefined,
-        clientName: invoice.clientName,
-        clientEmail: invoice.clientEmail,
-        invoiceNumber: invoice.invoiceNumber ? String(invoice.invoiceNumber).trim() : undefined,
-        amount: invoice.amount,
-        currency: invoice.currency || 'INR',
-        issueDate: invoice.issueDate || new Date().toISOString().split('T')[0],
-        dueDate: invoice.dueDate,
-        status: invoice.status ? invoice.status.toUpperCase() : 'UNPAID',
-        description: invoice.description || 'Services rendered',
-        items: invoice.items?.map((it: any) => ({
-          description: it.description || 'Service item',
-          quantity: it.quantity || 1,
-          unitPrice: it.rate !== undefined ? it.rate : it.unitPrice,
-        })),
-      }),
+      body: JSON.stringify(payload),
     });
+
+    const inv = raw?.invoice || raw || {};
+    const rawStatus = (inv.status || inv.operational_status || 'UNPAID').toLowerCase();
+    const status: InvoiceStatus =
+      rawStatus === 'paid' ? 'paid' :
+      rawStatus === 'overdue' ? 'overdue' :
+      rawStatus === 'draft' ? 'draft' : 'pending';
+
+    const finalAmount = Number(inv.amount ?? inv.totalAmount ?? inv.total_amount ?? amount);
     return {
-      id: raw.id,
-      invoiceNumber: raw.invoiceNumber,
-      clientId: raw.clientId,
-      clientName: raw.clientName,
-      clientEmail: raw.clientEmail,
-      amount: raw.amount !== undefined ? raw.amount : raw.totalAmount,
-      currency: raw.currency || 'INR',
-      issueDate: raw.issueDate,
-      dueDate: raw.dueDate,
-      status: (raw.status || 'UNPAID').toLowerCase() as any,
-      description: raw.description || '',
-      items: raw.items?.map((it: any) => ({
-        description: it.description,
-        quantity: it.quantity,
-        rate: it.unitPrice,
-      })),
-      remindersSentCount: raw.remindersSentCount || 0,
+      id: inv.id || '',
+      invoiceNumber: inv.invoiceNumber || inv.invoice_number || invNumber,
+      clientId: inv.clientId || inv.client_id || invoice.clientId,
+      clientName: inv.clientName || inv.client_name || inv.client_name_snapshot || clientName,
+      clientEmail: inv.clientEmail || inv.client_email || inv.client_email_snapshot || clientEmail,
+      amount: finalAmount,
+      currency: inv.currency || currency,
+      issueDate: inv.issueDate || inv.issue_date || issueDate,
+      dueDate: inv.dueDate || inv.due_date || dueDate,
+      status,
+      description: inv.description || inv.notes || description,
+      items: Array.isArray(inv.items) && inv.items.length > 0
+        ? inv.items.map((it: any) => ({
+            description: it.description || 'Item',
+            quantity: Number(it.quantity || 1),
+            rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? finalAmount),
+          }))
+        : [
+            {
+              description,
+              quantity: 1,
+              rate: finalAmount,
+            },
+          ],
+      remindersSentCount: Number(inv.remindersSentCount ?? inv.reminders_sent_count ?? 0),
     };
   },
 
@@ -250,27 +437,49 @@ export const dueflowApi = {
       method: 'PUT',
       body: JSON.stringify({
         ...invoice,
+        client_name: invoice.clientName,
+        client_email: invoice.clientEmail,
+        invoice_number: invoice.invoiceNumber,
+        due_date: invoice.dueDate,
+        issue_date: invoice.issueDate,
+        total_amount: invoice.amount,
         status: invoice.status ? invoice.status.toUpperCase() : undefined,
       }),
     });
+    const inv = raw?.invoice || raw || {};
+    const rawStatus = (inv.status || inv.operational_status || 'UNPAID').toLowerCase();
+    const status: InvoiceStatus =
+      rawStatus === 'paid' ? 'paid' :
+      rawStatus === 'overdue' ? 'overdue' :
+      rawStatus === 'draft' ? 'draft' : 'pending';
+
+    const finalAmount = Number(inv.amount ?? inv.totalAmount ?? inv.total_amount ?? invoice.amount ?? 0);
     return {
-      id: raw.id,
-      invoiceNumber: raw.invoiceNumber,
-      clientId: raw.clientId,
-      clientName: raw.clientName,
-      clientEmail: raw.clientEmail,
-      amount: raw.amount !== undefined ? raw.amount : raw.totalAmount,
-      currency: raw.currency || 'INR',
-      issueDate: raw.issueDate,
-      dueDate: raw.dueDate,
-      status: (raw.status || 'UNPAID').toLowerCase() as any,
-      description: raw.description || '',
-      items: raw.items?.map((it: any) => ({
-        description: it.description,
-        quantity: it.quantity,
-        rate: it.unitPrice,
-      })),
-      remindersSentCount: raw.remindersSentCount || 0,
+      id: inv.id || id,
+      invoiceNumber: inv.invoiceNumber || inv.invoice_number || invoice.invoiceNumber || '',
+      clientId: inv.clientId || inv.client_id || invoice.clientId,
+      clientName: inv.clientName || inv.client_name || inv.client_name_snapshot || invoice.clientName || 'Client',
+      clientEmail: inv.clientEmail || inv.client_email || inv.client_email_snapshot || invoice.clientEmail || '',
+      amount: finalAmount,
+      currency: inv.currency || invoice.currency || 'INR',
+      issueDate: inv.issueDate || inv.issue_date || invoice.issueDate,
+      dueDate: inv.dueDate || inv.due_date || invoice.dueDate,
+      status,
+      description: inv.description || inv.notes || invoice.description || '',
+      items: Array.isArray(inv.items) && inv.items.length > 0
+        ? inv.items.map((it: any) => ({
+            description: it.description || 'Item',
+            quantity: Number(it.quantity || 1),
+            rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? finalAmount),
+          }))
+        : [
+            {
+              description: inv.description || inv.notes || 'Services rendered',
+              quantity: 1,
+              rate: finalAmount,
+            },
+          ],
+      remindersSentCount: Number(inv.remindersSentCount ?? inv.reminders_sent_count ?? 0),
     };
   },
 
@@ -279,25 +488,37 @@ export const dueflowApi = {
   },
 
   async markInvoicePaid(id: string): Promise<Invoice> {
-    const raw = await request<any>(`/invoices/${id}/mark-paid`, { method: 'POST' });
+    let raw: any;
+    try {
+      raw = await request<any>(`/invoices/${id}/mark-paid`, { method: 'POST' });
+    } catch (_) {
+      raw = await request<any>(`/invoices/${id}`, {
+        method: 'PUT',
+        body: JSON.stringify({ status: 'PAID' }),
+      });
+    }
+    const inv = raw?.invoice || raw || {};
+    const amount = Number(inv.amount ?? inv.totalAmount ?? inv.total_amount ?? 0);
     return {
-      id: raw.id,
-      invoiceNumber: raw.invoiceNumber,
-      clientId: raw.clientId,
-      clientName: raw.clientName,
-      clientEmail: raw.clientEmail,
-      amount: raw.amount !== undefined ? raw.amount : raw.totalAmount,
-      currency: raw.currency || 'INR',
-      issueDate: raw.issueDate,
-      dueDate: raw.dueDate,
-      status: (raw.status || 'PAID').toLowerCase() as any,
-      description: raw.description || '',
-      items: raw.items?.map((it: any) => ({
-        description: it.description,
-        quantity: it.quantity,
-        rate: it.unitPrice,
-      })),
-      remindersSentCount: raw.remindersSentCount || 0,
+      id: inv.id || id,
+      invoiceNumber: inv.invoiceNumber || inv.invoice_number || '',
+      clientId: inv.clientId || inv.client_id,
+      clientName: inv.clientName || inv.client_name || inv.client_name_snapshot || 'Client',
+      clientEmail: inv.clientEmail || inv.client_email || inv.client_email_snapshot || '',
+      amount,
+      currency: inv.currency || 'INR',
+      issueDate: inv.issueDate || inv.issue_date,
+      dueDate: inv.dueDate || inv.due_date,
+      status: 'paid',
+      description: inv.description || inv.notes || '',
+      items: Array.isArray(inv.items)
+        ? inv.items.map((it: any) => ({
+            description: it.description,
+            quantity: Number(it.quantity || 1),
+            rate: Number(it.rate ?? it.unitPrice ?? it.unit_price ?? amount),
+          }))
+        : [],
+      remindersSentCount: Number(inv.remindersSentCount ?? inv.reminders_sent_count ?? 0),
     };
   },
 
@@ -307,30 +528,50 @@ export const dueflowApi = {
 
   // --- Reminders ---
   async getUpcomingReminders(): Promise<ReminderQueueItem[]> {
-    const data = await request<any[]>('/reminders');
-    return data.map((r) => ({
-      id: r.id,
-      clientName: r.clientName || 'Client',
-      invoiceNumber: r.invoiceNumber || 'INV',
-      relativeDueText: r.ruleLabel || 'Scheduled reminder',
-      scheduledText: new Date(r.scheduledAt).toLocaleString(),
-      status: r.status === 'SENT' ? 'sent' : r.status === 'PENDING' ? 'queued' : 'paused',
-    }));
+    try {
+      const raw = await request<any>('/reminders');
+      const data: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.reminders)
+        ? raw.reminders
+        : [];
+
+      return data.map((r: any) => ({
+        id: r.id || '',
+        clientName: r.clientName || r.client_name || 'Client',
+        invoiceNumber: r.invoiceNumber || r.invoice_number || 'INV',
+        relativeDueText: r.ruleLabel || r.rule_label || 'Scheduled reminder',
+        scheduledText: r.scheduledAt || r.scheduled_at ? new Date(r.scheduledAt || r.scheduled_at).toLocaleString() : '',
+        status: (r.status === 'SENT' ? 'sent' : r.status === 'PENDING' ? 'queued' : 'paused') as any,
+      }));
+    } catch {
+      return [];
+    }
   },
 
   async getReminderRules(): Promise<ReminderScheduleRule[]> {
-    const data = await request<any[]>('/reminders/rules');
-    return data.map((r) => ({
-      id: r.id,
-      label: r.label,
-      timing: r.timing.toLowerCase() as any,
-      days: r.daysOffset,
-      tone: r.tone.toLowerCase() as any,
-      enabled: r.enabled,
-      sendTime: r.sendTime || '09:00',
-      timezone: r.timezone || 'Asia/Kolkata',
-      invoiceId: r.invoiceId,
-    }));
+    try {
+      const raw = await request<any>('/reminders/rules');
+      const data: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.rules)
+        ? raw.rules
+        : [];
+
+      return data.map((r: any) => ({
+        id: r.id || '',
+        label: r.label || 'Reminder',
+        timing: (r.timing ? r.timing.toLowerCase() : 'before') as any,
+        days: r.daysOffset ?? r.days_offset ?? r.days ?? 0,
+        tone: (r.tone ? r.tone.toLowerCase() : 'professional') as any,
+        enabled: r.enabled ?? true,
+        sendTime: r.sendTime || r.send_time || '09:00',
+        timezone: r.timezone || 'Asia/Kolkata',
+        invoiceId: r.invoiceId || r.invoice_id,
+      }));
+    } catch {
+      return [];
+    }
   },
 
   async createReminderRule(rule: Partial<ReminderScheduleRule>): Promise<ReminderScheduleRule> {

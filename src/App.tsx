@@ -91,16 +91,26 @@ export default function App() {
         }));
       }
 
-      if (invData.status === 'fulfilled') {
-        setInvoices(invData.value || []);
+      if (invData.status === 'fulfilled' && invData.value) {
+        const list = Array.isArray(invData.value)
+          ? invData.value
+          : Array.isArray((invData.value as any)?.invoices)
+          ? (invData.value as any).invoices
+          : [];
+        setInvoices(list.filter(Boolean));
       } else {
-        console.warn('Backend invoices query rejected:', invData.reason);
+        console.warn('Backend invoices query rejected:', invData.status === 'rejected' ? invData.reason : 'empty');
       }
 
-      if (clientData.status === 'fulfilled') {
-        setClients(clientData.value || []);
+      if (clientData.status === 'fulfilled' && clientData.value) {
+        const list = Array.isArray(clientData.value)
+          ? clientData.value
+          : Array.isArray((clientData.value as any)?.clients)
+          ? (clientData.value as any).clients
+          : [];
+        setClients(list.filter(Boolean));
       } else {
-        console.warn('Backend clients query rejected:', clientData.reason);
+        console.warn('Backend clients query rejected:', clientData.status === 'rejected' ? clientData.reason : 'empty');
       }
     } catch (err) {
       console.warn('Could not load remote account data:', err);
@@ -258,7 +268,9 @@ export default function App() {
   const handleAddInvoice = async (newInv: Omit<Invoice, 'id'>): Promise<Invoice> => {
     try {
       const created = await dueflowApi.createInvoice(newInv);
-      setInvoices((prev) => [created, ...(prev || []).filter((i) => i && i.id !== created.id)]);
+      if (created && created.id) {
+        setInvoices((prev) => [created, ...(Array.isArray(prev) ? prev : []).filter((i) => i && i.id !== created.id)]);
+      }
       try {
         const updatedClients = await dueflowApi.getClients();
         if (Array.isArray(updatedClients)) {
@@ -276,7 +288,7 @@ export default function App() {
   const handleUpdateStatus = async (id: string, status: InvoiceStatus) => {
     // Optimistic UI with sync
     setInvoices((prev) =>
-      prev.map((inv) => (inv.id === id ? { ...inv, status } : inv))
+      (Array.isArray(prev) ? prev : []).map((inv) => (inv.id === id ? { ...inv, status } : inv))
     );
     try {
       if (status === 'paid') {
@@ -289,20 +301,24 @@ export default function App() {
       // Re-fetch to guarantee consistency
       try {
         const fresh = await dueflowApi.getInvoices();
-        setInvoices(fresh);
+        if (Array.isArray(fresh)) {
+          setInvoices(fresh.filter(Boolean));
+        }
       } catch (_) {}
     }
   };
 
   const handleDeleteInvoice = async (id: string) => {
-    setInvoices((prev) => prev.filter((inv) => inv.id !== id));
+    setInvoices((prev) => (Array.isArray(prev) ? prev : []).filter((inv) => inv && inv.id !== id));
     try {
       await dueflowApi.deleteInvoice(id);
     } catch (err: any) {
       console.warn('Could not sync invoice delete with backend:', err);
       try {
         const fresh = await dueflowApi.getInvoices();
-        setInvoices(fresh);
+        if (Array.isArray(fresh)) {
+          setInvoices(fresh.filter(Boolean));
+        }
       } catch (_) {}
     }
   };
@@ -314,7 +330,7 @@ export default function App() {
     try {
       const created = await dueflowApi.createClient(newCli);
       if (created && created.id) {
-        setClients((prev) => [created, ...(prev || []).filter((c) => c && c.id !== created.id)]);
+        setClients((prev) => [created, ...(Array.isArray(prev) ? prev : []).filter((c) => c && c.id !== created.id)]);
       }
       // Re-fetch to guarantee consistency and server-side state
       try {
@@ -333,14 +349,16 @@ export default function App() {
   };
 
   const handleDeleteClient = async (id: string) => {
-    setClients((prev) => prev.filter((c) => c.id !== id));
+    setClients((prev) => (Array.isArray(prev) ? prev : []).filter((c) => c && c.id !== id));
     try {
       await dueflowApi.deleteClient(id);
     } catch (err: any) {
       console.warn('Could not sync client delete with backend:', err);
       try {
         const fresh = await dueflowApi.getClients();
-        setClients(fresh);
+        if (Array.isArray(fresh)) {
+          setClients(fresh.filter(Boolean));
+        }
       } catch (_) {}
     }
   };

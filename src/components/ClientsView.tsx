@@ -24,7 +24,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   const [deletingId, setDeletingId] = useState<string | null>(null);
   const nameInputRef = useRef<HTMLInputElement>(null);
 
-  const safeClients = (clients || []).filter(Boolean);
+  const safeClients: Client[] = Array.isArray(clients)
+    ? (clients.filter(Boolean) as Client[])
+    : Array.isArray((clients as any)?.clients)
+    ? (((clients as any).clients.filter(Boolean)) as Client[])
+    : [];
   const filteredClients = safeClients.filter((c) => {
     const q = searchQuery.trim().toLowerCase();
     if (!q) return true;

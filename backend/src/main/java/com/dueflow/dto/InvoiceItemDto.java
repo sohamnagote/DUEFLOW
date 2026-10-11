@@ -1,6 +1,7 @@
 package com.dueflow.dto;
 
 import com.dueflow.domain.InvoiceItem;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.NotNull;
 import jakarta.validation.constraints.Positive;
@@ -18,6 +19,7 @@ public class InvoiceItemDto {
     private BigDecimal quantity = BigDecimal.ONE;
 
     @NotNull(message = "Item unit price is required")
+    @JsonAlias({"unit_price", "unitPrice", "rate"})
     private BigDecimal unitPrice = BigDecimal.ZERO;
 
     private BigDecimal amount = BigDecimal.ZERO;

@@ -25,11 +25,23 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onNavigateToClients,
   onNavigateToReminders,
 }) => {
-  const hasData = invoices.length > 0 || clients.length > 0;
+  const safeInvoices: Invoice[] = Array.isArray(invoices)
+    ? (invoices.filter(Boolean) as Invoice[])
+    : Array.isArray((invoices as any)?.invoices)
+    ? (((invoices as any).invoices.filter(Boolean)) as Invoice[])
+    : [];
+
+  const safeClients: Client[] = Array.isArray(clients)
+    ? (clients.filter(Boolean) as Client[])
+    : Array.isArray((clients as any)?.clients)
+    ? (((clients as any).clients.filter(Boolean)) as Client[])
+    : [];
+
+  const hasData = safeInvoices.length > 0 || safeClients.length > 0;
 
   // Currency-separated summaries (Never mix distinct currencies into a false single aggregate)
-  const currencySummaries = summarizeInvoicesByCurrency(invoices);
-  const overdueCount = invoices.filter((inv) => inv.status === 'overdue').length;
+  const currencySummaries = summarizeInvoicesByCurrency(safeInvoices);
+  const overdueCount = safeInvoices.filter((inv) => inv && inv.status === 'overdue').length;
 
   if (hasData) {
     return (
@@ -92,7 +104,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
               )}
             </div>
             <span className="text-[11px] text-[#74777d]">
-              Across {invoices.filter((i) => i.status !== 'paid').length} active invoices
+              Across {safeInvoices.filter((i) => i && i.status !== 'paid').length} active invoices
             </span>
           </div>
 
@@ -118,7 +130,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </span>
             <div className="my-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-[#001126]">
-                {(clients || []).filter(Boolean).length}
+                {safeClients.length}
               </span>
             </div>
             <span className="text-[11px] text-[#74777d]">
@@ -174,13 +186,13 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
                   onClick={onNavigateToInvoices}
                   className="font-['Space_Mono'] text-[10px] uppercase text-[#3d6562] hover:underline"
                 >
-                  View all ({invoices.length}) →
+                  View all ({safeInvoices.length}) →
                 </button>
               )}
             </div>
 
             <div className="divide-y divide-[#001126]/8">
-              {invoices.map((inv) => (
+              {safeInvoices.map((inv) => (
                 <div
                   key={inv.id}
                   onClick={onNavigateToInvoices}
@@ -243,8 +255,8 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
             <div className="space-y-2.5">
               {(() => {
-                const pendingReminders = invoices.filter(
-                  (inv) => inv.status === 'pending' || inv.status === 'overdue'
+                const pendingReminders = safeInvoices.filter(
+                  (inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid')
                 );
                 if (pendingReminders.length === 0) {
                   return (

@@ -1,6 +1,7 @@
 package com.dueflow.dto;
 
 import com.dueflow.domain.Client;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.constraints.Email;
 import jakarta.validation.constraints.NotBlank;
 import jakarta.validation.constraints.Size;
@@ -20,12 +21,26 @@ public class ClientDto {
     private String email;
 
     private String phone;
+
+    @JsonAlias({"billing_address", "billingAddress", "address"})
     private String billingAddress;
+
+    @JsonAlias({"tax_identifier", "taxIdentifier"})
     private String taxIdentifier;
+
+    @JsonAlias({"internal_notes", "internalNotes", "notes"})
     private String internalNotes;
+
+    @JsonAlias({"total_invoiced", "totalInvoiced"})
     private BigDecimal totalInvoiced = BigDecimal.ZERO;
+
+    @JsonAlias({"total_outstanding", "totalOutstanding", "pending_balance"})
     private BigDecimal totalOutstanding = BigDecimal.ZERO;
+
+    @JsonAlias({"invoices_count", "invoicesCount"})
     private int invoicesCount = 0;
+
+    @JsonAlias({"created_at", "createdAt"})
     private Instant createdAt;
 
     public ClientDto() {

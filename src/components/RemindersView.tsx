@@ -80,24 +80,30 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
     };
   }, []);
 
+  const safeInvoices: Invoice[] = Array.isArray(invoices)
+    ? (invoices.filter(Boolean) as Invoice[])
+    : Array.isArray((invoices as any)?.invoices)
+    ? (((invoices as any).invoices.filter(Boolean)) as Invoice[])
+    : [];
+
   const upcomingQueue = React.useMemo(() => {
-    return (invoices || [])
-      .filter((inv) => inv.status === 'pending' || inv.status === 'overdue')
+    return safeInvoices
+      .filter((inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid'))
       .map((inv) => {
         const isOverdue = inv.status === 'overdue';
-        const formattedAmount = formatCurrency(inv.amount || 0, inv.currency || userPreferredCurrency);
+        const formattedAmount = formatCurrency(Number(inv.amount || 0), inv.currency || userPreferredCurrency);
         return {
-          id: inv.id,
+          id: inv.id || '',
           clientName: inv.clientName || 'Client',
-          invoiceNumber: inv.invoiceNumber,
+          invoiceNumber: inv.invoiceNumber || 'INV',
           relativeDueText: isOverdue
-            ? `Overdue • Due date was ${inv.dueDate} • ${formattedAmount}`
-            : `Due on ${inv.dueDate} • ${formattedAmount}`,
+            ? `Overdue • Due date was ${inv.dueDate || 'past'} • ${formattedAmount}`
+            : `Due on ${inv.dueDate || 'soon'} • ${formattedAmount}`,
           status: isOverdue ? 'Overdue' : 'Queued',
           isOverdue,
         };
       });
-  }, [invoices, userPreferredCurrency]);
+  }, [safeInvoices, userPreferredCurrency]);
 
   const activeTriggersCount = automatedEnabled ? (rules.length > 0 ? upcomingQueue.length * rules.length : upcomingQueue.length) : 0;
   const invoicesCount = automatedEnabled ? new Set(upcomingQueue.map((q) => q.invoiceNumber)).size : 0;

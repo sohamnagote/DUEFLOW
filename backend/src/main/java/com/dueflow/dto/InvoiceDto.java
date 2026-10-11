@@ -2,9 +2,8 @@ package com.dueflow.dto;
 
 import com.dueflow.domain.Invoice;
 import com.dueflow.domain.InvoiceStatus;
+import com.fasterxml.jackson.annotation.JsonAlias;
 import jakarta.validation.Valid;
-import jakarta.validation.constraints.NotBlank;
-import jakarta.validation.constraints.NotNull;
 
 import java.math.BigDecimal;
 import java.time.Instant;
@@ -15,29 +14,50 @@ import java.util.List;
 public class InvoiceDto {
     private String id;
 
+    @JsonAlias({"client_id", "clientId"})
     private String clientId;
 
+    @JsonAlias({"client_name", "clientName", "client_name_snapshot"})
     private String clientName;
+
+    @JsonAlias({"client_email", "clientEmail", "client_email_snapshot"})
     private String clientEmail;
 
+    @JsonAlias({"invoice_number", "invoiceNumber"})
     private String invoiceNumber;
 
+    @JsonAlias({"issue_date", "issueDate"})
     private LocalDate issueDate;
 
+    @JsonAlias({"due_date", "dueDate"})
     private LocalDate dueDate;
 
     private String currency = "INR";
+
+    @JsonAlias({"amount", "total_amount", "totalAmount"})
     private BigDecimal amount = BigDecimal.ZERO; // Maps to totalAmount for frontend compatibility
+
     private BigDecimal subtotal = BigDecimal.ZERO;
+
+    @JsonAlias({"tax_amount", "taxAmount"})
     private BigDecimal taxAmount = BigDecimal.ZERO;
+
+    @JsonAlias({"discount_amount", "discountAmount"})
     private BigDecimal discountAmount = BigDecimal.ZERO;
+
+    @JsonAlias({"total_amount", "totalAmount"})
     private BigDecimal totalAmount = BigDecimal.ZERO;
 
     private String status = "UNPAID";
     private String description;
     private String notes;
+
+    @JsonAlias({"payment_instructions", "paymentInstructions", "paymentNotes"})
     private String paymentInstructions;
+
     private Instant paidAt;
+
+    @JsonAlias({"reminders_sent_count", "remindersSentCount"})
     private int remindersSentCount = 0;
 
     @Valid

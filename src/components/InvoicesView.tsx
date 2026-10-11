@@ -26,6 +26,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const [formError, setFormError] = useState<string | null>(null);
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<Invoice | null>(null);
 
+  const safeInvoices: Invoice[] = Array.isArray(invoices)
+    ? (invoices.filter(Boolean) as Invoice[])
+    : Array.isArray((invoices as any)?.invoices)
+    ? (((invoices as any).invoices.filter(Boolean)) as Invoice[])
+    : [];
+
+  const safeClients: Client[] = Array.isArray(clients)
+    ? (clients.filter(Boolean) as Client[])
+    : Array.isArray((clients as any)?.clients)
+    ? (((clients as any).clients.filter(Boolean)) as Client[])
+    : [];
+
   // New Invoice Form state
   const [clientName, setClientName] = useState('');
   const [clientEmail, setClientEmail] = useState('');
@@ -70,7 +82,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     const finalDueDate =
       dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const finalDescription = description.trim() || 'Services rendered';
-    const matchedClient = (clients || []).find(
+    const matchedClient = safeClients.find(
       (c) => c && c.name && c.name.toLowerCase() === trimmedName.toLowerCase()
     );
 
@@ -150,7 +162,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         </section>
 
         {/* Content: Empty State vs Invoices List */}
-        {invoices.length === 0 ? (
+        {safeInvoices.length === 0 ? (
           <section className="relative z-10 w-full min-h-[580px] flex items-center justify-center py-16 px-4">
             <div className="w-full max-w-2xl bg-[#ffffff]/80 backdrop-blur-md rounded-xl p-10 sm:p-16 flex flex-col items-center text-center shadow-sm border border-[#15263c]/5">
               <div className="relative mb-8 flex items-center justify-center">
@@ -231,7 +243,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   </tr>
                 </thead>
                 <tbody className="divide-y divide-[#15263c]/8">
-                  {invoices.map((inv) => (
+                  {safeInvoices.map((inv) => (
                     <tr
                       key={inv.id}
                       className="hover:bg-[#fbf9f4] transition-colors cursor-pointer"
@@ -350,7 +362,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   onChange={(e) => {
                     const val = e.target.value;
                     setClientName(val);
-                    const matched = (clients || []).find((c) => c && c.name && c.name.toLowerCase() === val.trim().toLowerCase());
+                    const matched = safeClients.find((c) => c && c.name && c.name.toLowerCase() === val.trim().toLowerCase());
                     if (matched && matched.email) {
                       setClientEmail(matched.email);
                     }
@@ -360,7 +372,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   required
                 />
                 <datalist id="client-suggestions">
-                  {(clients || []).filter((c) => c && c.name).map((c) => (
+                  {safeClients.filter((c) => c && c.name).map((c) => (
                     <option key={c.id} value={c.name}>{c.email}</option>
                   ))}
                 </datalist>
