@@ -3,7 +3,8 @@ frontend/
 node_modules/
 .git/
 .tools/
-data/
+/data/
+!src/data/
 target/
 *.log
 mvnw.cmd
