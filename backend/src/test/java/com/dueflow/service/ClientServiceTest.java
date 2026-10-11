@@ -45,11 +45,14 @@ public class ClientServiceTest {
     @Mock
     private UserProfileRepository userProfileRepository;
 
+    @Mock
+    private UserProfileService userProfileService;
+
     private ClientService clientService;
 
     @BeforeEach
     void setUp() {
-        clientService = new ClientService(clientRepository, invoiceRepository, userProfileRepository);
+        clientService = new ClientService(clientRepository, invoiceRepository, userProfileRepository, userProfileService);
     }
 
     @Test
@@ -70,8 +73,8 @@ public class ClientServiceTest {
         // When
         ClientDto result = clientService.createClient(USER_ID, input);
 
-        // Then: user profile repository must save a new profile to avoid PostgreSQL FK constraint failure
-        verify(userProfileRepository, times(1)).save(any(UserProfile.class));
+        // Then: user profile must be ensured to avoid PostgreSQL FK constraint failure
+        verify(userProfileService, times(1)).ensureProfileExists(USER_ID);
         assertNotNull(result);
         assertEquals("client-uuid-1", result.getId());
         assertEquals("Acme Studio", result.getName());

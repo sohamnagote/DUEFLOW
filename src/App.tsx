@@ -71,12 +71,18 @@ export default function App() {
 
       if (profileData.status === 'fulfilled' && profileData.value) {
         const authUser = activeUser.status === 'fulfilled' ? activeUser.value : null;
+        const resolvedName = profileData.value.fullName || authUser?.name || '';
+        const resolvedEmail = profileData.value.email || authUser?.email || '';
         setUserProfile((prev) => ({
           ...prev,
           ...profileData.value,
-          fullName: profileData.value.fullName || authUser?.name || prev.fullName,
-          email: profileData.value.email || authUser?.email || prev.email,
+          fullName: resolvedName || prev.fullName,
+          email: resolvedEmail || prev.email,
         }));
+        // If profile on backend didn't have name but OAuth provider provides it, sync it to database
+        if (!profileData.value.fullName && authUser?.name) {
+          dueflowApi.updateProfile({ fullName: authUser.name, email: resolvedEmail }).catch(() => {});
+        }
       } else if (activeUser.status === 'fulfilled' && activeUser.value) {
         setUserProfile((prev) => ({
           ...prev,
@@ -111,13 +117,12 @@ export default function App() {
         const authenticated = Boolean(session?.user);
         setIsAuthenticated(authenticated);
 
-        // If URL contains OAuth callback tokens / code, clean them up cleanly
-        if (typeof window !== 'undefined' && (window.location.hash.includes('access_token=') || window.location.search.includes('code='))) {
-          const cleanUrl = window.location.pathname.startsWith('/dashboard') ? '/dashboard' : '/';
-          window.history.replaceState(null, '', cleanUrl);
-        }
-
         if (authenticated) {
+          // If URL contains OAuth callback tokens / code, clean them up safely after session verification
+          if (typeof window !== 'undefined' && (window.location.hash.includes('access_token=') || window.location.search.includes('code='))) {
+            const cleanUrl = window.location.pathname.startsWith('/dashboard') ? '/dashboard' : '/';
+            window.history.replaceState(null, '', cleanUrl);
+          }
           await refreshAllUserData();
         }
       } catch (err) {
@@ -250,18 +255,21 @@ export default function App() {
   };
 
   // Handlers for invoices - strictly calls database and removes false fallbacks
-  const handleAddInvoice = async (newInv: Omit<Invoice, 'id'>) => {
+  const handleAddInvoice = async (newInv: Omit<Invoice, 'id'>): Promise<Invoice> => {
     try {
       const created = await dueflowApi.createInvoice(newInv);
-      setInvoices((prev) => [created, ...prev]);
+      setInvoices((prev) => [created, ...(prev || []).filter((i) => i && i.id !== created.id)]);
       try {
         const updatedClients = await dueflowApi.getClients();
-        setClients(updatedClients);
+        if (Array.isArray(updatedClients)) {
+          setClients(updatedClients.filter(Boolean));
+        }
       } catch (_) {}
       setActiveTab('invoices');
+      return created;
     } catch (err: any) {
       console.error('Invoice creation failed on backend:', err);
-      alert(err?.message || 'Could not save invoice to database. Please check required fields.');
+      throw err;
     }
   };
 

@@ -25,20 +25,20 @@ public class ClientService {
     private final ClientRepository clientRepository;
     private final InvoiceRepository invoiceRepository;
     private final UserProfileRepository userProfileRepository;
+    private final UserProfileService userProfileService;
 
     public ClientService(ClientRepository clientRepository,
                          InvoiceRepository invoiceRepository,
-                         UserProfileRepository userProfileRepository) {
+                         UserProfileRepository userProfileRepository,
+                         UserProfileService userProfileService) {
         this.clientRepository = clientRepository;
         this.invoiceRepository = invoiceRepository;
         this.userProfileRepository = userProfileRepository;
+        this.userProfileService = userProfileService;
     }
 
     private void ensureUserProfile(String userId) {
-        if (!userProfileRepository.existsById(userId)) {
-            String email = SecurityUtils.getCurrentUserEmail().orElse("");
-            userProfileRepository.save(new UserProfile(userId, email));
-        }
+        userProfileService.ensureProfileExists(userId);
     }
 
     @Transactional(readOnly = true)

@@ -7,7 +7,7 @@ interface InvoicesViewProps {
   clients?: Client[];
   userPreferredCurrency?: 'INR' | 'USD';
   userProfile?: UserProfile;
-  onAddInvoice: (inv: Omit<Invoice, 'id'>) => void;
+  onAddInvoice: (inv: Omit<Invoice, 'id'>) => Promise<any> | void;
   onUpdateStatus: (id: string, status: InvoiceStatus) => void;
   onDeleteInvoice: (id: string) => void;
 }
@@ -22,6 +22,8 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   onDeleteInvoice,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
+  const [isSubmitting, setIsSubmitting] = useState(false);
+  const [formError, setFormError] = useState<string | null>(null);
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<Invoice | null>(null);
 
   // New Invoice Form state
@@ -33,61 +35,83 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const [dueDate, setDueDate] = useState('');
   const [description, setDescription] = useState('');
 
-  // Sync default currency when opening modal
+  // Sync default currency and due date when opening modal
   const handleOpenNewModal = () => {
     setCurrency(userPreferredCurrency);
     setAmount('');
     setInvoiceNumber('');
-    setDueDate('');
+    const defaultDue = new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
+    setDueDate(defaultDue);
     setDescription('');
     setClientName('');
     setClientEmail('');
+    setFormError(null);
+    setIsSubmitting(false);
     setIsModalOpen(true);
   };
 
-  const handleSubmit = (e: React.FormEvent) => {
+  const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
-    if (!clientName || !amount) return;
+    setFormError(null);
 
-    const finalInvoiceNumber =
-      invoiceNumber.trim() ||
-      `INV-${new Date().getFullYear()}-${String(invoices.length + 1).padStart(3, '0')}`;
+    const trimmedName = clientName.trim();
+    if (!trimmedName) {
+      setFormError('Client name is required.');
+      return;
+    }
+
+    const parsedAmount = parseFloat(amount);
+    if (!amount || isNaN(parsedAmount) || parsedAmount <= 0) {
+      setFormError('Please enter a valid amount greater than 0.');
+      return;
+    }
+
+    const finalInvoiceNumber = invoiceNumber.trim() || undefined;
     const finalDueDate =
       dueDate || new Date(Date.now() + 14 * 24 * 60 * 60 * 1000).toISOString().split('T')[0];
     const finalDescription = description.trim() || 'Services rendered';
-    const trimmedName = clientName.trim();
     const matchedClient = (clients || []).find(
       (c) => c && c.name && c.name.toLowerCase() === trimmedName.toLowerCase()
     );
 
-    onAddInvoice({
-      invoiceNumber: finalInvoiceNumber,
-      clientId: matchedClient ? matchedClient.id : undefined,
-      clientName: trimmedName,
-      clientEmail: clientEmail.trim() || (matchedClient ? matchedClient.email : `${trimmedName.toLowerCase().replace(/\s+/g, '')}@example.com`),
-      amount: parseFloat(amount) || 0,
-      currency,
-      issueDate: new Date().toISOString().split('T')[0],
-      dueDate: finalDueDate,
-      status: 'pending',
-      description: finalDescription,
-      items: [
-        {
-          description: finalDescription,
-          quantity: 1,
-          rate: parseFloat(amount) || 0,
-        },
-      ],
-      remindersSentCount: 0,
-    });
+    setIsSubmitting(true);
+    try {
+      await onAddInvoice({
+        invoiceNumber: finalInvoiceNumber || '',
+        clientId: matchedClient ? matchedClient.id : undefined,
+        clientName: trimmedName,
+        clientEmail: clientEmail.trim() || (matchedClient ? matchedClient.email : `${trimmedName.toLowerCase().replace(/\s+/g, '')}@example.com`),
+        amount: parsedAmount,
+        currency,
+        issueDate: new Date().toISOString().split('T')[0],
+        dueDate: finalDueDate,
+        status: 'pending',
+        description: finalDescription,
+        items: [
+          {
+            description: finalDescription,
+            quantity: 1,
+            rate: parsedAmount,
+          },
+        ],
+        remindersSentCount: 0,
+      });
 
-    setIsModalOpen(false);
-    setClientName('');
-    setClientEmail('');
-    setAmount('');
-    setInvoiceNumber('');
-    setDueDate('');
-    setDescription('');
+      // Clear and close modal ONLY upon successful database save
+      setIsModalOpen(false);
+      setClientName('');
+      setClientEmail('');
+      setAmount('');
+      setInvoiceNumber('');
+      setDueDate('');
+      setDescription('');
+      setFormError(null);
+    } catch (err: any) {
+      console.error('Invoice creation failed:', err);
+      setFormError(err?.message || 'Could not save invoice to database. Please check required fields.');
+    } finally {
+      setIsSubmitting(false);
+    }
   };
 
   const handlePrintPdf = () => {
@@ -308,6 +332,13 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             </div>
 
             <form onSubmit={handleSubmit} className="space-y-4">
+              {formError && (
+                <div className="p-3 rounded-xl bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 text-[#ba1a1a] text-xs font-medium flex items-center gap-2">
+                  <span className="material-symbols-outlined text-[18px]">error</span>
+                  <span>{formError}</span>
+                </div>
+              )}
+
               <div>
                 <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
                   Client Name *
@@ -382,14 +413,14 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                 <div>
                   <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                    Invoice #
+                    Invoice # <span className="text-[10px] text-[#74777d] lowercase font-normal">(optional - auto-generated if blank)</span>
                   </label>
                   <input
                     type="text"
                     value={invoiceNumber}
                     onChange={(e) => setInvoiceNumber(e.target.value)}
+                    placeholder="Auto-generated (e.g. INV-2026-001)"
                     className="w-full px-3 py-2 bg-[#fbf9f4] text-sm rounded border border-[#15263c]/15"
-                    required
                   />
                 </div>
 
@@ -423,15 +454,24 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 <button
                   type="button"
                   onClick={() => setIsModalOpen(false)}
-                  className="btn-action-secondary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-lg"
+                  disabled={isSubmitting}
+                  className="btn-action-secondary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50"
                 >
                   Cancel
                 </button>
                 <button
                   type="submit"
-                  className="btn-action-primary w-full sm:w-auto px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm"
+                  disabled={isSubmitting}
+                  className="btn-action-primary w-full sm:w-auto px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 inline-flex items-center justify-center gap-2"
                 >
-                  Create Invoice
+                  {isSubmitting ? (
+                    <>
+                      <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full" />
+                      <span>Creating invoice...</span>
+                    </>
+                  ) : (
+                    <span>Create Invoice</span>
+                  )}
                 </button>
               </div>
             </form>

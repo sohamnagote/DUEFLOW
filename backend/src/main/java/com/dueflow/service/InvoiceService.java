@@ -23,23 +23,23 @@ public class InvoiceService {
     private final InvoiceRepository invoiceRepository;
     private final ClientRepository clientRepository;
     private final UserProfileRepository userProfileRepository;
+    private final UserProfileService userProfileService;
     private final ReminderScheduleCalculator reminderScheduleCalculator;
 
     public InvoiceService(InvoiceRepository invoiceRepository,
                           ClientRepository clientRepository,
                           UserProfileRepository userProfileRepository,
+                          UserProfileService userProfileService,
                           ReminderScheduleCalculator reminderScheduleCalculator) {
         this.invoiceRepository = invoiceRepository;
         this.clientRepository = clientRepository;
         this.userProfileRepository = userProfileRepository;
+        this.userProfileService = userProfileService;
         this.reminderScheduleCalculator = reminderScheduleCalculator;
     }
 
     private void ensureUserProfile(String userId) {
-        if (!userProfileRepository.existsById(userId)) {
-            String email = com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("");
-            userProfileRepository.save(new UserProfile(userId, email));
-        }
+        userProfileService.ensureProfileExists(userId);
     }
 
     @Transactional
@@ -116,7 +116,11 @@ public class InvoiceService {
         } else {
             invoiceNumber = invoiceNumber.trim();
             if (invoiceRepository.existsByUserIdAndInvoiceNumber(userId, invoiceNumber)) {
-                throw new ValidationException("Invoice number already exists: " + invoiceNumber);
+                if (invoiceNumber.startsWith("INV-")) {
+                    invoiceNumber = generateUniqueInvoiceNumber(userId);
+                } else {
+                    throw new ValidationException("Invoice number already exists: " + invoiceNumber);
+                }
             }
         }
         invoice.setInvoiceNumber(invoiceNumber);

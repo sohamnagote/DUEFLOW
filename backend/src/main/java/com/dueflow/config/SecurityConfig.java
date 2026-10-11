@@ -79,18 +79,50 @@ public class SecurityConfig {
 
     @Bean
     public JwtDecoder jwtDecoder() {
+        final NimbusJwtDecoder hmacDecoder;
         if (jwtSecret != null && !jwtSecret.isBlank() && jwtSecret.length() >= 32) {
-            // HS256 HMAC secret verification fallback (if provided)
             SecretKeySpec secretKey = new SecretKeySpec(jwtSecret.getBytes(StandardCharsets.UTF_8), "HmacSHA256");
-            return NimbusJwtDecoder.withSecretKey(secretKey).build();
+            hmacDecoder = NimbusJwtDecoder.withSecretKey(secretKey).build();
+        } else {
+            hmacDecoder = null;
         }
 
-        // Standard Supabase RS256 JWKS endpoint
-        NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
-        if (issuerUri != null && !issuerUri.isBlank() && !issuerUri.contains("placeholder")) {
-            decoder.setJwtValidator(org.springframework.security.oauth2.jwt.JwtValidators.createDefaultWithIssuer(issuerUri));
+        final NimbusJwtDecoder jwksDecoder;
+        if (jwkSetUri != null && !jwkSetUri.isBlank() && !jwkSetUri.contains("placeholder")) {
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+            if (issuerUri != null && !issuerUri.isBlank() && !issuerUri.contains("placeholder")) {
+                decoder.setJwtValidator(org.springframework.security.oauth2.jwt.JwtValidators.createDefaultWithIssuer(issuerUri));
+            }
+            jwksDecoder = decoder;
+        } else {
+            jwksDecoder = null;
         }
-        return decoder;
+
+        return token -> {
+            try {
+                com.nimbusds.jwt.SignedJWT signedJwt = com.nimbusds.jwt.SignedJWT.parse(token);
+                String alg = signedJwt.getHeader().getAlgorithm().getName();
+                if (alg.startsWith("HS") && hmacDecoder != null) {
+                    return hmacDecoder.decode(token);
+                }
+                if (jwksDecoder != null) {
+                    return jwksDecoder.decode(token);
+                }
+                if (hmacDecoder != null) {
+                    return hmacDecoder.decode(token);
+                }
+            } catch (Exception ex) {
+                if (hmacDecoder != null) {
+                    try {
+                        return hmacDecoder.decode(token);
+                    } catch (Exception ignored) {}
+                }
+                if (jwksDecoder != null) {
+                    return jwksDecoder.decode(token);
+                }
+            }
+            throw new org.springframework.security.oauth2.jwt.BadJwtException("No matching JWT decoder available for token");
+        };
     }
 
     @Bean

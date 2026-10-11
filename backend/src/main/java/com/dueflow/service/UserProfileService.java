@@ -23,24 +23,40 @@ public class UserProfileService {
 
     @Transactional
     public UserProfile getOrCreateProfile(String userId, String email) {
-        return userProfileRepository.findById(userId).orElseGet(() -> {
-            UserProfile newProfile = new UserProfile(userId, email != null ? email : "");
-            return userProfileRepository.save(newProfile);
-        });
+        return userProfileRepository.findById(userId)
+                .map(existing -> {
+                    if (email != null && !email.isBlank() && (existing.getEmail() == null || existing.getEmail().isBlank())) {
+                        existing.setEmail(email.trim());
+                        return userProfileRepository.save(existing);
+                    }
+                    return existing;
+                })
+                .orElseGet(() -> {
+                    try {
+                        UserProfile newProfile = new UserProfile(userId, email != null ? email.trim() : "");
+                        return userProfileRepository.saveAndFlush(newProfile);
+                    } catch (Exception ex) {
+                        return userProfileRepository.findById(userId)
+                                .orElseThrow(() -> new IllegalStateException("Failed to initialize user profile: " + ex.getMessage(), ex));
+                    }
+                });
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
+    public UserProfile ensureProfileExists(String userId) {
+        String email = com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("");
+        return getOrCreateProfile(userId, email);
+    }
+
+    @Transactional
     public UserProfile getProfile(String userId) {
-        return userProfileRepository.findById(userId)
-                .orElseGet(() -> new UserProfile(userId, ""));
+        String email = com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("");
+        return getOrCreateProfile(userId, email);
     }
 
     @Transactional
     public UserProfile updateProfile(String userId, UserProfileDto dto) {
-        UserProfile profile = userProfileRepository.findById(userId).orElseGet(() -> {
-            UserProfile p = new UserProfile(userId, dto.getEmail() != null ? dto.getEmail() : "");
-            return p;
-        });
+        UserProfile profile = getOrCreateProfile(userId, dto.getEmail());
 
         if (dto.getFullName() != null) {
             profile.setFullName(dto.getFullName().trim());
@@ -67,9 +83,7 @@ public class UserProfileService {
 
     @Transactional
     public PaymentSettings updatePaymentSettings(String userId, PaymentSettingsDto dto) {
-        if (!userProfileRepository.existsById(userId)) {
-            userProfileRepository.save(new UserProfile(userId, com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("")));
-        }
+        ensureProfileExists(userId);
 
         PaymentSettings settings = paymentSettingsRepository.findByUserId(userId)
                 .orElseGet(() -> new PaymentSettings(userId));
@@ -101,9 +115,7 @@ public class UserProfileService {
 
     @Transactional
     public PaymentSettings updateQrCodeUrl(String userId, String qrUrl) {
-        if (!userProfileRepository.existsById(userId)) {
-            userProfileRepository.save(new UserProfile(userId, com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("")));
-        }
+        ensureProfileExists(userId);
 
         PaymentSettings settings = paymentSettingsRepository.findByUserId(userId)
                 .orElseGet(() -> new PaymentSettings(userId));

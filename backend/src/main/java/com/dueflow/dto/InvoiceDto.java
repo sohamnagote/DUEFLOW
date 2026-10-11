@@ -15,7 +15,6 @@ import java.util.List;
 public class InvoiceDto {
     private String id;
 
-    @NotBlank(message = "Client ID is required")
     private String clientId;
 
     private String clientName;
@@ -23,10 +22,8 @@ public class InvoiceDto {
 
     private String invoiceNumber;
 
-    @NotNull(message = "Issue date is required")
     private LocalDate issueDate;
 
-    @NotNull(message = "Due date is required")
     private LocalDate dueDate;
 
     private String currency = "INR";

@@ -14,7 +14,13 @@ const API_BASE = cleanRawUrl.endsWith('/api')
  */
 async function getAuthHeader(): Promise<Record<string, string>> {
   try {
-    const { data: { session } } = await supabase.auth.getSession();
+    let { data: { session } } = await supabase.auth.getSession();
+    if (!session?.access_token) {
+      // If session is momentarily establishing right after OAuth redirect, wait briefly and retry once
+      await new Promise((resolve) => setTimeout(resolve, 150));
+      const retry = await supabase.auth.getSession();
+      session = retry.data.session;
+    }
     if (session?.access_token) {
       return { Authorization: `Bearer ${session.access_token}` };
     }
@@ -198,25 +204,74 @@ export const dueflowApi = {
   },
 
   async createInvoice(invoice: any): Promise<Invoice> {
-    return request<Invoice>('/invoices', {
+    const raw = await request<any>('/invoices', {
       method: 'POST',
       body: JSON.stringify({
-        ...invoice,
+        clientId: invoice.clientId || undefined,
+        clientName: invoice.clientName,
+        clientEmail: invoice.clientEmail,
+        invoiceNumber: invoice.invoiceNumber ? String(invoice.invoiceNumber).trim() : undefined,
         amount: invoice.amount,
+        currency: invoice.currency || 'INR',
+        issueDate: invoice.issueDate || new Date().toISOString().split('T')[0],
+        dueDate: invoice.dueDate,
+        status: invoice.status ? invoice.status.toUpperCase() : 'UNPAID',
+        description: invoice.description || 'Services rendered',
         items: invoice.items?.map((it: any) => ({
-          description: it.description,
-          quantity: it.quantity,
-          unitPrice: it.rate,
+          description: it.description || 'Service item',
+          quantity: it.quantity || 1,
+          unitPrice: it.rate !== undefined ? it.rate : it.unitPrice,
         })),
       }),
     });
+    return {
+      id: raw.id,
+      invoiceNumber: raw.invoiceNumber,
+      clientId: raw.clientId,
+      clientName: raw.clientName,
+      clientEmail: raw.clientEmail,
+      amount: raw.amount !== undefined ? raw.amount : raw.totalAmount,
+      currency: raw.currency || 'INR',
+      issueDate: raw.issueDate,
+      dueDate: raw.dueDate,
+      status: (raw.status || 'UNPAID').toLowerCase() as any,
+      description: raw.description || '',
+      items: raw.items?.map((it: any) => ({
+        description: it.description,
+        quantity: it.quantity,
+        rate: it.unitPrice,
+      })),
+      remindersSentCount: raw.remindersSentCount || 0,
+    };
   },
 
   async updateInvoice(id: string, invoice: any): Promise<Invoice> {
-    return request<Invoice>(`/invoices/${id}`, {
+    const raw = await request<any>(`/invoices/${id}`, {
       method: 'PUT',
-      body: JSON.stringify(invoice),
+      body: JSON.stringify({
+        ...invoice,
+        status: invoice.status ? invoice.status.toUpperCase() : undefined,
+      }),
     });
+    return {
+      id: raw.id,
+      invoiceNumber: raw.invoiceNumber,
+      clientId: raw.clientId,
+      clientName: raw.clientName,
+      clientEmail: raw.clientEmail,
+      amount: raw.amount !== undefined ? raw.amount : raw.totalAmount,
+      currency: raw.currency || 'INR',
+      issueDate: raw.issueDate,
+      dueDate: raw.dueDate,
+      status: (raw.status || 'UNPAID').toLowerCase() as any,
+      description: raw.description || '',
+      items: raw.items?.map((it: any) => ({
+        description: it.description,
+        quantity: it.quantity,
+        rate: it.unitPrice,
+      })),
+      remindersSentCount: raw.remindersSentCount || 0,
+    };
   },
 
   async deleteInvoice(id: string): Promise<void> {
@@ -224,7 +279,26 @@ export const dueflowApi = {
   },
 
   async markInvoicePaid(id: string): Promise<Invoice> {
-    return request<Invoice>(`/invoices/${id}/mark-paid`, { method: 'POST' });
+    const raw = await request<any>(`/invoices/${id}/mark-paid`, { method: 'POST' });
+    return {
+      id: raw.id,
+      invoiceNumber: raw.invoiceNumber,
+      clientId: raw.clientId,
+      clientName: raw.clientName,
+      clientEmail: raw.clientEmail,
+      amount: raw.amount !== undefined ? raw.amount : raw.totalAmount,
+      currency: raw.currency || 'INR',
+      issueDate: raw.issueDate,
+      dueDate: raw.dueDate,
+      status: (raw.status || 'PAID').toLowerCase() as any,
+      description: raw.description || '',
+      items: raw.items?.map((it: any) => ({
+        description: it.description,
+        quantity: it.quantity,
+        rate: it.unitPrice,
+      })),
+      remindersSentCount: raw.remindersSentCount || 0,
+    };
   },
 
   getInvoicePdfUrl(id: string): string {

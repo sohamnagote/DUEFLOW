@@ -36,7 +36,8 @@ public class ReminderService {
             ReminderSchedulerService reminderSchedulerService,
             ReminderScheduleCalculator reminderScheduleCalculator,
             com.dueflow.repository.InvoiceRepository invoiceRepository,
-            com.dueflow.repository.UserProfileRepository userProfileRepository) {
+            com.dueflow.repository.UserProfileRepository userProfileRepository,
+            UserProfileService userProfileService) {
         this.reminderRuleRepository = reminderRuleRepository;
         this.scheduledReminderRepository = scheduledReminderRepository;
         this.reminderHistoryRepository = reminderHistoryRepository;
@@ -44,13 +45,13 @@ public class ReminderService {
         this.reminderScheduleCalculator = reminderScheduleCalculator;
         this.invoiceRepository = invoiceRepository;
         this.userProfileRepository = userProfileRepository;
+        this.userProfileService = userProfileService;
     }
 
+    private final UserProfileService userProfileService;
+
     private void ensureUserProfile(String userId) {
-        if (!userProfileRepository.existsById(userId)) {
-            String email = com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("");
-            userProfileRepository.save(new com.dueflow.domain.UserProfile(userId, email));
-        }
+        userProfileService.ensureProfileExists(userId);
     }
 
     @Transactional
