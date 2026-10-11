@@ -184,17 +184,44 @@ export const dueflowApi = {
   },
 
   async uploadQrCode(file: File): Promise<{ qrCodeUrl: string }> {
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('QR code file size must not exceed 5MB limit.');
+    }
+    const allowedMime = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedMime.includes(file.type.toLowerCase())) {
+      throw new Error('Invalid image format. Allowed formats: PNG, JPEG, WEBP.');
+    }
+
     const authHeaders = await getAuthHeader();
     const formData = new FormData();
     formData.append('file', file);
 
-    const res = await fetch(`${API_BASE}/settings/payment/qr`, {
-      method: 'POST',
-      headers: authHeaders,
-      body: formData,
-    });
-    if (!res.ok) throw new Error('Failed to upload QR code');
-    return res.json();
+    let res: Response;
+    try {
+      res = await fetch(`${API_BASE}/settings/payment/qr`, {
+        method: 'POST',
+        headers: authHeaders,
+        body: formData,
+      });
+    } catch (err: any) {
+      if (err?.name === 'TypeError' && err?.message?.toLowerCase().includes('failed to fetch')) {
+        throw new Error('Network error: Unable to connect to server during QR upload.');
+      }
+      throw err;
+    }
+
+    if (!res.ok) {
+      let errMsg = 'Failed to upload QR code';
+      try {
+        const errJson = await res.json();
+        errMsg = errJson.message || errJson.error || errMsg;
+      } catch (_) {}
+      throw new Error(errMsg);
+    }
+    const data = await res.json();
+    return {
+      qrCodeUrl: data.qrCodeUrl || data.paymentQrUrl || '',
+    };
   },
 
   async deleteQrCode(): Promise<void> {
@@ -632,8 +659,12 @@ export const dueflowApi = {
     await request(`/reminders/rules/${id}`, { method: 'DELETE' });
   },
 
-  async triggerReminder(id: string): Promise<void> {
-    await request(`/reminders/${id}/trigger`, { method: 'POST' });
+  async triggerReminder(id: string): Promise<{ success: boolean; message: string }> {
+    const res = await request<any>(`/reminders/${id}/trigger`, { method: 'POST' });
+    return {
+      success: true,
+      message: res?.message || 'Payment reminder sent successfully.',
+    };
   },
 
   // --- Gmail Integration ---

@@ -151,7 +151,12 @@ public class ReminderService {
 
     @Transactional
     public void triggerReminder(String userId, String reminderId) {
-        reminderSchedulerService.triggerReminderManually(reminderId, userId);
+        String targetId = reminderId;
+        ReminderRule rule = reminderRuleRepository.findByIdAndUserId(reminderId, userId).orElse(null);
+        if (rule != null && rule.getInvoiceId() != null && !rule.getInvoiceId().isBlank()) {
+            targetId = rule.getInvoiceId();
+        }
+        reminderSchedulerService.triggerReminderManually(targetId, userId);
     }
 
     private List<ReminderRule> createDefaultRules(String userId) {

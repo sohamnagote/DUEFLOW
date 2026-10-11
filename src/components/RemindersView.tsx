@@ -34,6 +34,11 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
   const [savedNotice, setSavedNotice] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
 
+  // Manual Remind Now State
+  const [remindingId, setRemindingId] = useState<string | null>(null);
+  const [remindSuccess, setRemindSuccess] = useState<string | null>(null);
+  const [remindError, setRemindError] = useState<string | null>(null);
+
   // Add Trigger Form State
   const [formTiming, setFormTiming] = useState<'before' | 'on_due_date' | 'after'>('before');
   const [formDays, setFormDays] = useState<number>(3);
@@ -87,23 +92,34 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
     : [];
 
   const upcomingQueue = React.useMemo(() => {
-    return safeInvoices
-      .filter((inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid'))
-      .map((inv) => {
-        const isOverdue = inv.status === 'overdue';
-        const formattedAmount = formatCurrency(Number(inv.amount || 0), inv.currency || userPreferredCurrency);
-        return {
-          id: inv.id || '',
-          clientName: inv.clientName || 'Client',
-          invoiceNumber: inv.invoiceNumber || 'INV',
-          relativeDueText: isOverdue
-            ? `Overdue • Due date was ${inv.dueDate || 'past'} • ${formattedAmount}`
-            : `Due on ${inv.dueDate || 'soon'} • ${formattedAmount}`,
-          status: isOverdue ? 'Overdue' : 'Queued',
-          isOverdue,
-        };
-      });
-  }, [safeInvoices, userPreferredCurrency]);
+    if (safeInvoices.length > 0) {
+      return safeInvoices
+        .filter((inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid'))
+        .map((inv) => {
+          const isOverdue = inv.status === 'overdue';
+          const formattedAmount = formatCurrency(Number(inv.amount || 0), inv.currency || userPreferredCurrency);
+          return {
+            id: inv.id || '',
+            clientName: inv.clientName || 'Client',
+            invoiceNumber: inv.invoiceNumber || 'INV',
+            relativeDueText: isOverdue
+              ? `Overdue • Due date was ${inv.dueDate || 'past'} • ${formattedAmount}`
+              : `Due on ${inv.dueDate || 'soon'} • ${formattedAmount}`,
+            status: isOverdue ? 'Overdue' : 'Queued',
+            isOverdue,
+          };
+        });
+    }
+
+    return serverQueue.map((item) => ({
+      id: item.id,
+      clientName: item.clientName,
+      invoiceNumber: item.invoiceNumber,
+      relativeDueText: item.relativeDueText || 'Scheduled reminder',
+      status: item.status === 'sent' ? 'Sent' : 'Queued',
+      isOverdue: false,
+    }));
+  }, [safeInvoices, serverQueue, userPreferredCurrency]);
 
   const activeTriggersCount = automatedEnabled ? (rules.length > 0 ? upcomingQueue.length * rules.length : upcomingQueue.length) : 0;
   const invoicesCount = automatedEnabled ? new Set(upcomingQueue.map((q) => q.invoiceNumber)).size : 0;
@@ -229,6 +245,30 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
     }
   };
 
+  const handleRemindNow = async (id: string, invoiceNumber?: string) => {
+    if (remindingId) return;
+    setRemindingId(id);
+    setRemindSuccess(null);
+    setRemindError(null);
+
+    try {
+      const res = await dueflowApi.triggerReminder(id);
+      const label = invoiceNumber ? ` for invoice ${invoiceNumber}` : '';
+      setRemindSuccess(res.message || `Payment reminder sent successfully${label}.`);
+      try {
+        const loadedQueue = await dueflowApi.getUpcomingReminders();
+        setServerQueue(loadedQueue);
+      } catch (_) {}
+      setTimeout(() => setRemindSuccess(null), 5000);
+    } catch (err: any) {
+      console.error('Failed to dispatch manual reminder:', err);
+      setRemindError(err?.message || 'Failed to send reminder email. Please check your Gmail connection in Settings.');
+      setTimeout(() => setRemindError(null), 6000);
+    } finally {
+      setRemindingId(null);
+    }
+  };
+
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] px-6 sm:px-14 py-8 space-y-12 max-w-5xl">
       {/* Editorial Header Section */}
@@ -290,13 +330,14 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
           <div className="bg-[#f0eee9]/40 rounded-xl border border-[#001126]/5 p-6 space-y-3">
             {rules.map((rule) => {
               const matchedInvoice = rule.invoiceId
-                ? invoices.find((inv) => inv.id === rule.invoiceId)
+                ? safeInvoices.find((inv) => inv.id === rule.invoiceId)
                 : null;
+              const canRemindRule = !!rule.invoiceId && !!matchedInvoice && matchedInvoice.status !== 'paid';
 
               return (
                 <div
                   key={rule.id}
-                  className="flex items-center justify-between p-3.5 bg-[#ffffff] rounded-lg border border-[#001126]/5 shadow-2xs"
+                  className="flex flex-col sm:flex-row sm:items-center justify-between p-3.5 bg-[#ffffff] rounded-lg border border-[#001126]/5 shadow-2xs gap-3"
                 >
                   <div className="space-y-1">
                     <div className="flex items-center gap-2">
@@ -317,12 +358,35 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                     </p>
                   </div>
 
-                  <button
-                    onClick={() => handleDeleteRule(rule.id)}
-                    className="text-xs text-[#ba1a1a] hover:bg-[#ffdad6]/40 px-2.5 py-1.5 rounded transition-colors font-medium active:scale-95 cursor-pointer"
-                  >
-                    Remove
-                  </button>
+                  <div className="flex items-center gap-2 self-end sm:self-auto shrink-0">
+                    {canRemindRule && (
+                      <button
+                        type="button"
+                        onClick={() => handleRemindNow(rule.invoiceId!, matchedInvoice?.invoiceNumber)}
+                        disabled={remindingId !== null}
+                        className="btn-action-secondary text-[11px] font-semibold px-2.5 py-1.5 rounded-md shadow-2xs gap-1.5 cursor-pointer disabled:opacity-50"
+                        title={`Send payment reminder now for invoice ${matchedInvoice?.invoiceNumber}`}
+                      >
+                        {remindingId === rule.invoiceId ? (
+                          <>
+                            <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
+                            <span>Sending...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[13px] text-[#001126]">send</span>
+                            <span>Remind Now</span>
+                          </>
+                        )}
+                      </button>
+                    )}
+                    <button
+                      onClick={() => handleDeleteRule(rule.id)}
+                      className="text-xs text-[#ba1a1a] hover:bg-[#ffdad6]/40 px-2.5 py-1.5 rounded transition-colors font-medium active:scale-95 cursor-pointer"
+                    >
+                      Remove
+                    </button>
+                  </div>
                 </div>
               );
             })}
@@ -349,6 +413,19 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         </div>
 
         <div className="bg-[#f0eee9]/40 rounded-xl border border-[#001126]/5 p-6 space-y-6">
+          {remindSuccess && (
+            <div className="p-3 bg-[#3d6562]/10 border border-[#3d6562]/20 rounded-lg text-xs text-[#3d6562] font-semibold flex items-center gap-2 animate-fade-in">
+              <span className="material-symbols-outlined text-[16px]">check_circle</span>
+              <span>{remindSuccess}</span>
+            </div>
+          )}
+          {remindError && (
+            <div className="p-3 bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 rounded-lg text-xs text-[#ba1a1a] font-semibold flex items-center gap-2 animate-fade-in">
+              <span className="material-symbols-outlined text-[16px]">error</span>
+              <span>{remindError}</span>
+            </div>
+          )}
+
           {/* Global Toggle Header */}
           <div className="flex items-center justify-between pb-6 border-b border-[#001126]/5">
             <div>
@@ -394,7 +471,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                 {upcomingQueue.map((item) => (
                   <div
                     key={item.id}
-                    className="p-3.5 bg-[#ffffff] rounded-lg border border-[#001126]/5 flex items-center justify-between"
+                    className="p-3.5 bg-[#ffffff] rounded-lg border border-[#001126]/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
                   >
                     <div>
                       <h4 className="text-xs font-semibold text-[#001126]">
@@ -404,15 +481,36 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                         {item.relativeDueText}
                       </p>
                     </div>
-                    <span
-                      className={`font-['Space_Mono'] text-[9px] uppercase px-2.5 py-0.5 rounded-full ${
-                        item.isOverdue
-                          ? 'bg-[#ba1a1a]/10 text-[#ba1a1a]'
-                          : 'bg-[#001126]/8 text-[#001126]'
-                      }`}
-                    >
-                      {item.status}
-                    </span>
+                    <div className="flex items-center gap-2.5 self-end sm:self-auto shrink-0">
+                      <span
+                        className={`font-['Space_Mono'] text-[9px] uppercase px-2.5 py-0.5 rounded-full ${
+                          item.isOverdue
+                            ? 'bg-[#ba1a1a]/10 text-[#ba1a1a]'
+                            : 'bg-[#001126]/8 text-[#001126]'
+                        }`}
+                      >
+                        {item.status}
+                      </span>
+                      <button
+                        type="button"
+                        onClick={() => handleRemindNow(item.id, item.invoiceNumber)}
+                        disabled={remindingId !== null}
+                        className="btn-action-secondary text-[11px] font-semibold px-2.5 py-1.5 rounded-md shadow-2xs gap-1.5 cursor-pointer disabled:opacity-50"
+                        title={`Send payment reminder now for invoice ${item.invoiceNumber}`}
+                      >
+                        {remindingId === item.id ? (
+                          <>
+                            <span className="material-symbols-outlined text-[13px] animate-spin">progress_activity</span>
+                            <span>Sending...</span>
+                          </>
+                        ) : (
+                          <>
+                            <span className="material-symbols-outlined text-[13px] text-[#001126]">send</span>
+                            <span>Remind Now</span>
+                          </>
+                        )}
+                      </button>
+                    </div>
                   </div>
                 ))}
               </div>

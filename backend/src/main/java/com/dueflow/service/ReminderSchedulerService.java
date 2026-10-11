@@ -2,6 +2,7 @@ package com.dueflow.service;
 
 import com.dueflow.domain.*;
 import com.dueflow.exception.ResourceNotFoundException;
+import com.dueflow.exception.ValidationException;
 import com.dueflow.repository.*;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
@@ -25,6 +26,8 @@ public class ReminderSchedulerService {
     private final ReminderHistoryRepository reminderHistoryRepository;
     private final NotificationRepository notificationRepository;
     private final GmailSenderService gmailSenderService;
+    private final GmailOAuthService gmailOAuthService;
+    private final InvoiceRepository invoiceRepository;
     private final boolean schedulerEnabled;
 
     public ReminderSchedulerService(
@@ -33,10 +36,24 @@ public class ReminderSchedulerService {
             NotificationRepository notificationRepository,
             GmailSenderService gmailSenderService,
             @Value("${dueflow.scheduler.enabled:true}") boolean schedulerEnabled) {
+        this(scheduledReminderRepository, reminderHistoryRepository, notificationRepository,
+             gmailSenderService, null, null, schedulerEnabled);
+    }
+
+    public ReminderSchedulerService(
+            ScheduledReminderRepository scheduledReminderRepository,
+            ReminderHistoryRepository reminderHistoryRepository,
+            NotificationRepository notificationRepository,
+            GmailSenderService gmailSenderService,
+            GmailOAuthService gmailOAuthService,
+            InvoiceRepository invoiceRepository,
+            @Value("${dueflow.scheduler.enabled:true}") boolean schedulerEnabled) {
         this.scheduledReminderRepository = scheduledReminderRepository;
         this.reminderHistoryRepository = reminderHistoryRepository;
         this.notificationRepository = notificationRepository;
         this.gmailSenderService = gmailSenderService;
+        this.gmailOAuthService = gmailOAuthService;
+        this.invoiceRepository = invoiceRepository;
         this.schedulerEnabled = schedulerEnabled;
     }
 
@@ -177,17 +194,94 @@ public class ReminderSchedulerService {
     }
 
     /**
-     * Allows immediate manual dispatch of a pending reminder by the owner.
+     * Allows immediate manual dispatch of a reminder by the owner ("Remind Now").
+     * Supports both scheduled reminder IDs and invoice IDs.
+     * Enforces tenant isolation, invoice eligibility, Gmail connection, and idempotency safeguards.
+     * Does NOT alter or cancel future automated reminder schedules.
      */
     @Transactional
-    public void triggerReminderManually(String reminderId, String userId) {
-        ScheduledReminder reminder = scheduledReminderRepository.findById(reminderId)
-                .orElseThrow(() -> new ResourceNotFoundException("Scheduled reminder not found"));
+    public void triggerReminderManually(String reminderOrInvoiceId, String userId) {
+        ScheduledReminder reminder = scheduledReminderRepository.findById(reminderOrInvoiceId).orElse(null);
+        Invoice invoice = null;
 
-        if (!reminder.getUserId().equals(userId)) {
+        if (reminder != null) {
+            if (!reminder.getUserId().equals(userId)) {
+                throw new ResourceNotFoundException("Scheduled reminder not found");
+            }
+            invoice = reminder.getInvoice();
+        } else if (invoiceRepository != null) {
+            invoice = invoiceRepository.findById(reminderOrInvoiceId)
+                    .filter(inv -> inv.getUserId().equals(userId))
+                    .orElse(null);
+        }
+
+        if (invoice == null) {
             throw new ResourceNotFoundException("Scheduled reminder not found");
         }
 
-        processSingleReminder(reminderId);
+        // 1. Check invoice eligibility: Do not send reminders for paid or cancelled invoices
+        if (invoice.getStatus() == InvoiceStatus.PAID) {
+            throw new ValidationException("Cannot send reminder: invoice is already paid.");
+        }
+        if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
+            throw new ValidationException("Cannot send reminder: invoice is cancelled.");
+        }
+
+        // 2. Verify Gmail is connected
+        if (gmailOAuthService != null) {
+            String refreshToken = gmailOAuthService.getDecryptedRefreshToken(userId);
+            if (refreshToken == null || refreshToken.isBlank()) {
+                throw new ValidationException("Gmail is not connected. Please connect your Gmail account in Settings before sending reminders.");
+            }
+        }
+
+        // 3. Verify client email is present
+        String recipientEmail = invoice.getClient() != null ? invoice.getClient().getEmail() : null;
+        if (recipientEmail == null || recipientEmail.isBlank()) {
+            throw new ValidationException("Client does not have a valid email address.");
+        }
+
+        // 4. Send email via GmailSenderService
+        String subject = "Payment Reminder: Invoice #" + invoice.getInvoiceNumber();
+        String messageId;
+        try {
+            messageId = gmailSenderService.sendInvoiceReminder(invoice, subject, null);
+        } catch (ValidationException ve) {
+            throw ve;
+        } catch (Exception e) {
+            log.error("Failed to dispatch manual reminder for invoice {}: {}", invoice.getInvoiceNumber(), e.getMessage(), e);
+            throw new ValidationException("Failed to dispatch reminder email: " + e.getMessage());
+        }
+
+        // 5. Record manual dispatch in reminder history
+        ReminderHistory history = new ReminderHistory(
+                reminder != null ? reminder.getId() : "MANUAL",
+                invoice.getId(),
+                userId,
+                recipientEmail,
+                subject,
+                "SENT"
+        );
+        history.setProviderMessageId(messageId);
+        reminderHistoryRepository.save(history);
+
+        // 6. Record user notification
+        String clientName = invoice.getClient() != null ? invoice.getClient().getName() : "Client";
+        Notification notification = new Notification(
+                userId,
+                "Payment Reminder Sent",
+                "Payment reminder for invoice #" + invoice.getInvoiceNumber() + " sent to " + clientName,
+                "INFO",
+                "/invoices"
+        );
+        notificationRepository.save(notification);
+
+        // 7. Update invoice reminders sent count
+        invoice.setRemindersSentCount(invoice.getRemindersSentCount() + 1);
+        if (invoiceRepository != null) {
+            invoiceRepository.save(invoice);
+        }
+
+        log.info("Manual reminder successfully dispatched by user {} for invoice {}", userId, invoice.getInvoiceNumber());
     }
 }

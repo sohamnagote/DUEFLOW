@@ -41,14 +41,16 @@ public class PaymentSettingsController {
     public ResponseEntity<Map<String, String>> uploadQrCode(@RequestParam("file") MultipartFile file) {
         String userId = SecurityUtils.getRequiredUserId();
 
-        // Check if there is an existing QR code to delete
         PaymentSettings current = userProfileService.getPaymentSettings(userId);
-        if (current.getQrCodeUrl() != null && !current.getQrCodeUrl().isBlank()) {
-            storageService.deleteQrCode(current.getQrCodeUrl());
-        }
+        String oldQrUrl = current != null ? current.getQrCodeUrl() : null;
 
         String uploadedUrl = storageService.uploadQrCode(userId, file);
         userProfileService.updateQrCodeUrl(userId, uploadedUrl);
+
+        // Delete old QR only AFTER successful upload to preserve image if upload failed
+        if (oldQrUrl != null && !oldQrUrl.isBlank() && !oldQrUrl.equals(uploadedUrl)) {
+            storageService.deleteQrCode(oldQrUrl);
+        }
 
         return ResponseEntity.ok(Map.of(
                 "qrCodeUrl", uploadedUrl,

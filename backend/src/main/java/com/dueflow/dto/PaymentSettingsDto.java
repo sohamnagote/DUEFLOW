@@ -1,14 +1,28 @@
 package com.dueflow.dto;
 
 import com.dueflow.domain.PaymentSettings;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class PaymentSettingsDto {
+    @JsonAlias({"upi_id"})
     private String upiId;
+
+    @JsonAlias({"beneficiary_name"})
     private String beneficiaryName;
+
+    @JsonAlias({"bank_name"})
     private String bankName;
+
+    @JsonAlias({"account_number"})
     private String accountNumber;
+
+    @JsonAlias({"routing_number", "ifsc", "ifsc_code", "bank_ifsc"})
     private String routingNumber;
+
+    @JsonAlias({"payment_instructions", "notes", "payment_notes"})
     private String paymentInstructions;
+
+    @JsonAlias({"qrCodeUrl", "payment_qr_url", "qr_code_url"})
     private String paymentQrUrl;
 
     public PaymentSettingsDto() {
@@ -81,5 +95,13 @@ public class PaymentSettingsDto {
 
     public void setPaymentQrUrl(String paymentQrUrl) {
         this.paymentQrUrl = paymentQrUrl;
+    }
+
+    public String getQrCodeUrl() {
+        return paymentQrUrl;
+    }
+
+    public void setQrCodeUrl(String qrCodeUrl) {
+        this.paymentQrUrl = qrCodeUrl;
     }
 }

@@ -63,10 +63,10 @@ public class ReminderController {
         return ResponseEntity.ok(Map.of("message", "Reminder rule deleted successfully"));
     }
 
-    @PostMapping("/{id}/trigger")
+    @PostMapping({"/{id}/trigger", "/trigger/{id}", "/remind-now/{id}"})
     public ResponseEntity<Map<String, String>> triggerReminder(@PathVariable String id) {
         String userId = SecurityUtils.getRequiredUserId();
         reminderService.triggerReminder(userId, id);
-        return ResponseEntity.ok(Map.of("message", "Reminder triggered successfully"));
+        return ResponseEntity.ok(Map.of("message", "Payment reminder sent successfully"));
     }
 }
