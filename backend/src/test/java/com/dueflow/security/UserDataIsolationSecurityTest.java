@@ -65,11 +65,11 @@ public class UserDataIsolationSecurityTest {
 
     @BeforeEach
     void setUp() {
-        clientService = new ClientService(clientRepository, invoiceRepository);
+        clientService = new ClientService(clientRepository, invoiceRepository, userProfileRepository);
         invoiceService = new InvoiceService(invoiceRepository, clientRepository, userProfileRepository, reminderScheduleCalculator);
         userProfileService = new UserProfileService(userProfileRepository, paymentSettingsRepository);
         reminderService = new ReminderService(reminderRuleRepository, scheduledReminderRepository, reminderHistoryRepository,
-                reminderSchedulerService, reminderScheduleCalculator, invoiceRepository);
+                reminderSchedulerService, reminderScheduleCalculator, invoiceRepository, userProfileRepository);
     }
 
     @Test

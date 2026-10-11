@@ -27,6 +27,7 @@ public class ReminderService {
     private final ReminderSchedulerService reminderSchedulerService;
     private final ReminderScheduleCalculator reminderScheduleCalculator;
     private final com.dueflow.repository.InvoiceRepository invoiceRepository;
+    private final com.dueflow.repository.UserProfileRepository userProfileRepository;
 
     public ReminderService(
             ReminderRuleRepository reminderRuleRepository,
@@ -34,13 +35,22 @@ public class ReminderService {
             ReminderHistoryRepository reminderHistoryRepository,
             ReminderSchedulerService reminderSchedulerService,
             ReminderScheduleCalculator reminderScheduleCalculator,
-            com.dueflow.repository.InvoiceRepository invoiceRepository) {
+            com.dueflow.repository.InvoiceRepository invoiceRepository,
+            com.dueflow.repository.UserProfileRepository userProfileRepository) {
         this.reminderRuleRepository = reminderRuleRepository;
         this.scheduledReminderRepository = scheduledReminderRepository;
         this.reminderHistoryRepository = reminderHistoryRepository;
         this.reminderSchedulerService = reminderSchedulerService;
         this.reminderScheduleCalculator = reminderScheduleCalculator;
         this.invoiceRepository = invoiceRepository;
+        this.userProfileRepository = userProfileRepository;
+    }
+
+    private void ensureUserProfile(String userId) {
+        if (!userProfileRepository.existsById(userId)) {
+            String email = com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("");
+            userProfileRepository.save(new com.dueflow.domain.UserProfile(userId, email));
+        }
     }
 
     @Transactional
@@ -54,6 +64,7 @@ public class ReminderService {
 
     @Transactional
     public ReminderRuleDto createReminderRule(String userId, ReminderRuleDto dto) {
+        ensureUserProfile(userId);
         ReminderRule rule = new ReminderRule();
         rule.setUserId(userId);
         rule.setLabel(dto.getLabel());
@@ -143,6 +154,7 @@ public class ReminderService {
     }
 
     private List<ReminderRule> createDefaultRules(String userId) {
+        ensureUserProfile(userId);
         ReminderRule r1 = new ReminderRule(userId, "3 days before due date", "BEFORE", 3, "FRIENDLY");
         ReminderRule r2 = new ReminderRule(userId, "On due date", "ON_DUE_DATE", 0, "FRIENDLY");
         ReminderRule r3 = new ReminderRule(userId, "3 days overdue", "AFTER", 3, "URGENT");

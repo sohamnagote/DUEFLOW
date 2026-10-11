@@ -1,8 +1,13 @@
 import { supabase } from './supabase';
 import { Invoice, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem } from '../types';
 
-const rawApiUrl = import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '';
-const API_BASE = (rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '') + '/api';
+const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
+const cleanRawUrl = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '';
+const API_BASE = cleanRawUrl.endsWith('/api')
+  ? cleanRawUrl
+  : cleanRawUrl
+  ? `${cleanRawUrl}/api`
+  : '/api';
 
 /**
  * Returns the current JWT access token from Supabase session, if available.
@@ -27,26 +32,56 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
     ...(options.headers || {}),
   };
 
-  const response = await fetch(`${API_BASE}${endpoint}`, {
-    ...options,
-    headers,
-  });
+  const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
+
+  let response: Response;
+  try {
+    response = await fetch(`${API_BASE}${cleanEndpoint}`, {
+      ...options,
+      headers,
+    });
+  } catch (err: any) {
+    if (err?.name === 'TypeError' && err?.message?.toLowerCase().includes('failed to fetch')) {
+      throw new Error('Network or CORS error: Unable to connect to DueFlow backend. Please check server availability.');
+    }
+    throw err;
+  }
 
   if (!response.ok) {
     let errorMsg = `HTTP ${response.status}: ${response.statusText}`;
     try {
       const errorData = await response.json();
-      if (errorData.message) errorMsg = errorData.message;
-    } catch (_) {}
+      if (errorData.message) {
+        errorMsg = errorData.message;
+      } else if (errorData.error) {
+        errorMsg = errorData.error;
+      }
+      if (errorData.details && typeof errorData.details === 'object') {
+        const fieldDetails = Object.entries(errorData.details)
+          .map(([k, v]) => `${k}: ${v}`)
+          .join(', ');
+        if (fieldDetails) {
+          errorMsg = `${errorMsg} (${fieldDetails})`;
+        }
+      }
+    } catch (_) {
+      // response might be empty or non-JSON
+    }
     throw new Error(errorMsg);
+  }
+
+  if (response.status === 204) {
+    return null as unknown as T;
   }
 
   const contentType = response.headers.get('content-type');
   if (contentType && contentType.includes('application/json')) {
-    return response.json();
+    const text = await response.text();
+    return text ? JSON.parse(text) : (null as unknown as T);
   }
   return null as unknown as T;
 }
+
 
 export const dueflowApi = {
   // --- Profile & Payment Settings ---

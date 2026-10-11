@@ -67,6 +67,10 @@ public class UserProfileService {
 
     @Transactional
     public PaymentSettings updatePaymentSettings(String userId, PaymentSettingsDto dto) {
+        if (!userProfileRepository.existsById(userId)) {
+            userProfileRepository.save(new UserProfile(userId, com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("")));
+        }
+
         PaymentSettings settings = paymentSettingsRepository.findByUserId(userId)
                 .orElseGet(() -> new PaymentSettings(userId));
 
@@ -97,6 +101,10 @@ public class UserProfileService {
 
     @Transactional
     public PaymentSettings updateQrCodeUrl(String userId, String qrUrl) {
+        if (!userProfileRepository.existsById(userId)) {
+            userProfileRepository.save(new UserProfile(userId, com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("")));
+        }
+
         PaymentSettings settings = paymentSettingsRepository.findByUserId(userId)
                 .orElseGet(() -> new PaymentSettings(userId));
         settings.setQrCodeUrl(qrUrl);

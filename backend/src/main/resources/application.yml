@@ -56,7 +56,7 @@ dueflow:
   security:
     encryption-key: ${GMAIL_TOKEN_ENCRYPTION_KEY:}
   cors:
-    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,https://dueflow.vercel.app,http://127.0.0.1:3000}
+    allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,https://dueflow.vercel.app,https://dueflow-kappa.vercel.app,http://127.0.0.1:3000}
   app:
     base-url: ${APP_BASE_URL:http://localhost:8081}
   frontend:

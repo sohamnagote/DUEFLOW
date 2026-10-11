@@ -3,11 +3,14 @@ package com.dueflow.service;
 import com.dueflow.domain.Client;
 import com.dueflow.domain.Invoice;
 import com.dueflow.domain.InvoiceStatus;
+import com.dueflow.domain.UserProfile;
 import com.dueflow.dto.ClientDto;
 import com.dueflow.exception.ResourceNotFoundException;
 import com.dueflow.exception.ValidationException;
 import com.dueflow.repository.ClientRepository;
 import com.dueflow.repository.InvoiceRepository;
+import com.dueflow.repository.UserProfileRepository;
+import com.dueflow.security.SecurityUtils;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.stereotype.Service;
@@ -21,10 +24,21 @@ public class ClientService {
 
     private final ClientRepository clientRepository;
     private final InvoiceRepository invoiceRepository;
+    private final UserProfileRepository userProfileRepository;
 
-    public ClientService(ClientRepository clientRepository, InvoiceRepository invoiceRepository) {
+    public ClientService(ClientRepository clientRepository,
+                         InvoiceRepository invoiceRepository,
+                         UserProfileRepository userProfileRepository) {
         this.clientRepository = clientRepository;
         this.invoiceRepository = invoiceRepository;
+        this.userProfileRepository = userProfileRepository;
+    }
+
+    private void ensureUserProfile(String userId) {
+        if (!userProfileRepository.existsById(userId)) {
+            String email = SecurityUtils.getCurrentUserEmail().orElse("");
+            userProfileRepository.save(new UserProfile(userId, email));
+        }
     }
 
     @Transactional(readOnly = true)
@@ -55,6 +69,9 @@ public class ClientService {
             throw new ValidationException("Client email is required");
         }
 
+        // Auto-provision user profile if not yet created to satisfy PostgreSQL FK constraint
+        ensureUserProfile(userId);
+
         Client client = new Client(userId, dto.getName().trim(), dto.getEmail().trim());
         client.setPhone(dto.getPhone() != null ? dto.getPhone().trim() : null);
         client.setBillingAddress(dto.getBillingAddress() != null ? dto.getBillingAddress().trim() : null);
@@ -62,7 +79,7 @@ public class ClientService {
         client.setInternalNotes(dto.getInternalNotes() != null ? dto.getInternalNotes().trim() : null);
 
         Client saved = clientRepository.save(client);
-        return ClientDto.fromEntity(saved);
+        return enrichClientStats(saved, userId);
     }
 
     @Transactional

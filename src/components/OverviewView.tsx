@@ -118,7 +118,7 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </span>
             <div className="my-2">
               <span className="text-2xl sm:text-3xl font-extrabold text-[#001126]">
-                {clients.length}
+                {(clients || []).filter(Boolean).length}
               </span>
             </div>
             <span className="text-[11px] text-[#74777d]">

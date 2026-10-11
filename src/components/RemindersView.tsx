@@ -678,7 +678,7 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
                     className="w-full px-3 py-2 text-xs bg-[#fbf9f4] rounded border border-[#001126]/15 focus:outline-none focus:border-[#001126]"
                   >
                     <option value="">Global (All invoices)</option>
-                    {invoices.map((inv) => (
+                    {(invoices || []).filter(Boolean).map((inv) => (
                       <option key={inv.id} value={inv.id}>
                         {inv.invoiceNumber} - {inv.clientName}
                       </option>

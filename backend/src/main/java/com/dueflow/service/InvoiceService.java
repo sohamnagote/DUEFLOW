@@ -35,6 +35,13 @@ public class InvoiceService {
         this.reminderScheduleCalculator = reminderScheduleCalculator;
     }
 
+    private void ensureUserProfile(String userId) {
+        if (!userProfileRepository.existsById(userId)) {
+            String email = com.dueflow.security.SecurityUtils.getCurrentUserEmail().orElse("");
+            userProfileRepository.save(new UserProfile(userId, email));
+        }
+    }
+
     @Transactional
     public List<InvoiceDto> getInvoices(String userId) {
         List<Invoice> invoices = invoiceRepository.findByUserIdOrderByCreatedAtDesc(userId);
@@ -72,6 +79,8 @@ public class InvoiceService {
 
     @Transactional
     public InvoiceDto createInvoice(String userId, InvoiceDto dto) {
+        ensureUserProfile(userId);
+
         Client client;
         if (dto.getClientId() != null && !dto.getClientId().isBlank()) {
             client = clientRepository.findByIdAndUserId(dto.getClientId(), userId)

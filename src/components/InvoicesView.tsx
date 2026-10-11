@@ -57,7 +57,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     const finalDescription = description.trim() || 'Services rendered';
     const trimmedName = clientName.trim();
     const matchedClient = (clients || []).find(
-      (c) => c.name.toLowerCase() === trimmedName.toLowerCase()
+      (c) => c && c.name && c.name.toLowerCase() === trimmedName.toLowerCase()
     );
 
     onAddInvoice({
@@ -319,7 +319,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   onChange={(e) => {
                     const val = e.target.value;
                     setClientName(val);
-                    const matched = (clients || []).find((c) => c.name.toLowerCase() === val.trim().toLowerCase());
+                    const matched = (clients || []).find((c) => c && c.name && c.name.toLowerCase() === val.trim().toLowerCase());
                     if (matched && matched.email) {
                       setClientEmail(matched.email);
                     }
@@ -329,7 +329,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   required
                 />
                 <datalist id="client-suggestions">
-                  {(clients || []).map((c) => (
+                  {(clients || []).filter((c) => c && c.name).map((c) => (
                     <option key={c.id} value={c.name}>{c.email}</option>
                   ))}
                 </datalist>

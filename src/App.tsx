@@ -21,6 +21,7 @@ import { ClientsView } from './components/ClientsView';
 import { RemindersView } from './components/RemindersView';
 import { SettingsView } from './components/SettingsView';
 import { SwitchAccountModal } from './components/SwitchAccountModal';
+import { ErrorBoundary } from './components/ErrorBoundary';
 
 export default function App() {
   // Determine initial page from URL path to support direct opens/refreshes of /dashboard, /privacy, /terms, etc.
@@ -301,13 +302,25 @@ export default function App() {
   // Handlers for clients - strictly calls database
   const handleAddClient = async (
     newCli: Omit<Client, 'id' | 'totalInvoiced' | 'totalOutstanding' | 'invoicesCount' | 'createdAt'>
-  ) => {
+  ): Promise<boolean> => {
     try {
       const created = await dueflowApi.createClient(newCli);
-      setClients((prev) => [created, ...prev]);
+      if (created && created.id) {
+        setClients((prev) => [created, ...(prev || []).filter((c) => c && c.id !== created.id)]);
+      }
+      // Re-fetch to guarantee consistency and server-side state
+      try {
+        const fresh = await dueflowApi.getClients();
+        if (Array.isArray(fresh)) {
+          setClients(fresh.filter(Boolean));
+        }
+      } catch (syncErr) {
+        console.warn('Could not re-fetch clients after create:', syncErr);
+      }
+      return true;
     } catch (err: any) {
       console.error('Client creation failed on backend:', err);
-      alert(err?.message || 'Could not save client to database. Please check required fields.');
+      throw err;
     }
   };
 
@@ -393,57 +406,59 @@ export default function App() {
 
         {/* In-App Route Pages */}
         <main className="w-full pt-16 min-h-screen bg-[#fbf9f4]">
-          {activeTab === 'overview' && (
-            <OverviewView
-              invoices={invoices}
-              clients={clients}
-              userPreferredCurrency={userProfile.preferredCurrency}
-              onNewInvoiceClick={() => setActiveTab('invoices')}
-              onAddClientClick={() => setActiveTab('clients')}
-              onClearData={() => {
-                setInvoices([]);
-                setClients([]);
-              }}
-              onNavigateToInvoices={() => setActiveTab('invoices')}
-              onNavigateToClients={() => setActiveTab('clients')}
-              onNavigateToReminders={() => setActiveTab('reminders')}
-            />
-          )}
+          <ErrorBoundary fallbackTitle="Workspace Section Error">
+            {activeTab === 'overview' && (
+              <OverviewView
+                invoices={invoices}
+                clients={clients}
+                userPreferredCurrency={userProfile.preferredCurrency}
+                onNewInvoiceClick={() => setActiveTab('invoices')}
+                onAddClientClick={() => setActiveTab('clients')}
+                onClearData={() => {
+                  setInvoices([]);
+                  setClients([]);
+                }}
+                onNavigateToInvoices={() => setActiveTab('invoices')}
+                onNavigateToClients={() => setActiveTab('clients')}
+                onNavigateToReminders={() => setActiveTab('reminders')}
+              />
+            )}
 
-          {activeTab === 'invoices' && (
-            <InvoicesView
-              invoices={invoices}
-              clients={clients}
-              userPreferredCurrency={userProfile.preferredCurrency}
-              userProfile={userProfile}
-              onAddInvoice={handleAddInvoice}
-              onUpdateStatus={handleUpdateStatus}
-              onDeleteInvoice={handleDeleteInvoice}
-            />
-          )}
+            {activeTab === 'invoices' && (
+              <InvoicesView
+                invoices={invoices}
+                clients={clients}
+                userPreferredCurrency={userProfile.preferredCurrency}
+                userProfile={userProfile}
+                onAddInvoice={handleAddInvoice}
+                onUpdateStatus={handleUpdateStatus}
+                onDeleteInvoice={handleDeleteInvoice}
+              />
+            )}
 
-          {activeTab === 'clients' && (
-            <ClientsView
-              clients={clients}
-              onAddClient={handleAddClient}
-              onDeleteClient={handleDeleteClient}
-            />
-          )}
+            {activeTab === 'clients' && (
+              <ClientsView
+                clients={clients}
+                onAddClient={handleAddClient}
+                onDeleteClient={handleDeleteClient}
+              />
+            )}
 
-          {activeTab === 'reminders' && (
-            <RemindersView
-              userPreferredCurrency={userProfile.preferredCurrency}
-              invoices={invoices}
-              userProfile={userProfile}
-            />
-          )}
+            {activeTab === 'reminders' && (
+              <RemindersView
+                userPreferredCurrency={userProfile.preferredCurrency}
+                invoices={invoices}
+                userProfile={userProfile}
+              />
+            )}
 
-          {activeTab === 'settings' && (
-            <SettingsView
-              userProfile={userProfile}
-              onUpdateProfile={(updated) => setUserProfile(updated)}
-            />
-          )}
+            {activeTab === 'settings' && (
+              <SettingsView
+                userProfile={userProfile}
+                onUpdateProfile={(updated) => setUserProfile(updated)}
+              />
+            )}
+          </ErrorBoundary>
         </main>
       </div>
 
