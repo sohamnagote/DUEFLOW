@@ -6,7 +6,7 @@ services:
     dockerContext: ./backend
     plan: starter
     healthCheckPath: /api/health
-    autoDeploy: false
+    autoDeploy: true
     envVars:
       - key: PORT
         value: 10000
