@@ -54,7 +54,7 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/health", "/health").permitAll()
+                .requestMatchers("/api/health", "/health", "/api/health/ready", "/health/ready").permitAll()
                 .requestMatchers(
                     "/api/integrations/gmail/oauth/callback",
                     "/integrations/gmail/oauth/callback",
