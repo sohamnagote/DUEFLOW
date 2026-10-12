@@ -23,6 +23,7 @@ public class HealthController {
     public ResponseEntity<Map<String, Object>> checkHealth() {
         Map<String, Object> response = new HashMap<>();
         response.put("status", "UP");
+        response.put("version", "1.0.0");
         response.put("timestamp", Instant.now().toString());
         response.put("service", "DueFlow Backend (Java 21 / Spring Boot 3)");
 

@@ -18,7 +18,7 @@ RUN addgroup -S dueflow && adduser -S dueflow -G dueflow
 USER dueflow:dueflow
 
 # Copy repackaged spring-boot fat jar
-COPY --from=build /workspace/target/dueflow-backend-1.0.0.jar app.jar
+COPY --from=build /workspace/target/*.jar app.jar
 
 ENV PORT=8080
 EXPOSE 8080

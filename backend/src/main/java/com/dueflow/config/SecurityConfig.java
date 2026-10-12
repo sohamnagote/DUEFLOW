@@ -55,7 +55,12 @@ public class SecurityConfig {
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
                 .requestMatchers("/api/health", "/health").permitAll()
-                .requestMatchers("/api/integrations/gmail/oauth/callback", "/integrations/gmail/oauth/callback").permitAll()
+                .requestMatchers(
+                    "/api/integrations/gmail/oauth/callback",
+                    "/integrations/gmail/oauth/callback",
+                    "/api/integrations/email/google/callback",
+                    "/integrations/email/google/callback"
+                ).permitAll()
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/**", "/settings/**", "/integrations/**", "/user/**", "/profile/**", "/clients/**", "/invoices/**", "/reminders/**", "/notifications/**", "/dashboard/**", "/search/**").authenticated()
                 .anyRequest().permitAll()

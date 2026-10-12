@@ -40,6 +40,8 @@ public class PaymentSettingsController {
     @PostMapping(value = {
             "/api/settings/payment/qr",
             "/settings/payment/qr",
+            "/api/profile/payment-qr",
+            "/profile/payment-qr",
             "/api/user/profile/qr-code",
             "/user/profile/qr-code"
     }, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
@@ -60,6 +62,8 @@ public class PaymentSettingsController {
         return ResponseEntity.ok(Map.of(
                 "qrCodeUrl", uploadedUrl,
                 "paymentQrUrl", uploadedUrl,
+                "payment_qr_url", uploadedUrl,
+                "url", uploadedUrl,
                 "message", "QR code uploaded successfully"
         ));
     }
@@ -67,6 +71,8 @@ public class PaymentSettingsController {
     @DeleteMapping({
             "/api/settings/payment/qr",
             "/settings/payment/qr",
+            "/api/profile/payment-qr",
+            "/profile/payment-qr",
             "/api/user/profile/qr-code",
             "/user/profile/qr-code"
     })

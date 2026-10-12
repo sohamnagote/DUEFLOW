@@ -39,14 +39,26 @@ public class GmailIntegrationController {
         return ResponseEntity.ok(gmailOAuthService.getConnectionStatus(userId));
     }
 
-    @GetMapping("/oauth/url")
+    @RequestMapping(value = {
+            "/oauth/url",
+            "/api/integrations/email/google/start",
+            "/integrations/email/google/start"
+    }, method = {RequestMethod.GET, RequestMethod.POST})
     public ResponseEntity<Map<String, String>> getAuthUrl() {
         String userId = SecurityUtils.getRequiredUserId();
         String authUrl = gmailOAuthService.getAuthorizationUrl(userId);
-        return ResponseEntity.ok(Map.of("url", authUrl));
+        return ResponseEntity.ok(Map.of(
+                "url", authUrl,
+                "authUrl", authUrl,
+                "mode", "oauth2"
+        ));
     }
 
-    @GetMapping("/oauth/callback")
+    @GetMapping({
+            "/oauth/callback",
+            "/api/integrations/email/google/callback",
+            "/integrations/email/google/callback"
+    })
     public ResponseEntity<Void> handleOAuthCallback(
             @RequestParam("code") String code,
             @RequestParam("state") String state) {
