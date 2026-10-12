@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem } from '../types';
+import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem } from '../types';
 
 const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
 const cleanRawUrl = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '';
@@ -565,11 +565,38 @@ export const dueflowApi = {
 
       return data.map((r: any) => ({
         id: r.id || '',
+        invoiceId: r.invoiceId || r.invoice_id || '',
         clientName: r.clientName || r.client_name || 'Client',
         invoiceNumber: r.invoiceNumber || r.invoice_number || 'INV',
         relativeDueText: r.ruleLabel || r.rule_label || 'Scheduled reminder',
         scheduledText: r.scheduledAt || r.scheduled_at ? new Date(r.scheduledAt || r.scheduled_at).toLocaleString() : '',
         status: (r.status === 'SENT' ? 'sent' : r.status === 'PENDING' ? 'queued' : 'paused') as any,
+      }));
+    } catch {
+      return [];
+    }
+  },
+
+  async getReminderHistory(page = 0, size = 20): Promise<ReminderHistoryItem[]> {
+    try {
+      const raw = await request<any>(`/reminders/history?page=${page}&size=${size}`);
+      const data: any[] = Array.isArray(raw)
+        ? raw
+        : Array.isArray(raw?.content)
+        ? raw.content
+        : [];
+
+      return data.map((h: any) => ({
+        id: h.id || '',
+        scheduledReminderId: h.scheduledReminderId || h.scheduled_reminder_id,
+        invoiceId: h.invoiceId || h.invoice_id || '',
+        recipientEmail: h.recipientEmail || h.recipient_email || '',
+        subject: h.subject || '',
+        status: (h.status || 'SENT').toUpperCase() as 'SENT' | 'FAILED',
+        providerMessageId: h.providerMessageId || h.provider_message_id,
+        errorCategory: h.errorCategory || h.error_category,
+        errorMessage: h.errorMessage || h.error_message,
+        attemptedAt: h.attemptedAt || h.attempted_at || new Date().toISOString(),
       }));
     } catch {
       return [];
@@ -659,11 +686,20 @@ export const dueflowApi = {
     await request(`/reminders/rules/${id}`, { method: 'DELETE' });
   },
 
-  async triggerReminder(id: string): Promise<{ success: boolean; message: string }> {
+  async triggerReminder(id: string): Promise<{
+    success: boolean;
+    message: string;
+    providerMessageId?: string;
+    invoiceId?: string;
+    recipientEmail?: string;
+  }> {
     const res = await request<any>(`/reminders/${id}/trigger`, { method: 'POST' });
     return {
       success: true,
       message: res?.message || 'Payment reminder sent successfully.',
+      providerMessageId: res?.providerMessageId,
+      invoiceId: res?.invoiceId,
+      recipientEmail: res?.recipientEmail,
     };
   },
 

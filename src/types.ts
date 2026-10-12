@@ -43,11 +43,25 @@ export interface ReminderScheduleRule {
 
 export interface ReminderQueueItem {
   id: string;
+  invoiceId?: string;
   clientName: string;
   invoiceNumber: string;
   relativeDueText: string;
   scheduledText: string;
   status: 'queued' | 'sent' | 'paused';
+}
+
+export interface ReminderHistoryItem {
+  id: string;
+  scheduledReminderId?: string;
+  invoiceId: string;
+  recipientEmail: string;
+  subject: string;
+  status: 'SENT' | 'FAILED';
+  providerMessageId?: string;
+  errorCategory?: string;
+  errorMessage?: string;
+  attemptedAt: string;
 }
 
 export interface EmailTemplateConfig {

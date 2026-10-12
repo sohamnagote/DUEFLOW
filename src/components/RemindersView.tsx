@@ -1,5 +1,5 @@
 import React, { useState, useEffect } from 'react';
-import { Invoice, ReminderScheduleRule, ReminderQueueItem, UserProfile } from '../types';
+import { Invoice, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, UserProfile } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { dueflowApi } from '../utils/api';
 
@@ -8,12 +8,14 @@ interface RemindersViewProps {
   userPreferredCurrency?: 'INR' | 'USD';
   invoices?: Invoice[];
   userProfile?: UserProfile;
+  onReminderSent?: () => void;
 }
 
 export const RemindersView: React.FC<RemindersViewProps> = ({
   userPreferredCurrency = 'INR',
   invoices = [],
   userProfile,
+  onReminderSent,
 }) => {
   const [tone, setTone] = useState<'friendly' | 'professional' | 'firm'>('professional');
   const [subjectLine, setSubjectLine] = useState('Invoice {{invoice_number}} payment reminder');
@@ -29,7 +31,9 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
   // Persisted Reminder Rules & Upcoming Queue
   const [rules, setRules] = useState<ReminderScheduleRule[]>([]);
   const [serverQueue, setServerQueue] = useState<ReminderQueueItem[]>([]);
+  const [history, setHistory] = useState<ReminderHistoryItem[]>([]);
   const [isLoadingRules, setIsLoadingRules] = useState(false);
+  const [isLoadingHistory, setIsLoadingHistory] = useState(false);
   const [rulesError, setRulesError] = useState<string | null>(null);
   const [savedNotice, setSavedNotice] = useState(false);
   const [actionLoading, setActionLoading] = useState(false);
@@ -50,39 +54,40 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
 
   const activeTimezone = userProfile?.timezone || 'Asia/Kolkata';
 
-  // Load persisted rules and upcoming queue on mount
-  useEffect(() => {
-    let isMounted = true;
-    const loadRemindersData = async () => {
-      setIsLoadingRules(true);
-      try {
-        const [loadedRules, loadedQueue] = await Promise.allSettled([
-          dueflowApi.getReminderRules(),
-          dueflowApi.getUpcomingReminders(),
-        ]);
+  const loadRemindersData = async () => {
+    setIsLoadingRules(true);
+    setIsLoadingHistory(true);
+    try {
+      const [loadedRules, loadedQueue, loadedHistory] = await Promise.allSettled([
+        dueflowApi.getReminderRules(),
+        dueflowApi.getUpcomingReminders(),
+        dueflowApi.getReminderHistory(),
+      ]);
 
-        if (!isMounted) return;
-
-        if (loadedRules.status === 'fulfilled') {
-          setRules(loadedRules.value);
-        } else {
-          console.warn('Could not load reminder rules:', loadedRules.reason);
-        }
-
-        if (loadedQueue.status === 'fulfilled') {
-          setServerQueue(loadedQueue.value);
-        }
-      } catch (err: any) {
-        if (isMounted) setRulesError(err?.message || 'Failed to load reminders');
-      } finally {
-        if (isMounted) setIsLoadingRules(false);
+      if (loadedRules.status === 'fulfilled') {
+        setRules(loadedRules.value);
+      } else {
+        console.warn('Could not load reminder rules:', loadedRules.reason);
       }
-    };
 
+      if (loadedQueue.status === 'fulfilled') {
+        setServerQueue(loadedQueue.value);
+      }
+
+      if (loadedHistory.status === 'fulfilled') {
+        setHistory(loadedHistory.value);
+      }
+    } catch (err: any) {
+      setRulesError(err?.message || 'Failed to load reminders');
+    } finally {
+      setIsLoadingRules(false);
+      setIsLoadingHistory(false);
+    }
+  };
+
+  // Load persisted rules, queue, and history on mount
+  useEffect(() => {
     loadRemindersData();
-    return () => {
-      isMounted = false;
-    };
   }, []);
 
   const safeInvoices: Invoice[] = Array.isArray(invoices)
@@ -92,33 +97,51 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
     : [];
 
   const upcomingQueue = React.useMemo(() => {
-    if (safeInvoices.length > 0) {
-      return safeInvoices
-        .filter((inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid'))
-        .map((inv) => {
-          const isOverdue = inv.status === 'overdue';
-          const formattedAmount = formatCurrency(Number(inv.amount || 0), inv.currency || userPreferredCurrency);
-          return {
-            id: inv.id || '',
-            clientName: inv.clientName || 'Client',
-            invoiceNumber: inv.invoiceNumber || 'INV',
-            relativeDueText: isOverdue
-              ? `Overdue • Due date was ${inv.dueDate || 'past'} • ${formattedAmount}`
-              : `Due on ${inv.dueDate || 'soon'} • ${formattedAmount}`,
-            status: isOverdue ? 'Overdue' : 'Queued',
-            isOverdue,
-          };
-        });
-    }
+    // 1. If serverQueue has scheduled reminders, map them
+    const scheduledItems = serverQueue.map((item) => {
+      const matchedInvoice = safeInvoices.find(
+        (inv) => inv.id === item.invoiceId || inv.invoiceNumber === item.invoiceNumber
+      );
+      const isOverdue = matchedInvoice ? matchedInvoice.status === 'overdue' : false;
+      const formattedAmount = matchedInvoice
+        ? formatCurrency(Number(matchedInvoice.amount || 0), matchedInvoice.currency || userPreferredCurrency)
+        : '';
 
-    return serverQueue.map((item) => ({
-      id: item.id,
-      clientName: item.clientName,
-      invoiceNumber: item.invoiceNumber,
-      relativeDueText: item.relativeDueText || 'Scheduled reminder',
-      status: item.status === 'sent' ? 'Sent' : 'Queued',
-      isOverdue: false,
-    }));
+      return {
+        id: item.id,
+        invoiceId: item.invoiceId || matchedInvoice?.id,
+        clientName: item.clientName || matchedInvoice?.clientName || 'Client',
+        invoiceNumber: item.invoiceNumber || matchedInvoice?.invoiceNumber || 'INV',
+        relativeDueText: item.relativeDueText
+          ? `${item.relativeDueText}${formattedAmount ? ` • ${formattedAmount}` : ''}`
+          : 'Scheduled reminder',
+        status: isOverdue ? 'Overdue' : item.status === 'sent' ? 'Sent' : 'Queued',
+        isOverdue,
+      };
+    });
+
+    // 2. Also include any unpaid invoices from safeInvoices that do not have a scheduled reminder
+    const scheduledInvoiceNumbers = new Set(scheduledItems.map((s) => s.invoiceNumber));
+    const invoiceItems = safeInvoices
+      .filter((inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid'))
+      .filter((inv) => !scheduledInvoiceNumbers.has(inv.invoiceNumber))
+      .map((inv) => {
+        const isOverdue = inv.status === 'overdue';
+        const formattedAmount = formatCurrency(Number(inv.amount || 0), inv.currency || userPreferredCurrency);
+        return {
+          id: inv.id || '',
+          invoiceId: inv.id,
+          clientName: inv.clientName || 'Client',
+          invoiceNumber: inv.invoiceNumber || 'INV',
+          relativeDueText: isOverdue
+            ? `Overdue • Due date was ${inv.dueDate || 'past'} • ${formattedAmount}`
+            : `Due on ${inv.dueDate || 'soon'} • ${formattedAmount}`,
+          status: isOverdue ? 'Overdue' : 'Queued',
+          isOverdue,
+        };
+      });
+
+    return [...scheduledItems, ...invoiceItems];
   }, [safeInvoices, serverQueue, userPreferredCurrency]);
 
   const activeTriggersCount = automatedEnabled ? (rules.length > 0 ? upcomingQueue.length * rules.length : upcomingQueue.length) : 0;
@@ -255,15 +278,34 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
       const res = await dueflowApi.triggerReminder(id);
       const label = invoiceNumber ? ` for invoice ${invoiceNumber}` : '';
       setRemindSuccess(res.message || `Payment reminder sent successfully${label}.`);
+
+      // Refresh both serverQueue and history
       try {
-        const loadedQueue = await dueflowApi.getUpcomingReminders();
-        setServerQueue(loadedQueue);
+        const [loadedQueue, loadedHistory] = await Promise.allSettled([
+          dueflowApi.getUpcomingReminders(),
+          dueflowApi.getReminderHistory(),
+        ]);
+        if (loadedQueue.status === 'fulfilled') setServerQueue(loadedQueue.value);
+        if (loadedHistory.status === 'fulfilled') setHistory(loadedHistory.value);
       } catch (_) {}
-      setTimeout(() => setRemindSuccess(null), 5000);
+
+      // Notify parent to refresh invoices (remindersSentCount)
+      if (onReminderSent) {
+        onReminderSent();
+      }
+
+      setTimeout(() => setRemindSuccess(null), 6000);
     } catch (err: any) {
       console.error('Failed to dispatch manual reminder:', err);
       setRemindError(err?.message || 'Failed to send reminder email. Please check your Gmail connection in Settings.');
-      setTimeout(() => setRemindError(null), 6000);
+
+      // Refresh history even on error so any recorded attempt/failure is displayed
+      try {
+        const loadedHistory = await dueflowApi.getReminderHistory();
+        setHistory(loadedHistory);
+      } catch (_) {}
+
+      setTimeout(() => setRemindError(null), 8000);
     } finally {
       setRemindingId(null);
     }
@@ -519,7 +561,110 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         </div>
       </section>
 
-      {/* Section 3: Email Template */}
+      {/* Section 3: Reminder Delivery History */}
+      <section className="space-y-4">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+          <div>
+            <h2 className="text-lg font-bold text-[#001126]">
+              Reminder delivery history
+            </h2>
+            <p className="text-xs text-[#44474d]">
+              Audited delivery logs of automated and manual reminder emails.
+            </p>
+          </div>
+          <button
+            type="button"
+            onClick={async () => {
+              setIsLoadingHistory(true);
+              try {
+                const res = await dueflowApi.getReminderHistory();
+                setHistory(res);
+              } finally {
+                setIsLoadingHistory(false);
+              }
+            }}
+            disabled={isLoadingHistory}
+            className="btn-action-secondary text-xs font-semibold px-3 py-1.5 rounded-lg flex items-center gap-1.5 self-start sm:self-auto cursor-pointer disabled:opacity-50"
+            title="Refresh reminder delivery history"
+          >
+            <span className={`material-symbols-outlined text-[14px] ${isLoadingHistory ? 'animate-spin' : ''}`}>
+              sync
+            </span>
+            <span>Refresh history</span>
+          </button>
+        </div>
+
+        <div className="bg-[#f0eee9]/40 rounded-xl border border-[#001126]/5 p-6 space-y-3">
+          {isLoadingHistory && history.length === 0 ? (
+            <div className="p-8 text-center text-xs text-[#74777d] bg-[#ffffff]/60 rounded-lg border border-[#001126]/5">
+              Loading reminder delivery history...
+            </div>
+          ) : history.length === 0 ? (
+            <div className="p-8 bg-[#ffffff]/60 rounded-lg border border-[#001126]/5 text-center flex flex-col items-center justify-center space-y-2">
+              <span className="material-symbols-outlined text-[24px] text-[#74777d]">
+                history_edu
+              </span>
+              <p className="text-xs font-semibold text-[#001126]">No reminder delivery history yet</p>
+              <p className="text-[11px] text-[#74777d]">
+                When automated schedules trigger or you click "Remind Now", delivery attempts will be audited here.
+              </p>
+            </div>
+          ) : (
+            <div className="space-y-2.5">
+              {history.map((record) => {
+                const isSent = record.status === 'SENT';
+                const isManual = record.scheduledReminderId === 'MANUAL' || !record.scheduledReminderId;
+                return (
+                  <div
+                    key={record.id}
+                    className="p-3.5 bg-[#ffffff] rounded-lg border border-[#001126]/5 flex flex-col sm:flex-row sm:items-center justify-between gap-3 shadow-2xs"
+                  >
+                    <div className="space-y-1">
+                      <div className="flex items-center gap-2 flex-wrap">
+                        <span
+                          className={`inline-flex items-center gap-1 text-[10px] font-['Space_Mono'] font-bold px-2 py-0.5 rounded-full ${
+                            isSent
+                              ? 'bg-[#3d6562]/10 text-[#3d6562]'
+                              : 'bg-[#ba1a1a]/10 text-[#ba1a1a]'
+                          }`}
+                        >
+                          <span className="material-symbols-outlined text-[12px]">
+                            {isSent ? 'check_circle' : 'cancel'}
+                          </span>
+                          <span>{record.status}</span>
+                        </span>
+                        <span className="text-xs font-semibold text-[#001126]">
+                          {record.subject || 'Payment Reminder'}
+                        </span>
+                        <span className="text-[10px] font-['Space_Mono'] px-2 py-0.5 rounded bg-[#001126]/5 text-[#44474d]">
+                          {isManual ? 'Manual Dispatch' : 'Scheduled Autopilot'}
+                        </span>
+                      </div>
+                      <div className="flex items-center gap-2 text-xs text-[#74777d] font-['Space_Mono']">
+                        <span>To: {record.recipientEmail}</span>
+                        <span>•</span>
+                        <span>{new Date(record.attemptedAt).toLocaleString()}</span>
+                      </div>
+                      {isSent && record.providerMessageId && (
+                        <p className="text-[10px] text-[#3d6562] font-['Space_Mono']">
+                          Gmail Provider ID: {record.providerMessageId}
+                        </p>
+                      )}
+                      {!isSent && record.errorMessage && (
+                        <p className="text-[10px] text-[#ba1a1a] font-['Space_Mono']">
+                          Error: {record.errorMessage}
+                        </p>
+                      )}
+                    </div>
+                  </div>
+                );
+              })}
+            </div>
+          )}
+        </div>
+      </section>
+
+      {/* Section 4: Email Template */}
       <section className="space-y-4">
         <div>
           <h2 className="text-lg font-bold text-[#001126]">

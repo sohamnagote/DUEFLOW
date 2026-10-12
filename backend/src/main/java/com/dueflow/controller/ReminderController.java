@@ -64,9 +64,9 @@ public class ReminderController {
     }
 
     @PostMapping({"/{id}/trigger", "/trigger/{id}", "/remind-now/{id}"})
-    public ResponseEntity<Map<String, String>> triggerReminder(@PathVariable String id) {
+    public ResponseEntity<Map<String, Object>> triggerReminder(@PathVariable String id) {
         String userId = SecurityUtils.getRequiredUserId();
-        reminderService.triggerReminder(userId, id);
-        return ResponseEntity.ok(Map.of("message", "Payment reminder sent successfully"));
+        Map<String, Object> result = reminderService.triggerReminder(userId, id);
+        return ResponseEntity.ok(result);
     }
 }

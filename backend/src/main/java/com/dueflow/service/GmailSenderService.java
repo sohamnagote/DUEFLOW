@@ -217,6 +217,15 @@ public class GmailSenderService {
                     sb.append("<p style=\"margin: 4px 0;\"><strong>Bank:</strong> ").append(settings.getBankName()).append("</p>");
                 }
             }
+            if (settings.getPaymentInstructions() != null && !settings.getPaymentInstructions().isBlank()) {
+                sb.append("<p style=\"margin: 8px 0; color: #475569;\">").append(settings.getPaymentInstructions().replace("\n", "<br/>")).append("</p>");
+            }
+            if (settings.getQrCodeUrl() != null && !settings.getQrCodeUrl().isBlank()) {
+                sb.append("<div style=\"margin-top: 14px;\">");
+                sb.append("<p style=\"margin: 0 0 6px; font-weight: 600; color: #334155;\">Scan QR Code to Pay:</p>");
+                sb.append("<img src=\"").append(settings.getQrCodeUrl()).append("\" alt=\"Payment QR Code\" style=\"max-width: 180px; height: auto; border: 1px solid #e2e8f0; border-radius: 8px; padding: 6px; background-color: #ffffff;\" />");
+                sb.append("</div>");
+            }
             sb.append("</div>");
         }
 

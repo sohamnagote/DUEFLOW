@@ -146,4 +146,95 @@ class ReminderManualTriggerTest {
                 () -> schedulerService.triggerReminderManually("inv-1001", userId));
         verifyNoInteractions(gmailSenderService);
     }
+
+    @Test
+    void testRejectZeroOutstandingAmount() {
+        testInvoice.setTotalAmount(BigDecimal.ZERO);
+        when(scheduledReminderRepository.findById("inv-1001")).thenReturn(Optional.empty());
+        when(invoiceRepository.findById("inv-1001")).thenReturn(Optional.of(testInvoice));
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> schedulerService.triggerReminderManually("inv-1001", userId));
+        assertTrue(ex.getMessage().contains("no outstanding balance"));
+        verifyNoInteractions(gmailSenderService);
+    }
+
+    @Test
+    void testRejectCrossTenantClient() {
+        testInvoice.getClient().setUserId("other-client-user");
+        when(scheduledReminderRepository.findById("inv-1001")).thenReturn(Optional.empty());
+        when(invoiceRepository.findById("inv-1001")).thenReturn(Optional.of(testInvoice));
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> schedulerService.triggerReminderManually("inv-1001", userId));
+        assertTrue(ex.getMessage().contains("does not belong to the user"));
+        verifyNoInteractions(gmailSenderService);
+    }
+
+    @Test
+    void testSuccessfulManualTriggerUsingScheduledReminderId() {
+        ScheduledReminder reminder = new ScheduledReminder();
+        reminder.setId("rem-555");
+        reminder.setUserId(userId);
+        reminder.setInvoice(testInvoice);
+        reminder.setStatus(ReminderStatus.PENDING);
+
+        when(scheduledReminderRepository.findById("rem-555")).thenReturn(Optional.of(reminder));
+        when(gmailOAuthService.getDecryptedRefreshToken(userId)).thenReturn("mock-valid-refresh-token");
+        when(gmailSenderService.sendInvoiceReminder(eq(testInvoice), any(), any())).thenReturn("msg-from-rem-555");
+
+        java.util.Map<String, Object> result = schedulerService.triggerReminderManually("rem-555", userId);
+
+        assertNotNull(result);
+        assertEquals("msg-from-rem-555", result.get("providerMessageId"));
+        // Ensure future scheduled reminder status remains PENDING and is not cancelled or deleted
+        assertEquals(ReminderStatus.PENDING, reminder.getStatus());
+        verify(gmailSenderService, times(1)).sendInvoiceReminder(eq(testInvoice), any(), any());
+    }
+
+    @Test
+    void testGmailProviderFailureRecordsFailedHistory() {
+        when(scheduledReminderRepository.findById("inv-1001")).thenReturn(Optional.empty());
+        when(invoiceRepository.findById("inv-1001")).thenReturn(Optional.of(testInvoice));
+        when(gmailOAuthService.getDecryptedRefreshToken(userId)).thenReturn("mock-valid-refresh-token");
+        when(gmailSenderService.sendInvoiceReminder(eq(testInvoice), any(), any()))
+                .thenThrow(new RuntimeException("Gmail quota exceeded"));
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> schedulerService.triggerReminderManually("inv-1001", userId));
+        assertTrue(ex.getMessage().contains("Gmail quota exceeded"));
+
+        // Verify that failure was recorded in ReminderHistory
+        ArgumentCaptor<ReminderHistory> historyCaptor = ArgumentCaptor.forClass(ReminderHistory.class);
+        verify(reminderHistoryRepository, times(1)).save(historyCaptor.capture());
+        ReminderHistory savedHistory = historyCaptor.getValue();
+        assertEquals("FAILED", savedHistory.getStatus());
+        assertEquals("GMAIL_ERROR", savedHistory.getErrorCategory());
+        assertTrue(savedHistory.getErrorMessage().contains("Gmail quota exceeded"));
+    }
+
+    @Test
+    void testRecentCooldownPreventsDuplicateDispatch() {
+        when(scheduledReminderRepository.findById("inv-1001")).thenReturn(Optional.empty());
+        when(invoiceRepository.findById("inv-1001")).thenReturn(Optional.of(testInvoice));
+        when(gmailOAuthService.getDecryptedRefreshToken(userId)).thenReturn("mock-valid-refresh-token");
+
+        // Simulate a reminder was just sent 5 seconds ago
+        ReminderHistory recentSent = new ReminderHistory(
+                "MANUAL",
+                "inv-1001",
+                userId,
+                "acme@example.com",
+                "Payment Reminder",
+                "SENT"
+        );
+        recentSent.setAttemptedAt(java.time.Instant.now().minusSeconds(5));
+        when(reminderHistoryRepository.findByInvoiceIdOrderByAttemptedAtDesc("inv-1001"))
+                .thenReturn(java.util.List.of(recentSent));
+
+        ValidationException ex = assertThrows(ValidationException.class,
+                () -> schedulerService.triggerReminderManually("inv-1001", userId));
+        assertTrue(ex.getMessage().contains("already sent"));
+        verifyNoInteractions(gmailSenderService);
+    }
 }

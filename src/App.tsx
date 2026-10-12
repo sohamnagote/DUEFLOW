@@ -475,6 +475,7 @@ export default function App() {
                 userPreferredCurrency={userProfile.preferredCurrency}
                 invoices={invoices}
                 userProfile={userProfile}
+                onReminderSent={refreshAllUserData}
               />
             )}
 

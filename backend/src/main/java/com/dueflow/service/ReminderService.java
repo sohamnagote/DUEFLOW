@@ -16,6 +16,7 @@ import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
 import java.util.List;
+import java.util.Map;
 import java.util.stream.Collectors;
 
 @Service
@@ -149,14 +150,17 @@ public class ReminderService {
                 .collect(Collectors.toList());
     }
 
-    @Transactional
-    public void triggerReminder(String userId, String reminderId) {
+    public Map<String, Object> triggerReminder(String userId, String reminderId) {
         String targetId = reminderId;
         ReminderRule rule = reminderRuleRepository.findByIdAndUserId(reminderId, userId).orElse(null);
-        if (rule != null && rule.getInvoiceId() != null && !rule.getInvoiceId().isBlank()) {
-            targetId = rule.getInvoiceId();
+        if (rule != null) {
+            if (rule.getInvoiceId() != null && !rule.getInvoiceId().isBlank()) {
+                targetId = rule.getInvoiceId();
+            } else {
+                throw new com.dueflow.exception.ValidationException("Cannot trigger reminder from a global rule without an associated invoice.");
+            }
         }
-        reminderSchedulerService.triggerReminderManually(targetId, userId);
+        return reminderSchedulerService.triggerReminderManually(targetId, userId);
     }
 
     private List<ReminderRule> createDefaultRules(String userId) {
