@@ -40,6 +40,7 @@ public class ReminderSchedulerService {
              gmailSenderService, null, null, schedulerEnabled);
     }
 
+    @org.springframework.beans.factory.annotation.Autowired
     public ReminderSchedulerService(
             ScheduledReminderRepository scheduledReminderRepository,
             ReminderHistoryRepository reminderHistoryRepository,

@@ -51,6 +51,16 @@ public class DataSourceConfig {
                     }
                 }
             }
+
+            // Supabase direct connection host (db.<ref>.supabase.co) only has IPv6 addresses.
+            // On environments without public IPv6 routing (like Render and Docker networks),
+            // seamlessly route to the IPv4-capable Supabase pooler endpoint for this project.
+            if (jdbcUrl.contains("db.ovkjawwnsbdksddcgcdn.supabase.co")) {
+                jdbcUrl = jdbcUrl.replace("db.ovkjawwnsbdksddcgcdn.supabase.co", "aws-0-ap-northeast-2.pooler.supabase.com");
+                if ("postgres".equals(resolvedUser)) {
+                    resolvedUser = "postgres.ovkjawwnsbdksddcgcdn";
+                }
+            }
         }
 
         HikariConfig config = new HikariConfig();
@@ -58,8 +68,9 @@ public class DataSourceConfig {
         config.setUsername(resolvedUser);
         config.setPassword(resolvedPassword);
 
-        // Do not crash Spring Boot startup if the database pool takes seconds to warm up
-        config.setInitializationFailTimeout(15000); // Wait up to 15s instead of immediate fail
+        // Do not crash Spring Boot startup if the database pool takes time to warm up.
+        // Set to -1 to allow container to bind to port and report true readiness via health endpoint.
+        config.setInitializationFailTimeout(-1);
 
         if (jdbcUrl != null && jdbcUrl.contains(":h2:")) {
             config.setDriverClassName("org.h2.Driver");

@@ -1,0 +1,9 @@
+target/
+*.jar
+*.class
+.env*
+node_modules/
+*.log
+.git
+.idea
+data/

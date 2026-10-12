@@ -1,0 +1,11 @@
+node_modules/
+backend/target/
+target/
+*.jar
+*.class
+.env*
+.git
+.idea
+dist/
+scratch/
+frontend/
