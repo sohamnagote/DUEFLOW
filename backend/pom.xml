@@ -95,6 +95,11 @@
             <artifactId>google-auth-library-oauth2-http</artifactId>
             <version>${google.auth.version}</version>
         </dependency>
+        <dependency>
+            <groupId>com.google.auth</groupId>
+            <artifactId>google-auth-library-credentials</artifactId>
+            <version>${google.auth.version}</version>
+        </dependency>
 
         <!-- JavaMail API for MIME message building with PDF attachment -->
         <dependency>
