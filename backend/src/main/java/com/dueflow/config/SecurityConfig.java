@@ -94,7 +94,14 @@ public class SecurityConfig {
 
         final NimbusJwtDecoder jwksDecoder;
         if (jwkSetUri != null && !jwkSetUri.isBlank() && !jwkSetUri.contains("placeholder")) {
-            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri).build();
+            NimbusJwtDecoder decoder = NimbusJwtDecoder.withJwkSetUri(jwkSetUri)
+                    .jwsAlgorithms(algorithms -> {
+                        algorithms.add(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.ES256);
+                        algorithms.add(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.RS256);
+                        algorithms.add(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.ES384);
+                        algorithms.add(org.springframework.security.oauth2.jose.jws.SignatureAlgorithm.ES512);
+                    })
+                    .build();
             if (issuerUri != null && !issuerUri.isBlank() && !issuerUri.contains("placeholder")) {
                 decoder.setJwtValidator(org.springframework.security.oauth2.jwt.JwtValidators.createDefaultWithIssuer(issuerUri));
             }
