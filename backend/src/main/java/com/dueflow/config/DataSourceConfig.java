@@ -25,18 +25,41 @@ public class DataSourceConfig {
             @Value("${spring.datasource.driver-class-name:org.postgresql.Driver}") String driverClassName) {
 
         String jdbcUrl = rawUrl;
+        String resolvedUser = username;
+        String resolvedPassword = password;
+
         if (jdbcUrl != null && !jdbcUrl.isBlank()) {
-            if (jdbcUrl.startsWith("postgres://")) {
-                jdbcUrl = "jdbc:postgresql://" + jdbcUrl.substring("postgres://".length());
-            } else if (jdbcUrl.startsWith("postgresql://")) {
-                jdbcUrl = "jdbc:postgresql://" + jdbcUrl.substring("postgresql://".length());
+            if (jdbcUrl.startsWith("postgres://") || jdbcUrl.startsWith("postgresql://")) {
+                try {
+                    String cleanUriStr = jdbcUrl.startsWith("jdbc:") ? jdbcUrl.substring(5) : jdbcUrl;
+                    java.net.URI uri = new java.net.URI(cleanUriStr);
+                    if (uri.getUserInfo() != null && uri.getUserInfo().contains(":")) {
+                        String[] creds = uri.getUserInfo().split(":", 2);
+                        resolvedUser = creds[0];
+                        resolvedPassword = creds[1];
+                    }
+                    String host = uri.getHost();
+                    int port = uri.getPort() > 0 ? uri.getPort() : 5432;
+                    String path = uri.getPath() != null && !uri.getPath().isEmpty() ? uri.getPath() : "/postgres";
+                    jdbcUrl = "jdbc:postgresql://" + host + ":" + port + path;
+                } catch (Exception e) {
+                    log.warn("Failed to parse postgres URL via URI parser, falling back to prefix strip: {}", e.getMessage());
+                    if (jdbcUrl.startsWith("postgres://")) {
+                        jdbcUrl = "jdbc:postgresql://" + jdbcUrl.substring("postgres://".length());
+                    } else if (jdbcUrl.startsWith("postgresql://")) {
+                        jdbcUrl = "jdbc:postgresql://" + jdbcUrl.substring("postgresql://".length());
+                    }
+                }
             }
         }
 
         HikariConfig config = new HikariConfig();
         config.setJdbcUrl(jdbcUrl);
-        config.setUsername(username);
-        config.setPassword(password);
+        config.setUsername(resolvedUser);
+        config.setPassword(resolvedPassword);
+
+        // Do not crash Spring Boot startup if the database pool takes seconds to warm up
+        config.setInitializationFailTimeout(15000); // Wait up to 15s instead of immediate fail
 
         if (jdbcUrl != null && jdbcUrl.contains(":h2:")) {
             config.setDriverClassName("org.h2.Driver");
@@ -49,7 +72,7 @@ public class DataSourceConfig {
             config.setMaxLifetime(1800000);
         }
 
-        log.info("Initialized DataSource for URL scheme: {}", jdbcUrl != null && jdbcUrl.startsWith("jdbc:h2:") ? "h2:mem" : "postgresql");
+        log.info("Initialized DataSource for URL: {}", jdbcUrl != null && jdbcUrl.contains("@") ? jdbcUrl.replaceAll(":[^@]+@", ":***@") : jdbcUrl);
         return new HikariDataSource(config);
     }
 }

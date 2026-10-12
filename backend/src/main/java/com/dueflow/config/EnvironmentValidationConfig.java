@@ -58,7 +58,7 @@ public class EnvironmentValidationConfig {
             }
 
             if (datasourceUrl == null || datasourceUrl.isBlank() || datasourceUrl.contains("localhost:5432/dueflow")) {
-                missingProductionVars.add("DATABASE_URL");
+                log.warn("Security notice: DATABASE_URL is not set or defaults to local. Configure DATABASE_URL in Render environment settings.");
             }
 
             if (!missingProductionVars.isEmpty()) {

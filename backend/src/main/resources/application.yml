@@ -1,5 +1,5 @@
 server:
-  port: ${PORT:8081}
+  port: ${PORT:8080}
   compression:
     enabled: true
   error:
@@ -11,7 +11,7 @@ spring:
   application:
     name: dueflow-backend
   datasource:
-    url: ${DATABASE_URL:jdbc:postgresql://localhost:5432/dueflow}
+    url: ${DATABASE_URL:jdbc:postgresql://db.ovkjawwnsbdksddcgcdn.supabase.co:5432/postgres}
     username: ${DATABASE_USERNAME:postgres}
     password: ${DATABASE_PASSWORD:postgres}
     driver-class-name: org.postgresql.Driver
@@ -39,12 +39,12 @@ spring:
     oauth2:
       resourceserver:
         jwt:
-          jwk-set-uri: ${SUPABASE_JWKS_URI:${SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL:https://placeholder.supabase.co}}/auth/v1/.well-known/jwks.json}
-          issuer-uri: ${SUPABASE_JWT_ISSUER:${SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL:https://placeholder.supabase.co}}/auth/v1}
+          jwk-set-uri: ${SUPABASE_JWKS_URI:${SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL:https://ovkjawwnsbdksddcgcdn.supabase.co}}/auth/v1/.well-known/jwks.json}
+          issuer-uri: ${SUPABASE_JWT_ISSUER:${SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL:https://ovkjawwnsbdksddcgcdn.supabase.co}}/auth/v1}
 
 dueflow:
   supabase:
-    url: ${SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL:}}
+    url: ${SUPABASE_URL:${NEXT_PUBLIC_SUPABASE_URL:https://ovkjawwnsbdksddcgcdn.supabase.co}}
     publishable-key: ${SUPABASE_PUBLISHABLE_KEY:${NEXT_PUBLIC_SUPABASE_PUBLISHABLE_KEY:}}
     secret-key: ${SUPABASE_SECRET_KEY:}
     jwt-secret: ${SUPABASE_JWT_SECRET:}
