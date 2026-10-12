@@ -36,12 +36,17 @@ public class DataSourceConfig {
                     if (uri.getUserInfo() != null && uri.getUserInfo().contains(":")) {
                         String[] creds = uri.getUserInfo().split(":", 2);
                         resolvedUser = creds[0];
-                        resolvedPassword = creds[1];
+                        try {
+                            resolvedPassword = java.net.URLDecoder.decode(creds[1], java.nio.charset.StandardCharsets.UTF_8);
+                        } catch (Exception e) {
+                            resolvedPassword = creds[1];
+                        }
                     }
                     String host = uri.getHost();
                     int port = uri.getPort() > 0 ? uri.getPort() : 5432;
                     String path = uri.getPath() != null && !uri.getPath().isEmpty() ? uri.getPath() : "/postgres";
-                    jdbcUrl = "jdbc:postgresql://" + host + ":" + port + path;
+                    String query = uri.getQuery() != null && !uri.getQuery().isBlank() ? "?" + uri.getQuery() : "";
+                    jdbcUrl = "jdbc:postgresql://" + host + ":" + port + path + query;
                 } catch (Exception e) {
                     log.warn("Failed to parse postgres URL via URI parser, falling back to prefix strip: {}", e.getMessage());
                     if (jdbcUrl.startsWith("postgres://")) {
@@ -54,12 +59,21 @@ public class DataSourceConfig {
 
             // Supabase direct connection host (db.<ref>.supabase.co) only has IPv6 addresses.
             // On environments without public IPv6 routing (like Render and Docker networks),
-            // seamlessly route to the IPv4-capable Supabase pooler endpoint for this project.
+            // seamlessly route to the IPv4-capable Supabase Session pooler endpoint for this project.
             if (jdbcUrl.contains("db.ovkjawwnsbdksddcgcdn.supabase.co")) {
                 jdbcUrl = jdbcUrl.replace("db.ovkjawwnsbdksddcgcdn.supabase.co", "aws-0-ap-northeast-2.pooler.supabase.com");
-                if ("postgres".equals(resolvedUser)) {
+            }
+
+            // Supabase connection pooler requires username in the format: postgres.<project-ref>
+            if (jdbcUrl.contains("pooler.supabase.com")) {
+                if ("postgres".equals(resolvedUser) || "postgres".equalsIgnoreCase(resolvedUser)) {
                     resolvedUser = "postgres.ovkjawwnsbdksddcgcdn";
                 }
+            }
+
+            // Supabase and cloud PostgreSQL strictly require SSL
+            if (!jdbcUrl.contains(":h2:") && !jdbcUrl.contains("sslmode=")) {
+                jdbcUrl = jdbcUrl.contains("?") ? jdbcUrl + "&sslmode=require" : jdbcUrl + "?sslmode=require";
             }
         }
 
