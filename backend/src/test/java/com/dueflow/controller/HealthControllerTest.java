@@ -14,33 +14,16 @@ import static org.mockito.Mockito.*;
 class HealthControllerTest {
 
     @Test
-    @DisplayName("Health endpoint returns 200 UP and CONNECTED when database is healthy")
-    void testHealthConnected() {
+    @DisplayName("Health endpoint returns 200 UP for liveness")
+    void testHealthLiveness() {
         JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        when(jdbcTemplate.queryForObject("SELECT 1", Integer.class)).thenReturn(1);
-
         HealthController controller = new HealthController(jdbcTemplate);
         ResponseEntity<Map<String, Object>> response = controller.checkHealth();
 
         assertEquals(HttpStatus.OK, response.getStatusCode());
         assertNotNull(response.getBody());
         assertEquals("UP", response.getBody().get("status"));
-        assertEquals("CONNECTED", response.getBody().get("database"));
-    }
-
-    @Test
-    @DisplayName("Health endpoint returns 503 DOWN when database is disconnected")
-    void testHealthDisconnected() {
-        JdbcTemplate jdbcTemplate = mock(JdbcTemplate.class);
-        when(jdbcTemplate.queryForObject("SELECT 1", Integer.class)).thenThrow(new RuntimeException("Connection refused"));
-
-        HealthController controller = new HealthController(jdbcTemplate);
-        ResponseEntity<Map<String, Object>> response = controller.checkHealth();
-
-        assertEquals(HttpStatus.SERVICE_UNAVAILABLE, response.getStatusCode());
-        assertNotNull(response.getBody());
-        assertEquals("DOWN", response.getBody().get("status"));
-        assertEquals("DISCONNECTED", response.getBody().get("database"));
+        assertEquals("DueFlow Backend (Java 21 / Spring Boot 3)", response.getBody().get("service"));
     }
 
     @Test

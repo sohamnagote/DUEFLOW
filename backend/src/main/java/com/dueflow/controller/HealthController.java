@@ -24,22 +24,11 @@ public class HealthController {
     @GetMapping({"/api/health", "/health"})
     public ResponseEntity<Map<String, Object>> checkHealth() {
         Map<String, Object> response = new HashMap<>();
+        response.put("status", "UP");
         response.put("version", "1.0.0");
         response.put("timestamp", Instant.now().toString());
         response.put("service", "DueFlow Backend (Java 21 / Spring Boot 3)");
-
-        try {
-            jdbcTemplate.queryForObject("SELECT 1", Integer.class);
-            response.put("status", "UP");
-            response.put("database", "CONNECTED");
-            return ResponseEntity.ok(response);
-        } catch (Exception e) {
-            log.error("Database health check ping failed: {}", e.getMessage());
-            response.put("status", "DOWN");
-            response.put("database", "DISCONNECTED");
-            response.put("error", "Database connection unavailable");
-            return ResponseEntity.status(org.springframework.http.HttpStatus.SERVICE_UNAVAILABLE).body(response);
-        }
+        return ResponseEntity.ok(response);
     }
 
     @GetMapping({"/api/health/ready", "/health/ready"})
@@ -50,6 +39,7 @@ public class HealthController {
         response.put("service", "DueFlow Backend (Java 21 / Spring Boot 3)");
 
         try {
+            jdbcTemplate.setQueryTimeout(2);
             jdbcTemplate.queryForObject("SELECT 1", Integer.class);
             response.put("status", "READY");
             response.put("database", "CONNECTED");

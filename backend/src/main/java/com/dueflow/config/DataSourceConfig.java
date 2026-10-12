@@ -93,7 +93,7 @@ public class DataSourceConfig {
             config.setMaximumPoolSize(10);
             config.setMinimumIdle(2);
             config.setIdleTimeout(30000);
-            config.setConnectionTimeout(20000);
+            config.setConnectionTimeout(3000);
             config.setMaxLifetime(1800000);
         }
 
