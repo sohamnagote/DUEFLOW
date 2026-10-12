@@ -23,21 +23,26 @@ public class PaymentSettingsController {
         this.storageService = storageService;
     }
 
-    @GetMapping("/api/settings/payment")
+    @GetMapping({"/api/settings/payment", "/settings/payment"})
     public ResponseEntity<PaymentSettingsDto> getPaymentSettings() {
         String userId = SecurityUtils.getRequiredUserId();
         PaymentSettings settings = userProfileService.getPaymentSettings(userId);
         return ResponseEntity.ok(PaymentSettingsDto.fromEntity(settings));
     }
 
-    @PutMapping("/api/settings/payment")
+    @PutMapping({"/api/settings/payment", "/settings/payment"})
     public ResponseEntity<PaymentSettingsDto> updatePaymentSettings(@RequestBody PaymentSettingsDto dto) {
         String userId = SecurityUtils.getRequiredUserId();
         PaymentSettings updated = userProfileService.updatePaymentSettings(userId, dto);
         return ResponseEntity.ok(PaymentSettingsDto.fromEntity(updated));
     }
 
-    @PostMapping(value = {"/api/settings/payment/qr", "/api/user/profile/qr-code"}, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    @PostMapping(value = {
+            "/api/settings/payment/qr",
+            "/settings/payment/qr",
+            "/api/user/profile/qr-code",
+            "/user/profile/qr-code"
+    }, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
     public ResponseEntity<Map<String, String>> uploadQrCode(@RequestParam("file") MultipartFile file) {
         String userId = SecurityUtils.getRequiredUserId();
 
@@ -59,12 +64,17 @@ public class PaymentSettingsController {
         ));
     }
 
-    @DeleteMapping({"/api/settings/payment/qr", "/api/user/profile/qr-code"})
+    @DeleteMapping({
+            "/api/settings/payment/qr",
+            "/settings/payment/qr",
+            "/api/user/profile/qr-code",
+            "/user/profile/qr-code"
+    })
     public ResponseEntity<Map<String, String>> deleteQrCode() {
         String userId = SecurityUtils.getRequiredUserId();
         PaymentSettings current = userProfileService.getPaymentSettings(userId);
 
-        if (current.getQrCodeUrl() != null && !current.getQrCodeUrl().isBlank()) {
+        if (current != null && current.getQrCodeUrl() != null && !current.getQrCodeUrl().isBlank()) {
             storageService.deleteQrCode(current.getQrCodeUrl());
             userProfileService.updateQrCodeUrl(userId, null);
         }

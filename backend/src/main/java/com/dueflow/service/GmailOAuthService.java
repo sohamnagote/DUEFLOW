@@ -64,7 +64,10 @@ public class GmailOAuthService {
      */
     public String getAuthorizationUrl(String userId) {
         if (clientId == null || clientId.isBlank()) {
-            throw new ValidationException("Google OAuth Client ID is not configured on the backend");
+            throw new ValidationException("Google OAuth Client ID is not configured on the backend. Please configure GOOGLE_OAUTH_CLIENT_ID.");
+        }
+        if (clientSecret == null || clientSecret.isBlank()) {
+            throw new ValidationException("Google OAuth Client Secret is not configured on the backend. Please configure GOOGLE_OAUTH_CLIENT_SECRET.");
         }
 
         // Clean up expired states

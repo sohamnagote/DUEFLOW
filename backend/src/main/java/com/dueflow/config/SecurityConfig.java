@@ -54,10 +54,10 @@ public class SecurityConfig {
             .sessionManagement(session -> session.sessionCreationPolicy(SessionCreationPolicy.STATELESS))
             .authorizeHttpRequests(auth -> auth
                 .requestMatchers(HttpMethod.OPTIONS, "/**").permitAll()
-                .requestMatchers("/api/health").permitAll()
-                .requestMatchers("/api/integrations/gmail/oauth/callback").permitAll()
+                .requestMatchers("/api/health", "/health").permitAll()
+                .requestMatchers("/api/integrations/gmail/oauth/callback", "/integrations/gmail/oauth/callback").permitAll()
                 .requestMatchers("/error").permitAll()
-                .requestMatchers("/api/**").authenticated()
+                .requestMatchers("/api/**", "/settings/**", "/integrations/**", "/user/**", "/profile/**", "/clients/**", "/invoices/**", "/reminders/**", "/notifications/**", "/dashboard/**", "/search/**").authenticated()
                 .anyRequest().permitAll()
             )
             .oauth2ResourceServer(oauth2 -> oauth2

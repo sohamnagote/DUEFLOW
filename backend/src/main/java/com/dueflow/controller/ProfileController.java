@@ -8,7 +8,7 @@ import org.springframework.http.ResponseEntity;
 import org.springframework.web.bind.annotation.*;
 
 @RestController
-@RequestMapping({"/api/user/profile", "/api/profile"})
+@RequestMapping({"/api/user/profile", "/api/profile", "/user/profile", "/profile"})
 public class ProfileController {
 
     private final UserProfileService userProfileService;

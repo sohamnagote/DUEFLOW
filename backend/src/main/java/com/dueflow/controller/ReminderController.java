@@ -14,7 +14,7 @@ import java.util.List;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/reminders")
+@RequestMapping({"/api/reminders", "/reminders"})
 public class ReminderController {
 
     private final ReminderService reminderService;

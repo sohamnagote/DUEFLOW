@@ -52,15 +52,15 @@ dueflow:
   google:
     client-id: ${GOOGLE_OAUTH_CLIENT_ID:}
     client-secret: ${GOOGLE_OAUTH_CLIENT_SECRET:}
-    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:http://localhost:8081/api/integrations/gmail/oauth/callback}
+    redirect-uri: ${GOOGLE_OAUTH_REDIRECT_URI:https://dueflow-backend.onrender.com/api/integrations/gmail/oauth/callback}
   security:
     encryption-key: ${GMAIL_TOKEN_ENCRYPTION_KEY:}
   cors:
     allowed-origins: ${CORS_ALLOWED_ORIGINS:http://localhost:3000,http://localhost:5173,https://dueflow.vercel.app,https://dueflow-kappa.vercel.app,http://127.0.0.1:3000}
   app:
-    base-url: ${APP_BASE_URL:http://localhost:8081}
+    base-url: ${APP_BASE_URL:https://dueflow-backend.onrender.com}
   frontend:
-    base-url: ${FRONTEND_BASE_URL:http://localhost:3000}
+    base-url: ${FRONTEND_BASE_URL:https://dueflow-kappa.vercel.app}
   scheduler:
     enabled: ${REMINDER_SCHEDULER_ENABLED:true}
     interval-ms: 60000

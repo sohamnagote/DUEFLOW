@@ -18,7 +18,7 @@ import java.nio.charset.StandardCharsets;
 import java.util.Map;
 
 @RestController
-@RequestMapping("/api/integrations/gmail")
+@RequestMapping({"/api/integrations/gmail", "/integrations/gmail"})
 public class GmailIntegrationController {
 
     private static final Logger log = LoggerFactory.getLogger(GmailIntegrationController.class);

@@ -74,9 +74,10 @@ public class RateLimitingFilter extends OncePerRequestFilter {
 
     private boolean isSensitiveEndpoint(String path) {
         if (path == null) return false;
-        return path.contains("/api/integrations/gmail/oauth") ||
-               path.contains("/api/reminders/") && path.endsWith("/trigger") ||
-               path.contains("/api/settings/payment/qr");
+        return path.contains("/integrations/gmail/oauth") ||
+               (path.contains("/reminders/") && path.endsWith("/trigger")) ||
+               path.contains("/settings/payment/qr") ||
+               path.contains("/user/profile/qr-code");
     }
 
     private String getClientIp(HttpServletRequest request) {
