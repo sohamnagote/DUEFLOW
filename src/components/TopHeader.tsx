@@ -2,6 +2,7 @@ import React, { useState, useEffect, useRef } from 'react';
 import { DueflowTab } from './Sidebar';
 import { Invoice, UserProfile } from '../types';
 import { formatCurrency } from '../utils/currency';
+import { ThemeToggle } from './ThemeToggle';
 
 interface TopHeaderProps {
   activeTab: DueflowTab;
@@ -150,12 +151,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#fbf9f4]/85 backdrop-blur-xl border-b border-[#e4e2dd] z-40 flex items-center justify-between px-4 sm:px-8">
-      {/* Left side: Hamburger (mobile) + Clean Breadcrumb (WORKSPACE/Live Stream REMOVED per Screenshot 6 & Req 8) */}
+    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#fbf9f4]/85 dark:bg-[#0c131d]/90 backdrop-blur-xl border-b border-[#e4e2dd] dark:border-white/10 z-40 flex items-center justify-between px-4 sm:px-8 transition-colors duration-200">
+      {/* Left side: Hamburger (mobile) + Clean Breadcrumb */}
       <div className="flex items-center gap-4 min-w-0">
         <button
           onClick={onOpenMobileSidebar}
-          className="lg:hidden p-1.5 text-[#1b1c19] hover:bg-[#eae8e3] rounded-lg transition-colors"
+          className="lg:hidden p-1.5 text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#eae8e3] dark:hover:bg-[#203046] rounded-lg transition-colors cursor-pointer"
           aria-label="Open sidebar navigation"
           type="button"
         >
@@ -165,30 +166,33 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         {activeTab === 'overview' ? (
           /* Search bar on Overview */
           <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#44474d] text-[20px]">search</span>
+            <span className="material-symbols-outlined text-[#44474d] dark:text-[#94a3b8] text-[20px]">search</span>
             <input
-              className="bg-transparent border-none outline-none text-sm text-[#1b1c19] placeholder:text-[#74777d] w-36 sm:w-64"
+              className="bg-transparent border-none outline-none text-sm text-[#1b1c19] dark:text-[#f3f6fa] placeholder:text-[#74777d] dark:placeholder:text-[#64748b] w-36 sm:w-64"
               placeholder="Search invoices, clients..."
               type="text"
             />
           </div>
         ) : (
-          /* Clean Professional Breadcrumb — no internal or debug labels */
+          /* Clean Professional Breadcrumb */
           <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d]">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
               DueFlow
             </span>
-            <span className="text-[#c4c6cd] font-['Space_Mono'] text-[10px]">/</span>
-            <span className="text-xs font-semibold text-[#001126]">
+            <span className="text-[#c4c6cd] dark:text-white/20 font-['Space_Mono'] text-[10px]">/</span>
+            <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
               {tabLabels[activeTab]}
             </span>
           </div>
         )}
       </div>
 
-      {/* Right side: Actions, Notifications, Help, Profile Avatar */}
-      <div className="flex items-center gap-2 sm:gap-4">
-        {/* 1. Functional Notification Bell per Requirement 7 & Screenshot 5 */}
+      {/* Right side: Actions, Notifications, Help, Theme Toggle, Profile Avatar */}
+      <div className="flex items-center gap-1.5 sm:gap-3">
+        {/* Theme Toggle Icon Button */}
+        <ThemeToggle variant="icon" />
+
+        {/* 1. Functional Notification Bell */}
         <div className="relative" ref={notificationsRef}>
           <button
             onClick={() => {
@@ -197,7 +201,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               setIsProfileOpen(false);
             }}
             className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors relative cursor-pointer ${
-              isNotificationsOpen ? 'bg-[#eae8e3] text-[#001126]' : 'text-[#44474d] hover:bg-[#eae8e3]/70 hover:text-[#1b1c19]'
+              isNotificationsOpen
+                ? 'bg-[#eae8e3] dark:bg-[#203046] text-[#001126] dark:text-[#f3f6fa]'
+                : 'text-[#44474d] dark:text-[#94a3b8] hover:bg-[#eae8e3]/70 dark:hover:bg-[#203046] hover:text-[#1b1c19] dark:hover:text-[#f3f6fa]'
             }`}
             aria-label="View notifications"
             aria-expanded={isNotificationsOpen}
@@ -206,14 +212,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           >
             <span className="material-symbols-outlined text-[20px]">notifications</span>
             {notifications.length > 0 && (
-              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ba1a1a] ring-2 ring-[#fbf9f4]" />
+              <span className="absolute top-1.5 right-1.5 w-2 h-2 rounded-full bg-[#ba1a1a] ring-2 ring-[#fbf9f4] dark:ring-[#0c131d]" />
             )}
           </button>
 
           {/* Notifications Dropdown Panel */}
           {isNotificationsOpen && (
             <div
-              className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-4 z-50 animate-in fade-in slide-in-from-top-1"
+              className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl shadow-xl border border-[#001126]/10 dark:border-white/10 p-4 z-50 animate-in fade-in slide-in-from-top-1"
               role="dialog"
               aria-label="Notifications panel"
             >
@@ -463,21 +469,21 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               role="menu"
               aria-label="Account options"
             >
-              <div className="w-64 bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-3">
+              <div className="w-64 bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl shadow-xl border border-[#001126]/10 dark:border-white/10 p-3">
                 {/* User Identity Info */}
-                <div className="p-3 bg-[#fbf9f4] rounded-xl border border-[#001126]/5 mb-2">
+                <div className="p-3 bg-[#fbf9f4] dark:bg-[#192638] rounded-xl border border-[#001126]/5 dark:border-white/5 mb-2">
                   <div className="flex items-center gap-2.5">
-                    <div className="w-8 h-8 rounded-full bg-[#001126] text-[#ffffff] flex items-center justify-center font-bold text-xs shrink-0">
+                    <div className="w-8 h-8 rounded-full bg-[#001126] dark:bg-[#38bdf8] text-[#ffffff] dark:text-[#0c131d] flex items-center justify-center font-bold text-xs shrink-0">
                       {userName.charAt(0).toUpperCase()}
                     </div>
                     <div className="min-w-0">
-                      <p className="text-sm font-bold text-[#001126] truncate">{userName}</p>
-                      <p className="font-['Space_Mono'] text-[10px] text-[#74777d] truncate">{userEmail}</p>
+                      <p className="text-sm font-bold text-[#001126] dark:text-[#f3f6fa] truncate">{userName}</p>
+                      <p className="font-['Space_Mono'] text-[10px] text-[#74777d] dark:text-[#94a3b8] truncate">{userEmail}</p>
                     </div>
                   </div>
-                  <div className="mt-2.5 pt-2 border-t border-[#001126]/5 flex items-center justify-between text-[10px]">
-                    <span className="text-[#74777d]">Preferred currency:</span>
-                    <span className="font-semibold text-[#001126]">
+                  <div className="mt-2.5 pt-2 border-t border-[#001126]/5 dark:border-white/5 flex items-center justify-between text-[10px]">
+                    <span className="text-[#74777d] dark:text-[#94a3b8]">Preferred currency:</span>
+                    <span className="font-semibold text-[#001126] dark:text-[#f3f6fa]">
                       {userCurrency === 'INR' ? 'Indian Rupee (INR ₹)' : 'US Dollar (USD $)'}
                     </span>
                   </div>
@@ -485,15 +491,17 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
 
                 {/* Action Buttons */}
                 <div className="space-y-1">
+                  <ThemeToggle variant="dropdown-row" />
+
                   <button
                     onClick={() => {
                       setIsProfileOpen(false);
                       if (onOpenSettings) onOpenSettings();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#f5f3ee] dark:hover:bg-[#203046] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
                     role="menuitem"
                   >
-                    <span className="material-symbols-outlined text-[18px] text-[#44474d]">tune</span>
+                    <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">tune</span>
                     <span>Settings</span>
                   </button>
 
@@ -502,14 +510,14 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                       setIsProfileOpen(false);
                       if (onSwitchAccount) onSwitchAccount();
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#f5f3ee] dark:hover:bg-[#203046] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
                     role="menuitem"
                   >
-                    <span className="material-symbols-outlined text-[18px] text-[#44474d]">switch_account</span>
+                    <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">switch_account</span>
                     <span>Switch account</span>
                   </button>
 
-                  <div className="border-t border-[#001126]/10 my-1" />
+                  <div className="border-t border-[#001126]/10 dark:border-white/10 my-1" />
 
                   <button
                     onClick={() => {
@@ -520,10 +528,10 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                         onOpenLandingPage();
                       }
                     }}
-                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#ba1a1a] dark:text-[#ff897d] hover:bg-[#ffdad6]/40 dark:hover:bg-[#ba1a1a]/20 rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
                     role="menuitem"
                   >
-                    <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">logout</span>
+                    <span className="material-symbols-outlined text-[18px] text-[#ba1a1a] dark:text-[#ff897d]">logout</span>
                     <span>Sign out</span>
                   </button>
                 </div>

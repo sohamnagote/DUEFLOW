@@ -1,6 +1,7 @@
 import React, { useState, useRef } from 'react';
 import { Client } from '../types';
 import { formatCurrency } from '../utils/currency';
+import { ClientProcessingAnimation } from './animations/ClientProcessingAnimation';
 
 interface ClientsViewProps {
   clients?: Client[];
@@ -132,14 +133,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] px-6 sm:px-14 py-8">
+    <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa] px-6 sm:px-14 py-8">
       {/* Header with Auto Layout */}
       <section className="flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 pb-6 sm:pb-8">
         <div>
-          <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] tracking-tight">
+          <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] dark:text-[#f3f6fa] tracking-tight">
             Clients
           </h1>
-          <p className="text-sm text-[#44474d] mt-1">
+          <p className="text-sm text-[#44474d] dark:text-[#94a3b8] mt-1">
             Keep your client directory, contact records, and invoice balances organized.
           </p>
         </div>
@@ -156,12 +157,12 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
       {/* Inline Feedback Banner */}
       {formSuccess && (
-        <div className="mb-4 p-3.5 rounded-xl bg-[#3d6562]/10 border border-[#3d6562]/20 text-[#3d6562] text-xs flex items-center justify-between animate-fade-in">
+        <div className="mb-4 p-3.5 rounded-xl bg-[#3d6562]/10 dark:bg-teal-950/40 border border-[#3d6562]/20 dark:border-teal-500/20 text-[#3d6562] dark:text-[#5eead4] text-xs flex items-center justify-between animate-fade-in">
           <div className="flex items-center gap-2">
             <span className="material-symbols-outlined text-[18px]">check_circle</span>
             <span className="font-semibold">{formSuccess}</span>
           </div>
-          <button onClick={() => setFormSuccess(null)} className="text-[#3d6562] hover:opacity-75">
+          <button onClick={() => setFormSuccess(null)} className="text-[#3d6562] dark:text-[#5eead4] hover:opacity-75 cursor-pointer">
             <span className="material-symbols-outlined text-[16px]">close</span>
           </button>
         </div>
@@ -171,21 +172,21 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       <div className="w-full space-y-4">
         {safeClients.length === 0 ? (
           /* Pristine Empty State Card */
-          <div className="bg-[#ffffff]/80 rounded-2xl border border-[#001126]/8 p-8 sm:p-14 relative flex flex-col items-center justify-center min-h-[500px] shadow-2xs text-center">
+          <div className="bg-[#ffffff]/80 dark:bg-[#141f2e]/90 rounded-2xl border border-[#001126]/8 dark:border-white/10 p-8 sm:p-14 relative flex flex-col items-center justify-center min-h-[500px] shadow-2xs text-center">
             <div className="relative mb-6 flex items-center justify-center">
-              <div className="absolute inset-0 bg-[#bfebe6]/50 rounded-2xl blur-xl" />
-              <div className="relative w-20 h-20 rounded-xl bg-[#ffffff] border border-dashed border-[#001126]/20 flex items-center justify-center shadow-xs">
-                <svg className="w-10 h-10 text-[#001126]" fill="none" viewBox="0 0 48 48" stroke="currentColor">
+              <div className="absolute inset-0 bg-[#bfebe6]/50 dark:bg-teal-500/10 rounded-2xl blur-xl" />
+              <div className="relative w-20 h-20 rounded-xl bg-[#ffffff] dark:bg-[#0c131d] border border-dashed border-[#001126]/20 dark:border-white/20 flex items-center justify-center shadow-xs">
+                <svg className="w-10 h-10 text-[#001126] dark:text-[#f3f6fa]" fill="none" viewBox="0 0 48 48" stroke="currentColor">
                   <circle cx="24" cy="18" r="7" strokeWidth="1.5" />
                   <path d="M12 36C12 29.3726 17.3726 24 24 24C30.6274 24 36 29.3726 36 36" strokeWidth="1.5" strokeLinecap="round" />
                 </svg>
               </div>
             </div>
 
-            <h2 className="text-xl sm:text-2xl font-bold text-[#001126] mb-2 tracking-tight">
+            <h2 className="text-xl sm:text-2xl font-bold text-[#001126] dark:text-[#f3f6fa] mb-2 tracking-tight">
               No clients added yet.
             </h2>
-            <p className="text-sm text-[#44474d] max-w-sm mb-6 leading-relaxed">
+            <p className="text-sm text-[#44474d] dark:text-[#94a3b8] max-w-sm mb-6 leading-relaxed">
               Add your first client to associate them with invoices, outstanding balances, and automated reminders.
             </p>
 
@@ -199,14 +200,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
           </div>
         ) : (
           /* Active Client Directory */
-          <div className="bg-[#ffffff]/90 rounded-2xl border border-[#001126]/10 p-6 sm:p-8 space-y-5 shadow-xs">
+          <div className="bg-[#ffffff]/90 dark:bg-[#141f2e]/95 rounded-2xl border border-[#001126]/10 dark:border-white/10 p-6 sm:p-8 space-y-5 shadow-xs">
             {/* Top Toolbar: Count and Search */}
-            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#001126]/10">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-4 border-b border-[#001126]/10 dark:border-white/10">
               <div className="flex items-center gap-2">
-                <h2 className="text-lg font-bold text-[#001126]">
+                <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
                   Client Directory
                 </h2>
-                <span className="font-['Space_Mono'] text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#15263c]/8 text-[#15263c] font-semibold">
+                <span className="font-['Space_Mono'] text-[10px] uppercase px-2 py-0.5 rounded-full bg-[#15263c]/8 dark:bg-white/10 text-[#15263c] dark:text-[#60a5fa] font-semibold">
                   {safeClients.length} {safeClients.length === 1 ? 'client' : 'clients'}
                 </span>
               </div>
@@ -218,15 +219,15 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search by name, email, phone..."
-                  className="w-full px-3 py-2 pl-9 text-xs bg-[#fbf9f4] rounded-xl border border-[#001126]/15 focus:outline-none focus:border-[#001126] text-[#001126]"
+                  className="w-full px-3 py-2 pl-9 text-xs bg-[#fbf9f4] dark:bg-[#0c131d] rounded-xl border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30 text-[#001126] dark:text-[#f3f6fa] placeholder-[#74777d] dark:placeholder-[#64748b]"
                 />
-                <span className="material-symbols-outlined text-[16px] text-[#44474d] absolute left-2.5 top-2.5 pointer-events-none">
+                <span className="material-symbols-outlined text-[16px] text-[#44474d] dark:text-[#94a3b8] absolute left-2.5 top-2.5 pointer-events-none">
                   search
                 </span>
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2.5 text-[#74777d] hover:text-[#001126]"
+                    className="absolute right-2.5 top-2.5 text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[14px]">close</span>
                   </button>
@@ -236,7 +237,7 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
             {/* Client Cards Grid */}
             {filteredClients.length === 0 ? (
-              <div className="p-12 text-center text-xs text-[#74777d]">
+              <div className="p-12 text-center text-xs text-[#74777d] dark:text-[#94a3b8]">
                 No clients found matching "{searchQuery}".
               </div>
             ) : (
@@ -244,27 +245,27 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                 {filteredClients.map((c) => (
                   <div
                     key={c.id}
-                    className="p-5 rounded-xl bg-[#ffffff] border border-[#001126]/10 hover:border-[#001126]/30 transition-all shadow-2xs hover:shadow-xs flex flex-col justify-between gap-4 cursor-pointer group"
+                    className="p-5 rounded-xl bg-[#ffffff] dark:bg-[#192638] border border-[#001126]/10 dark:border-white/10 hover:border-[#001126]/30 dark:hover:border-white/30 transition-all shadow-2xs hover:shadow-xs flex flex-col justify-between gap-4 cursor-pointer group active:scale-[0.99]"
                     onClick={() => setSelectedClientForDetails(c)}
                   >
                     <div className="space-y-2">
                       <div className="flex items-start justify-between gap-2">
                         <div className="min-w-0">
-                          <h4 className="text-sm font-bold text-[#001126] group-hover:text-[#3d6562] transition-colors truncate">
+                          <h4 className="text-sm font-bold text-[#001126] dark:text-[#f3f6fa] group-hover:text-[#3d6562] dark:group-hover:text-[#5eead4] transition-colors truncate">
                             {c.name || 'Unnamed Client'}
                           </h4>
-                          <p className="text-xs text-[#44474d] truncate mt-0.5">
+                          <p className="text-xs text-[#44474d] dark:text-[#94a3b8] truncate mt-0.5">
                             {c.email || 'No email specified'}
                           </p>
                         </div>
                         {c.invoicesCount !== undefined && c.invoicesCount > 0 && (
-                          <span className="font-['Space_Mono'] text-[9px] px-2 py-0.5 rounded-full bg-[#bfebe6] text-[#00201e] font-semibold shrink-0">
+                          <span className="font-['Space_Mono'] text-[9px] px-2 py-0.5 rounded-full bg-[#bfebe6] dark:bg-teal-950/60 text-[#00201e] dark:text-[#5eead4] font-semibold shrink-0">
                             {c.invoicesCount} {c.invoicesCount === 1 ? 'invoice' : 'invoices'}
                           </span>
                         )}
                       </div>
 
-                      <div className="space-y-1 pt-1 text-xs text-[#74777d]">
+                      <div className="space-y-1 pt-1 text-xs text-[#74777d] dark:text-[#94a3b8]">
                         {c.phone && (
                           <div className="flex items-center gap-1.5 truncate">
                             <span className="material-symbols-outlined text-[14px]">phone</span>
@@ -281,14 +282,14 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     </div>
 
                     {/* Bottom Card Footer: Balance & Actions */}
-                    <div className="flex items-center justify-between pt-3 border-t border-[#001126]/5 text-xs">
+                    <div className="flex items-center justify-between pt-3 border-t border-[#001126]/5 dark:border-white/10 text-xs">
                       <div>
                         {c.totalOutstanding && c.totalOutstanding > 0 ? (
-                          <span className="font-['Space_Mono'] text-[11px] text-[#ba1a1a] font-semibold">
+                          <span className="font-['Space_Mono'] text-[11px] text-[#ba1a1a] dark:text-[#f87171] font-semibold">
                             Pending: {formatCurrency(c.totalOutstanding, 'INR')}
                           </span>
                         ) : (
-                          <span className="font-['Space_Mono'] text-[10px] text-[#3d6562] font-semibold">
+                          <span className="font-['Space_Mono'] text-[10px] text-[#3d6562] dark:text-[#5eead4] font-semibold">
                             No pending balance
                           </span>
                         )}
@@ -297,13 +298,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                       <div className="flex items-center gap-1.5" onClick={(e) => e.stopPropagation()}>
                         <button
                           onClick={() => setSelectedClientForDetails(c)}
-                          className="px-2.5 py-1 text-xs text-[#001126] hover:bg-[#001126]/5 rounded-lg border border-[#001126]/10 font-medium cursor-pointer"
+                          className="px-2.5 py-1 text-xs text-[#001126] dark:text-[#f3f6fa] hover:bg-[#001126]/5 dark:hover:bg-white/10 rounded-lg border border-[#001126]/10 dark:border-white/10 font-medium cursor-pointer"
                         >
                           View
                         </button>
                         <button
                           onClick={() => setClientToDelete(c)}
-                          className="p-1 text-[#74777d] hover:text-[#ba1a1a] hover:bg-[#ba1a1a]/10 rounded-lg cursor-pointer"
+                          className="p-1 text-[#74777d] dark:text-[#94a3b8] hover:text-[#ba1a1a] dark:hover:text-[#f87171] hover:bg-[#ba1a1a]/10 rounded-lg cursor-pointer"
                           title="Delete client"
                         >
                           <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -321,133 +322,137 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       {/* New Client Slide-over / Modal */}
       {isAddModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
           onClick={() => !isSubmitting && setIsAddModalOpen(false)}
         >
           <div
-            className="bg-[#ffffff] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#001126]/15 max-h-[90vh] overflow-y-auto my-8"
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#001126]/15 dark:border-white/10 max-h-[90vh] overflow-y-auto my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10">
+            <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10 dark:border-white/10">
               <div className="flex items-center gap-2.5">
-                <div className="w-8 h-8 rounded-lg bg-[#f5f3ee] flex items-center justify-center text-[#001126]">
+                <div className="w-8 h-8 rounded-lg bg-[#f5f3ee] dark:bg-white/10 flex items-center justify-center text-[#001126] dark:text-[#f3f6fa]">
                   <span className="material-symbols-outlined text-[20px]">person_add</span>
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-[#001126]">New Client</h3>
-                  <p className="text-xs text-[#74777d]">Add client details for invoices & reminders</p>
+                  <h3 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">New Client</h3>
+                  <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">Add client details for invoices & reminders</p>
                 </div>
               </div>
-              <button
-                onClick={() => setIsAddModalOpen(false)}
-                disabled={isSubmitting}
-                className="text-[#74777d] hover:text-[#001126] cursor-pointer"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+              {!isSubmitting && (
+                <button
+                  onClick={() => setIsAddModalOpen(false)}
+                  className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              )}
             </div>
 
-            {formError && (
-              <div className="p-3.5 rounded-xl bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 text-[#ba1a1a] text-xs flex items-center gap-2.5">
-                <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
-                <span>{formError}</span>
-              </div>
-            )}
-
-            <form onSubmit={handleSubmit} className="space-y-4">
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] mb-1">
-                  CLIENT OR COMPANY NAME *
-                </label>
-                <input
-                  ref={nameInputRef}
-                  type="text"
-                  value={name}
-                  onChange={(e) => setName(e.target.value)}
-                  placeholder="e.g. Acme Studio"
-                  className="w-full px-3.5 py-2.5 bg-[#fbf9f4] text-sm rounded-lg border border-[#001126]/15 focus:outline-none focus:border-[#001126]"
-                  required
+            {/* If actively saving, show client-card animation */}
+            {isSubmitting ? (
+              <div className="py-8 flex flex-col items-center justify-center">
+                <ClientProcessingAnimation
+                  clientName={name}
+                  clientEmail={email}
                 />
               </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {formError && (
+                  <div className="p-3.5 rounded-xl bg-[#ba1a1a]/10 dark:bg-red-950/40 border border-[#ba1a1a]/20 dark:border-red-500/20 text-[#ba1a1a] dark:text-[#f87171] text-xs flex items-center gap-2.5">
+                    <span className="material-symbols-outlined text-[18px] shrink-0">error</span>
+                    <span>{formError}</span>
+                  </div>
+                )}
 
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] mb-1">
-                  EMAIL ADDRESS *
-                </label>
-                <input
-                  type="email"
-                  value={email}
-                  onChange={(e) => setEmail(e.target.value)}
-                  placeholder="e.g. billing@acme.com"
-                  className="w-full px-3.5 py-2.5 bg-[#fbf9f4] text-sm rounded-lg border border-[#001126]/15 focus:outline-none focus:border-[#001126]"
-                  required
-                />
-              </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    CLIENT OR COMPANY NAME *
+                  </label>
+                  <input
+                    ref={nameInputRef}
+                    type="text"
+                    value={name}
+                    onChange={(e) => setName(e.target.value)}
+                    placeholder="e.g. Acme Studio"
+                    className="w-full px-3.5 py-2.5 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] mb-1">
-                  PHONE NUMBER (OPTIONAL)
-                </label>
-                <input
-                  type="tel"
-                  value={phone}
-                  onChange={(e) => setPhone(e.target.value)}
-                  placeholder="e.g. +91 98765 43210"
-                  className="w-full px-3.5 py-2.5 bg-[#fbf9f4] text-sm rounded-lg border border-[#001126]/15 focus:outline-none focus:border-[#001126]"
-                />
-              </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    EMAIL ADDRESS *
+                  </label>
+                  <input
+                    type="email"
+                    value={email}
+                    onChange={(e) => setEmail(e.target.value)}
+                    placeholder="e.g. billing@acme.com"
+                    className="w-full px-3.5 py-2.5 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30"
+                    required
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] mb-1">
-                  BILLING ADDRESS (OPTIONAL)
-                </label>
-                <textarea
-                  value={billingAddress}
-                  onChange={(e) => setBillingAddress(e.target.value)}
-                  placeholder="Street, City, Country, PIN / Postal code"
-                  rows={2}
-                  className="w-full px-3.5 py-2.5 bg-[#fbf9f4] text-sm rounded-lg border border-[#001126]/15 focus:outline-none focus:border-[#001126] resize-y"
-                />
-              </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    PHONE NUMBER (OPTIONAL)
+                  </label>
+                  <input
+                    type="tel"
+                    value={phone}
+                    onChange={(e) => setPhone(e.target.value)}
+                    placeholder="e.g. +91 98765 43210"
+                    className="w-full px-3.5 py-2.5 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30"
+                  />
+                </div>
 
-              <div>
-                <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] mb-1">
-                  INTERNAL NOTES (OPTIONAL)
-                </label>
-                <textarea
-                  value={internalNotes}
-                  onChange={(e) => setInternalNotes(e.target.value)}
-                  placeholder="Private notes (payment terms, contact person, etc.)"
-                  rows={2}
-                  className="w-full px-3.5 py-2.5 bg-[#fbf9f4] text-sm rounded-lg border border-[#001126]/15 focus:outline-none focus:border-[#001126] resize-y"
-                />
-              </div>
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    BILLING ADDRESS (OPTIONAL)
+                  </label>
+                  <textarea
+                    value={billingAddress}
+                    onChange={(e) => setBillingAddress(e.target.value)}
+                    placeholder="Street, City, Country, PIN / Postal code"
+                    rows={2}
+                    className="w-full px-3.5 py-2.5 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30 resize-y"
+                  />
+                </div>
 
-              <div className="pt-3 flex justify-end gap-2.5 border-t border-[#001126]/10">
-                <button
-                  type="button"
-                  onClick={() => setIsAddModalOpen(false)}
-                  disabled={isSubmitting}
-                  className="btn-action-secondary px-4 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn-action-primary px-5 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 flex items-center gap-2 cursor-pointer"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
-                      <span>Saving client...</span>
-                    </>
-                  ) : (
+                <div>
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    INTERNAL NOTES (OPTIONAL)
+                  </label>
+                  <textarea
+                    value={internalNotes}
+                    onChange={(e) => setInternalNotes(e.target.value)}
+                    placeholder="Private notes (payment terms, contact person, etc.)"
+                    rows={2}
+                    className="w-full px-3.5 py-2.5 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30 resize-y"
+                  />
+                </div>
+
+                <div className="pt-3 flex justify-end gap-2.5 border-t border-[#001126]/10 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsAddModalOpen(false)}
+                    disabled={isSubmitting}
+                    className="btn-action-secondary px-4 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn-action-primary px-5 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 flex items-center gap-2 cursor-pointer"
+                  >
                     <span>Save client</span>
-                  )}
-                </button>
-              </div>
-            </form>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}
@@ -455,28 +460,28 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       {/* Client Detail View Modal */}
       {selectedClientForDetails && (
         <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto"
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
           onClick={() => setSelectedClientForDetails(null)}
         >
           <div
-            className="bg-[#ffffff] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#001126]/15 my-8"
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#001126]/15 dark:border-white/10 my-8"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10">
+            <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10 dark:border-white/10">
               <div className="flex items-center gap-3">
-                <div className="w-10 h-10 rounded-xl bg-[#bfebe6]/40 flex items-center justify-center text-[#00201e] font-bold text-base">
+                <div className="w-10 h-10 rounded-xl bg-[#bfebe6]/40 dark:bg-teal-950/60 flex items-center justify-center text-[#00201e] dark:text-[#5eead4] font-bold text-base">
                   {selectedClientForDetails.name?.charAt(0).toUpperCase() || 'C'}
                 </div>
                 <div>
-                  <h3 className="text-lg font-bold text-[#001126]">
+                  <h3 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
                     {selectedClientForDetails.name}
                   </h3>
-                  <p className="text-xs text-[#74777d]">{selectedClientForDetails.email}</p>
+                  <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">{selectedClientForDetails.email}</p>
                 </div>
               </div>
               <button
                 onClick={() => setSelectedClientForDetails(null)}
-                className="text-[#74777d] hover:text-[#001126] cursor-pointer"
+                className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[20px]">close</span>
               </button>
@@ -484,20 +489,20 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
 
             <div className="space-y-4 text-xs">
               {/* Financial Summary */}
-              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#fbf9f4] border border-[#001126]/8">
+              <div className="grid grid-cols-2 gap-3 p-3.5 rounded-xl bg-[#fbf9f4] dark:bg-[#0c131d] border border-[#001126]/8 dark:border-white/10">
                 <div>
-                  <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] block">
+                  <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
                     INVOICES COUNT
                   </span>
-                  <span className="text-base font-bold text-[#001126]">
+                  <span className="text-base font-bold text-[#001126] dark:text-[#f3f6fa]">
                     {selectedClientForDetails.invoicesCount || 0}
                   </span>
                 </div>
                 <div>
-                  <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] block">
+                  <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
                     OUTSTANDING BALANCE
                   </span>
-                  <span className="text-base font-bold text-[#ba1a1a]">
+                  <span className="text-base font-bold text-[#ba1a1a] dark:text-[#f87171]">
                     {formatCurrency(selectedClientForDetails.totalOutstanding || 0, 'INR')}
                   </span>
                 </div>
@@ -507,26 +512,26 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               <div className="space-y-2.5">
                 {selectedClientForDetails.phone && (
                   <div>
-                    <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] block">
+                    <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
                       PHONE
                     </span>
-                    <p className="text-[#001126] font-medium">{selectedClientForDetails.phone}</p>
+                    <p className="text-[#001126] dark:text-[#f3f6fa] font-medium">{selectedClientForDetails.phone}</p>
                   </div>
                 )}
                 {selectedClientForDetails.billingAddress && (
                   <div>
-                    <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] block">
+                    <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
                       BILLING ADDRESS
                     </span>
-                    <p className="text-[#001126] whitespace-pre-wrap">{selectedClientForDetails.billingAddress}</p>
+                    <p className="text-[#001126] dark:text-[#f3f6fa] whitespace-pre-wrap">{selectedClientForDetails.billingAddress}</p>
                   </div>
                 )}
                 {selectedClientForDetails.internalNotes && (
                   <div>
-                    <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] block">
+                    <span className="font-['Space_Mono'] text-[9px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
                       INTERNAL NOTES
                     </span>
-                    <p className="text-[#44474d] bg-[#fbf9f4] p-2.5 rounded-lg border border-[#001126]/5 whitespace-pre-wrap">
+                    <p className="text-[#44474d] dark:text-[#94a3b8] bg-[#fbf9f4] dark:bg-[#0c131d] p-2.5 rounded-lg border border-[#001126]/5 dark:border-white/10 whitespace-pre-wrap">
                       {selectedClientForDetails.internalNotes}
                     </p>
                   </div>
@@ -534,13 +539,13 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
               </div>
             </div>
 
-            <div className="pt-3 flex justify-between items-center border-t border-[#001126]/10">
+            <div className="pt-3 flex justify-between items-center border-t border-[#001126]/10 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => {
                   setClientToDelete(selectedClientForDetails);
                 }}
-                className="text-xs text-[#ba1a1a] hover:bg-[#ba1a1a]/10 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer"
+                className="text-xs text-[#ba1a1a] dark:text-[#f87171] hover:bg-[#ba1a1a]/10 dark:hover:bg-red-950/40 px-3 py-1.5 rounded-lg font-medium transition-colors cursor-pointer"
               >
                 Delete Client
               </button>
@@ -559,28 +564,28 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
       {/* Delete Confirmation Modal */}
       {clientToDelete && (
         <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => !deletingId && setClientToDelete(null)}
         >
           <div
-            className="bg-[#ffffff] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#001126]/15"
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#001126]/15 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 text-[#ba1a1a]">
-              <div className="p-2.5 rounded-full bg-[#ba1a1a]/10">
+            <div className="flex items-center gap-3 text-[#ba1a1a] dark:text-[#f87171]">
+              <div className="p-2.5 rounded-full bg-[#ba1a1a]/10 dark:bg-red-950/50">
                 <span className="material-symbols-outlined text-[24px]">warning</span>
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#001126]">Delete Client</h3>
-                <p className="text-xs text-[#74777d]">Confirm client deletion</p>
+                <h3 className="text-base font-bold text-[#001126] dark:text-[#f3f6fa]">Delete Client</h3>
+                <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">Confirm client deletion</p>
               </div>
             </div>
 
-            <p className="text-xs text-[#44474d] leading-relaxed">
-              Are you sure you want to delete <strong className="text-[#001126]">{clientToDelete.name}</strong>? Existing invoices created for this client will be preserved.
+            <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
+              Are you sure you want to delete <strong className="text-[#001126] dark:text-[#f3f6fa]">{clientToDelete.name}</strong>? Existing invoices created for this client will be preserved.
             </p>
 
-            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#001126]/10">
+            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#001126]/10 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setClientToDelete(null)}

@@ -59,44 +59,44 @@ export const VisualGeneratorModal: React.FC<VisualGeneratorModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4"
+      className="fixed inset-0 z-50 bg-[#001126]/60 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
       onClick={onClose}
     >
       <div
-        className="bg-[#ffffff] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#001126]/10 font-['Hanken_Grotesk']"
+        className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#001126]/10 dark:border-white/10 font-['Hanken_Grotesk']"
         onClick={(e) => e.stopPropagation()}
       >
-        <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10">
+        <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10 dark:border-white/10">
           <div>
-            <h3 className="text-base font-bold text-[#001126]">
+            <h3 className="text-base font-bold text-[#001126] dark:text-[#f3f6fa]">
               Visual Studio // gemini-3-pro-image-preview
             </h3>
-            <span className="font-['Space_Mono'] text-[9px] uppercase tracking-wider text-[#44474d]">
+            <span className="font-['Space_Mono'] text-[9px] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8]">
               Configurable 1K • 2K • 4K Resolution
             </span>
           </div>
-          <button onClick={onClose} className="text-[#74777d]">
+          <button onClick={onClose} className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] p-1 rounded-lg cursor-pointer">
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
         <form onSubmit={handleGenerate} className="space-y-4">
           <div>
-            <label className="block text-xs font-semibold text-[#001126] mb-1">
+            <label className="block text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] mb-1">
               Visual Prompt
             </label>
             <textarea
               value={prompt}
               onChange={(e) => setPrompt(e.target.value)}
               rows={3}
-              className="w-full p-3 bg-[#fbf9f4] text-xs rounded border border-[#001126]/15 outline-none"
+              className="w-full p-3 bg-[#fbf9f4] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/15 dark:border-white/15 outline-none focus:border-[#001126] dark:focus:border-[#38bdf8]"
               required
             />
           </div>
 
           {/* Affordance for 1K, 2K, 4K */}
           <div>
-            <label className="block text-xs font-semibold text-[#001126] mb-1">
+            <label className="block text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] mb-1">
               Resolution Output Size (gemini-3-pro-image-preview)
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -105,10 +105,10 @@ export const VisualGeneratorModal: React.FC<VisualGeneratorModalProps> = ({
                   key={size}
                   type="button"
                   onClick={() => setImageSize(size)}
-                  className={`py-2 px-3 rounded text-center border transition-all text-xs ${
+                  className={`py-2 px-3 rounded text-center border transition-all text-xs cursor-pointer ${
                     imageSize === size
-                      ? 'bg-[#15263c] text-[#fbf9f4] border-[#15263c] font-bold'
-                      : 'bg-[#fbf9f4] text-[#001126] border-[#001126]/10'
+                      ? 'bg-[#15263c] dark:bg-[#38bdf8] text-[#fbf9f4] dark:text-[#0c131d] border-transparent font-bold'
+                      : 'bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] border-[#001126]/10 dark:border-white/10'
                   }`}
                 >
                   <div className="font-['Space_Mono'] font-bold">{size}</div>
@@ -121,7 +121,7 @@ export const VisualGeneratorModal: React.FC<VisualGeneratorModalProps> = ({
           </div>
 
           <div>
-            <label className="block text-xs font-semibold text-[#001126] mb-1">
+            <label className="block text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] mb-1">
               Aspect Ratio
             </label>
             <div className="grid grid-cols-3 gap-2">
@@ -130,10 +130,10 @@ export const VisualGeneratorModal: React.FC<VisualGeneratorModalProps> = ({
                   key={r}
                   type="button"
                   onClick={() => setAspectRatio(r)}
-                  className={`py-1.5 rounded text-xs border font-['Space_Mono'] ${
+                  className={`py-1.5 rounded text-xs border font-['Space_Mono'] cursor-pointer transition-all ${
                     aspectRatio === r
-                      ? 'bg-[#15263c] text-white border-[#15263c]'
-                      : 'bg-[#fbf9f4] border-[#001126]/10'
+                      ? 'bg-[#15263c] dark:bg-[#38bdf8] text-[#fbf9f4] dark:text-[#0c131d] border-transparent font-bold'
+                      : 'bg-[#fbf9f4] dark:bg-[#0c131d] text-[#001126] dark:text-[#f3f6fa] border-[#001126]/10 dark:border-white/10'
                   }`}
                 >
                   {r}
@@ -143,13 +143,13 @@ export const VisualGeneratorModal: React.FC<VisualGeneratorModalProps> = ({
           </div>
 
           {error && (
-            <div className="p-2.5 bg-[#ffdad6] text-[#ba1a1a] text-xs rounded">
+            <div className="p-2.5 bg-[#ffdad6] dark:bg-[#ba1a1a]/30 text-[#ba1a1a] dark:text-[#ffb4ab] text-xs rounded border border-[#ba1a1a]/20">
               {error}
             </div>
           )}
 
           {generatedUrl && (
-            <div className="rounded-lg overflow-hidden border border-[#001126]/10">
+            <div className="rounded-lg overflow-hidden border border-[#001126]/10 dark:border-white/10">
               <img src={generatedUrl} alt="Generated visual" className="w-full h-auto max-h-48 object-cover" />
             </div>
           )}
@@ -158,14 +158,14 @@ export const VisualGeneratorModal: React.FC<VisualGeneratorModalProps> = ({
             <button
               type="button"
               onClick={onClose}
-              className="px-4 py-2 text-xs font-semibold text-[#44474d]"
+              className="btn-action-secondary px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer"
             >
               Close
             </button>
             <button
               type="submit"
               disabled={isLoading}
-              className="px-5 py-2.5 bg-[#15263c] text-[#fbf9f4] text-xs font-semibold rounded hover:bg-[#001126] disabled:opacity-50"
+              className="btn-action-primary px-5 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer"
             >
               {isLoading ? `Rendering (${imageSize})...` : `Generate Visual (${imageSize})`}
             </button>

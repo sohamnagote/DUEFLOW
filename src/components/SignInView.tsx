@@ -146,7 +146,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
       {/* Top Header - Fades in subtly, no bottom border line */}
       <header
-        className="fixed top-0 left-0 w-full z-50 bg-[#fbf9f4]/25 backdrop-blur-md transition-all duration-500 ease-out"
+        className="fixed top-0 left-0 w-full z-50 bg-[#fbf9f4]/25 dark:bg-[#0c131d]/40 backdrop-blur-md transition-all duration-500 ease-out"
         style={{
           opacity: prefersReducedMotion || stepHeader ? 1 : 0,
           transform: prefersReducedMotion || stepHeader ? 'translateY(0px)' : 'translateY(-6px)',
@@ -156,14 +156,14 @@ export const SignInView: React.FC<SignInViewProps> = ({
           <div className="flex items-center gap-3 sm:gap-5">
             <button
               onClick={onBackToLanding}
-              className="text-[22px] leading-[28px] font-semibold tracking-tight lowercase text-[#001126] hover:opacity-80 transition-opacity cursor-pointer"
+              className="text-[22px] leading-[28px] font-semibold tracking-tight lowercase text-[#001126] dark:text-[#f3f6fa] hover:opacity-80 transition-opacity cursor-pointer"
             >
               dueflow
             </button>
-            <span className="text-[#c4c6cd]/60">/</span>
+            <span className="text-[#c4c6cd]/60 dark:text-white/20">/</span>
             <button
               onClick={onBackToLanding}
-              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#44474d] hover:text-[#001126] transition-colors group cursor-pointer"
+              className="inline-flex items-center gap-1.5 text-xs font-semibold text-[#44474d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] transition-colors group cursor-pointer"
               title="Return to public landing page"
             >
               <span className="material-symbols-outlined text-[15px] transition-transform group-hover:-translate-x-0.5">arrow_back</span>
@@ -172,7 +172,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
           </div>
 
           <div className="flex items-center gap-4">
-            <div className="w-8 h-8 rounded-full bg-[#001126] hover:bg-[#15263c] flex items-center justify-center transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] border border-transparent hover:border-[#001126]/20">
+            <div className="w-8 h-8 rounded-full bg-[#001126] dark:bg-[#203046] hover:bg-[#15263c] flex items-center justify-center transition-all duration-200 hover:scale-[1.03] active:scale-[0.98] border border-transparent hover:border-[#001126]/20">
               <span className="material-symbols-outlined text-[#ffffff] text-[18px]">person</span>
             </div>
           </div>
@@ -189,7 +189,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   setAuthMode('login');
                   setResetSent(false);
                 }}
-                className="inline-flex items-center gap-1.5 text-xs text-[#44474d] hover:text-[#001126] transition-colors font-medium cursor-pointer"
+                className="inline-flex items-center gap-1.5 text-xs text-[#44474d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] transition-colors font-medium cursor-pointer"
               >
                 <span className="material-symbols-outlined text-[15px]">arrow_back</span>
                 <span>Back to Sign In</span>
@@ -200,7 +200,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
           {/* Heading & Subtitle with staged smooth fade & upward movement */}
           <div className="text-center mb-8">
             <h1
-              className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] mb-2 tracking-tight transition-all duration-800 ease-out"
+              className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#001126] dark:text-[#f3f6fa] mb-2 tracking-tight transition-all duration-800 ease-out"
               style={{
                 opacity: prefersReducedMotion || stepHeading ? 1 : 0,
                 transform: prefersReducedMotion || stepHeading ? 'translateY(0px)' : 'translateY(10px)',
@@ -213,7 +213,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                 : 'Reset your password'}
             </h1>
             <p
-              className="text-sm leading-[22px] text-[#44474d] transition-all duration-600 ease-out"
+              className="text-sm leading-[22px] text-[#44474d] dark:text-[#94a3b8] transition-all duration-600 ease-out"
               style={{
                 opacity: prefersReducedMotion || stepDesc ? 1 : 0,
                 transform: prefersReducedMotion || stepDesc ? 'translateY(0px)' : 'translateY(8px)',
@@ -229,21 +229,20 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
           {/* Translucent Form Card with smooth entrance & shader visible underneath */}
           <div
-            className="p-6 sm:p-10 rounded-2xl shadow-sm border border-[#001126]/[0.08] relative backdrop-blur-md transition-all duration-600 ease-out"
+            className="p-6 sm:p-10 rounded-2xl shadow-sm border border-[#001126]/[0.08] dark:border-white/10 relative backdrop-blur-md bg-white/45 dark:bg-[#141f2e]/85 transition-all duration-600 ease-out"
             style={{
-              backgroundColor: 'rgba(255, 255, 255, 0.45)',
               opacity: prefersReducedMotion || stepForm ? 1 : 0,
               transform: prefersReducedMotion || stepForm ? 'translateY(0px)' : 'translateY(10px)',
             }}
           >
             {authMode === 'forgot' && resetSent ? (
               <div className="space-y-5 text-center py-2">
-                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 mx-auto flex items-center justify-center text-[#071426]">
-                  <span className="material-symbols-outlined text-[24px] text-[#071426]">mark_email_read</span>
+                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 mx-auto flex items-center justify-center text-[#071426] dark:text-[#38bdf8]">
+                  <span className="material-symbols-outlined text-[24px]">mark_email_read</span>
                 </div>
-                <h3 className="text-base font-bold text-[#001126]">Check your inbox</h3>
-                <p className="text-xs text-[#44474d] leading-relaxed">
-                  We sent instructions to <span className="font-semibold text-[#001126]">{email}</span>. Click the link inside to set a new password.
+                <h3 className="text-base font-bold text-[#001126] dark:text-[#f3f6fa]">Check your inbox</h3>
+                <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
+                  We sent instructions to <span className="font-semibold text-[#001126] dark:text-[#f3f6fa]">{email}</span>. Click the link inside to set a new password.
                 </p>
                 <button
                   type="button"
@@ -251,19 +250,19 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     setAuthMode('login');
                     setResetSent(false);
                   }}
-                  className="w-full py-3 bg-[#071426] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c] transition-colors cursor-pointer"
+                  className="btn-action-primary w-full py-3 text-xs font-semibold rounded-lg cursor-pointer"
                 >
                   Return to Sign In
                 </button>
               </div>
             ) : verificationSent ? (
               <div className="space-y-5 text-center py-2">
-                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 mx-auto flex items-center justify-center text-[#071426]">
-                  <span className="material-symbols-outlined text-[24px] text-[#071426]">mark_email_read</span>
+                <div className="w-12 h-12 rounded-full bg-[#22D3EE]/20 mx-auto flex items-center justify-center text-[#071426] dark:text-[#38bdf8]">
+                  <span className="material-symbols-outlined text-[24px]">mark_email_read</span>
                 </div>
-                <h3 className="text-base font-bold text-[#001126]">Verify your email</h3>
-                <p className="text-xs text-[#44474d] leading-relaxed">
-                  A verification link was sent to <span className="font-semibold text-[#001126]">{email}</span>. Please click the link to confirm your account and access your dashboard.
+                <h3 className="text-base font-bold text-[#001126] dark:text-[#f3f6fa]">Verify your email</h3>
+                <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
+                  A verification link was sent to <span className="font-semibold text-[#001126] dark:text-[#f3f6fa]">{email}</span>. Please click the link to confirm your account and access your dashboard.
                 </p>
                 <button
                   type="button"
@@ -271,7 +270,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                     setAuthMode('login');
                     setVerificationSent(false);
                   }}
-                  className="w-full py-3 bg-[#071426] text-[#ffffff] text-xs font-semibold rounded-lg hover:bg-[#15263c] transition-colors cursor-pointer"
+                  className="btn-action-primary w-full py-3 text-xs font-semibold rounded-lg cursor-pointer"
                 >
                   Return to Sign In
                 </button>
@@ -279,19 +278,19 @@ export const SignInView: React.FC<SignInViewProps> = ({
             ) : (
               <form className="space-y-5" onSubmit={handleSubmit}>
                 {authError && (
-                  <div className="p-3.5 bg-red-500/10 border border-red-500/20 text-[#b91c1c] text-xs rounded-lg flex items-start gap-2.5">
-                    <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0 text-[#b91c1c]">error</span>
+                  <div className="p-3.5 bg-red-500/10 dark:bg-red-500/20 border border-red-500/20 dark:border-red-500/40 text-[#b91c1c] dark:text-[#ffb4ab] text-xs rounded-lg flex items-start gap-2.5">
+                    <span className="material-symbols-outlined text-[16px] mt-0.5 shrink-0 text-[#b91c1c] dark:text-[#ffb4ab]">error</span>
                     <span>{authError}</span>
                   </div>
                 )}
 
                 {authMode === 'signup' && (
                   <div className="space-y-1">
-                    <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d]">
+                    <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8]">
                       FULL NAME
                     </label>
                     <input
-                      className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 focus:outline-none focus:border-[#071426] focus:ring-2 focus:ring-[#071426]/15 transition-all"
+                      className="w-full px-4 py-3 bg-[#ffffff] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa] text-sm rounded-[6px] border border-[#001126]/12 dark:border-white/15 focus:outline-none focus:border-[#071426] dark:focus:border-[#38bdf8] focus:ring-2 focus:ring-[#071426]/15 transition-all"
                       placeholder="Your full name"
                       required
                       type="text"
@@ -304,11 +303,11 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
                 {/* Email Input */}
                 <div className="space-y-1">
-                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d]">
+                  <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8]">
                     EMAIL ADDRESS
                   </label>
                   <input
-                    className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 focus:outline-none focus:border-[#071426] focus:ring-2 focus:ring-[#071426]/15 transition-all"
+                    className="w-full px-4 py-3 bg-[#ffffff] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa] text-sm rounded-[6px] border border-[#001126]/12 dark:border-white/15 focus:outline-none focus:border-[#071426] dark:focus:border-[#38bdf8] focus:ring-2 focus:ring-[#071426]/15 transition-all"
                     placeholder="you@example.com"
                     required
                     type="email"
@@ -322,13 +321,13 @@ export const SignInView: React.FC<SignInViewProps> = ({
                 {authMode !== 'forgot' && (
                   <div className="space-y-1">
                     <div className="flex items-center justify-between">
-                      <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d]">
+                      <label className="block text-[11px] font-semibold uppercase tracking-[0.14em] text-[#44474d] dark:text-[#94a3b8]">
                         PASSWORD
                       </label>
                       {authMode === 'login' && (
                         <button
                           type="button"
-                          className="font-['Space_Mono'] text-[10px] text-[#001126] hover:underline cursor-pointer"
+                          className="font-['Space_Mono'] text-[10px] text-[#001126] dark:text-[#38bdf8] hover:underline cursor-pointer"
                           onClick={() => setAuthMode('forgot')}
                         >
                           Forgot password?
@@ -336,7 +335,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                       )}
                     </div>
                     <input
-                      className="w-full px-4 py-3 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 focus:outline-none focus:border-[#071426] focus:ring-2 focus:ring-[#071426]/15 transition-all"
+                      className="w-full px-4 py-3 bg-[#ffffff] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa] text-sm rounded-[6px] border border-[#001126]/12 dark:border-white/15 focus:outline-none focus:border-[#071426] dark:focus:border-[#38bdf8] focus:ring-2 focus:ring-[#071426]/15 transition-all"
                       placeholder="Enter your password"
                       required
                       type="password"
@@ -349,7 +348,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
 
                 {/* Primary Submit Button */}
                 <button
-                  className="w-full py-3.5 bg-[#071426] text-[#ffffff] text-[11px] font-semibold uppercase tracking-[0.14em] rounded-[6px] hover:bg-[#15263c] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#071426]/25 transition-all shadow-sm cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                  className="btn-action-primary w-full py-3.5 text-[11px] font-semibold uppercase tracking-[0.14em] rounded-[6px] cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                   type="submit"
                   disabled={isLoading}
                 >
@@ -373,16 +372,16 @@ export const SignInView: React.FC<SignInViewProps> = ({
                   >
                     <div className="relative flex items-center justify-center my-5">
                       <div className="absolute inset-0 flex items-center">
-                        <div className="w-full border-t border-[#001126]/10" />
+                        <div className="w-full border-t border-[#001126]/10 dark:border-white/10" />
                       </div>
-                      <div className="relative px-3 bg-[#ffffff]/60 backdrop-blur-xs font-['Space_Mono'] text-[10px] uppercase text-[#44474d] tracking-[0.14em] rounded-sm">
+                      <div className="relative px-3 bg-[#ffffff]/60 dark:bg-[#141f2e] backdrop-blur-xs font-['Space_Mono'] text-[10px] uppercase text-[#44474d] dark:text-[#94a3b8] tracking-[0.14em] rounded-sm">
                         Or
                       </div>
                     </div>
 
                     {/* Google Sign-in Button */}
                     <button
-                      className="w-full py-3 px-4 bg-[#ffffff] text-[#1b1c19] text-sm rounded-[6px] border border-[#001126]/12 hover:bg-[#f8f9fa] hover:border-[#001126]/25 active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#001126]/15 transition-all flex items-center justify-center gap-3 shadow-2xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
+                      className="w-full py-3 px-4 bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] text-sm rounded-[6px] border border-[#001126]/12 dark:border-white/15 hover:bg-[#f8f9fa] dark:hover:bg-[#1b283b] active:scale-[0.98] focus:outline-none focus:ring-2 focus:ring-[#001126]/15 transition-all flex items-center justify-center gap-3 shadow-2xs cursor-pointer disabled:opacity-60 disabled:cursor-not-allowed"
                       type="button"
                       disabled={isLoading}
                       onClick={handleGoogleSignIn}
@@ -405,7 +404,7 @@ export const SignInView: React.FC<SignInViewProps> = ({
                           fill="#EA4335"
                         />
                       </svg>
-                      <span className="font-semibold text-[#001126]">
+                      <span className="font-semibold text-[#001126] dark:text-[#f3f6fa]">
                         {isLoading ? 'Connecting to Google...' : 'Continue with Google'}
                       </span>
                     </button>
@@ -424,21 +423,21 @@ export const SignInView: React.FC<SignInViewProps> = ({
             }}
           >
             {authMode === 'login' ? (
-              <p className="text-sm text-[#44474d]">
+              <p className="text-sm text-[#44474d] dark:text-[#94a3b8]">
                 New to DueFlow?{' '}
                 <button
                   onClick={() => setAuthMode('signup')}
-                  className="text-[#001126] font-semibold hover:underline cursor-pointer"
+                  className="text-[#001126] dark:text-[#38bdf8] font-semibold hover:underline cursor-pointer"
                 >
                   Create account
                 </button>
               </p>
             ) : (
-              <p className="text-sm text-[#44474d]">
+              <p className="text-sm text-[#44474d] dark:text-[#94a3b8]">
                 Already have an account?{' '}
                 <button
                   onClick={() => setAuthMode('login')}
-                  className="text-[#001126] font-semibold hover:underline cursor-pointer"
+                  className="text-[#001126] dark:text-[#38bdf8] font-semibold hover:underline cursor-pointer"
                 >
                   Sign in
                 </button>

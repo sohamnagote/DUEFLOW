@@ -22,6 +22,7 @@ import { RemindersView } from './components/RemindersView';
 import { SettingsView } from './components/SettingsView';
 import { SwitchAccountModal } from './components/SwitchAccountModal';
 import { ErrorBoundary } from './components/ErrorBoundary';
+import { PageTransition } from './components/animations/PageTransition';
 
 export default function App() {
   // Determine initial page from URL path to support direct opens/refreshes of /dashboard, /privacy, /terms, etc.
@@ -429,7 +430,7 @@ export default function App() {
 
   // Screen 3: Core Dueflow Dashboard App
   return (
-    <div className="relative min-h-screen w-full bg-[#fbf9f4] font-['Hanken_Grotesk'] text-[#1b1c19]">
+    <div className="relative min-h-screen w-full bg-[#fbf9f4] dark:bg-[#0c131d] font-['Hanken_Grotesk'] text-[#1b1c19] dark:text-[#f3f6fa] transition-colors duration-200">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -459,73 +460,75 @@ export default function App() {
         />
 
         {/* In-App Route Pages */}
-        <main className="w-full pt-16 min-h-screen bg-[#fbf9f4]">
+        <main className="w-full pt-16 min-h-screen bg-[#fbf9f4] dark:bg-[#0c131d]">
           <ErrorBoundary fallbackTitle="Workspace Section Error">
-            {activeTab === 'overview' && (
-              <OverviewView
-                invoices={invoices}
-                clients={clients}
-                userPreferredCurrency={userProfile.preferredCurrency}
-                isLoading={isDataLoading}
-                loadError={dataLoadError}
-                onRetry={refreshAllUserData}
-                onNewInvoiceClick={() => setActiveTab('invoices')}
-                onAddClientClick={() => setActiveTab('clients')}
-                onClearData={() => {
-                  setInvoices([]);
-                  setClients([]);
-                }}
-                onNavigateToInvoices={() => setActiveTab('invoices')}
-                onNavigateToClients={() => setActiveTab('clients')}
-                onNavigateToReminders={() => setActiveTab('reminders')}
-              />
-            )}
+            <PageTransition tabKey={activeTab}>
+              {activeTab === 'overview' && (
+                <OverviewView
+                  invoices={invoices}
+                  clients={clients}
+                  userPreferredCurrency={userProfile.preferredCurrency}
+                  isLoading={isDataLoading}
+                  loadError={dataLoadError}
+                  onRetry={refreshAllUserData}
+                  onNewInvoiceClick={() => setActiveTab('invoices')}
+                  onAddClientClick={() => setActiveTab('clients')}
+                  onClearData={() => {
+                    setInvoices([]);
+                    setClients([]);
+                  }}
+                  onNavigateToInvoices={() => setActiveTab('invoices')}
+                  onNavigateToClients={() => setActiveTab('clients')}
+                  onNavigateToReminders={() => setActiveTab('reminders')}
+                />
+              )}
 
-            {activeTab === 'invoices' && (
-              <InvoicesView
-                invoices={invoices}
-                clients={clients}
-                userPreferredCurrency={userProfile.preferredCurrency}
-                userProfile={userProfile}
-                onAddInvoice={handleAddInvoice}
-                onUpdateStatus={handleUpdateStatus}
-                onDeleteInvoice={handleDeleteInvoice}
-              />
-            )}
+              {activeTab === 'invoices' && (
+                <InvoicesView
+                  invoices={invoices}
+                  clients={clients}
+                  userPreferredCurrency={userProfile.preferredCurrency}
+                  userProfile={userProfile}
+                  onAddInvoice={handleAddInvoice}
+                  onUpdateStatus={handleUpdateStatus}
+                  onDeleteInvoice={handleDeleteInvoice}
+                />
+              )}
 
-            {activeTab === 'clients' && (
-              <ClientsView
-                clients={clients}
-                onAddClient={handleAddClient}
-                onDeleteClient={handleDeleteClient}
-              />
-            )}
+              {activeTab === 'clients' && (
+                <ClientsView
+                  clients={clients}
+                  onAddClient={handleAddClient}
+                  onDeleteClient={handleDeleteClient}
+                />
+              )}
 
-            {activeTab === 'reminders' && (
-              <RemindersView
-                userPreferredCurrency={userProfile.preferredCurrency}
-                invoices={invoices}
-                userProfile={userProfile}
-                onReminderSent={refreshAllUserData}
-              />
-            )}
+              {activeTab === 'reminders' && (
+                <RemindersView
+                  userPreferredCurrency={userProfile.preferredCurrency}
+                  invoices={invoices}
+                  userProfile={userProfile}
+                  onReminderSent={refreshAllUserData}
+                />
+              )}
 
-            {activeTab === 'settings' && (
-              <SettingsView
-                userProfile={userProfile}
-                onUpdateProfile={(updated) => {
-                  setUserProfile(updated);
-                  if (updated.onboardingCompleted) {
+              {activeTab === 'settings' && (
+                <SettingsView
+                  userProfile={userProfile}
+                  onUpdateProfile={(updated) => {
+                    setUserProfile(updated);
+                    if (updated.onboardingCompleted) {
+                      setIsOnboardingMode(false);
+                    }
+                  }}
+                  isOnboardingMode={isOnboardingMode}
+                  onOnboardingComplete={() => {
                     setIsOnboardingMode(false);
-                  }
-                }}
-                isOnboardingMode={isOnboardingMode}
-                onOnboardingComplete={() => {
-                  setIsOnboardingMode(false);
-                  setActiveTab('overview');
-                }}
-              />
-            )}
+                    setActiveTab('overview');
+                  }}
+                />
+              )}
+            </PageTransition>
           </ErrorBoundary>
         </main>
       </div>

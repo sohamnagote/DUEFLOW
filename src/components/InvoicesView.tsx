@@ -3,6 +3,7 @@ import { Invoice, Client, InvoiceStatus, UserProfile } from '../types';
 import { formatCurrency, getCurrencySymbol, SupportedCurrency } from '../utils/currency';
 import { formatDisplayDate } from '../utils/date';
 import { dueflowApi } from '../utils/api';
+import { InvoiceProcessingAnimation } from './animations/InvoiceProcessingAnimation';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -223,19 +224,19 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   };
 
   return (
-    <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] px-6 sm:px-14 py-8">
+    <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa] px-6 sm:px-14 py-8">
       {/* Ambient background bloom */}
       <div className="relative w-full overflow-hidden">
-        <div className="absolute -top-32 right-1/4 w-[480px] h-[480px] bg-[#bfebe6]/40 rounded-full blur-[100px] pointer-events-none opacity-60" />
-        <div className="absolute top-1/2 left-1/3 w-[360px] h-[360px] bg-[#eae8e3]/60 rounded-full blur-[80px] pointer-events-none opacity-40" />
+        <div className="absolute -top-32 right-1/4 w-[480px] h-[480px] bg-[#bfebe6]/40 dark:bg-teal-500/10 rounded-full blur-[100px] pointer-events-none opacity-60 dark:opacity-30" />
+        <div className="absolute top-1/2 left-1/3 w-[360px] h-[360px] bg-[#eae8e3]/60 dark:bg-blue-500/10 rounded-full blur-[80px] pointer-events-none opacity-40 dark:opacity-20" />
 
         {/* Header Section */}
         <section className="relative z-10 flex flex-col sm:flex-row sm:items-end justify-between gap-4 sm:gap-6 pb-6 sm:pb-8">
           <div className="flex flex-col gap-1.5 max-w-xl">
-            <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#15263c] tracking-tight">
+            <h1 className="text-3xl sm:text-[38px] leading-[44px] font-bold text-[#15263c] dark:text-[#f3f6fa] tracking-tight">
               Invoices
             </h1>
-            <p className="text-sm text-[#44474d] font-normal">
+            <p className="text-sm text-[#44474d] dark:text-[#94a3b8] font-normal">
               Create, search, and track invoices in their authentic currencies.
             </p>
           </div>
@@ -245,7 +246,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               className="btn-action-primary group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium shadow-sm cursor-pointer"
               type="button"
             >
-              <span className="material-symbols-outlined text-[18px] text-[#fbf9f4] transition-transform duration-200 group-hover:rotate-90">
+              <span className="material-symbols-outlined text-[18px] text-[#fbf9f4] dark:text-[#001126] transition-transform duration-200 group-hover:rotate-90">
                 add
               </span>
               <span>New invoice</span>
@@ -255,12 +256,12 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
         {/* Feedback notice for PDF errors */}
         {pdfError && (
-          <div className="relative z-10 mb-4 p-3 bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 rounded-xl text-xs text-[#ba1a1a] font-semibold flex items-center justify-between">
+          <div className="relative z-10 mb-4 p-3 bg-[#ba1a1a]/10 dark:bg-red-950/40 border border-[#ba1a1a]/20 dark:border-red-500/20 rounded-xl text-xs text-[#ba1a1a] dark:text-[#f87171] font-semibold flex items-center justify-between">
             <div className="flex items-center gap-2">
               <span className="material-symbols-outlined text-[18px]">error</span>
               <span>{pdfError}</span>
             </div>
-            <button onClick={() => setPdfError(null)} className="text-[#ba1a1a] hover:opacity-75">
+            <button onClick={() => setPdfError(null)} className="text-[#ba1a1a] dark:text-[#f87171] hover:opacity-75 cursor-pointer">
               <span className="material-symbols-outlined text-[16px]">close</span>
             </button>
           </div>
@@ -269,11 +270,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         {/* Content: Empty State vs Invoices List */}
         {safeInvoices.length === 0 ? (
           <section className="relative z-10 w-full min-h-[520px] flex items-center justify-center py-16 px-4">
-            <div className="w-full max-w-2xl bg-[#ffffff]/80 backdrop-blur-md rounded-2xl p-10 sm:p-14 flex flex-col items-center text-center shadow-xs border border-[#15263c]/5">
+            <div className="w-full max-w-2xl bg-[#ffffff]/80 dark:bg-[#141f2e]/90 backdrop-blur-md rounded-2xl p-10 sm:p-14 flex flex-col items-center text-center shadow-xs border border-[#15263c]/5 dark:border-white/10">
               <div className="relative mb-6 flex items-center justify-center">
-                <div className="relative w-24 h-30 rounded-xl bg-[#f5f3ee]/80 flex flex-col items-center justify-center shadow-inner">
+                <div className="relative w-24 h-30 rounded-xl bg-[#f5f3ee]/80 dark:bg-white/10 flex flex-col items-center justify-center shadow-inner">
                   <svg
-                    className="w-14 h-18 text-[#15263c]"
+                    className="w-14 h-18 text-[#15263c] dark:text-[#f3f6fa]"
                     fill="none"
                     viewBox="0 0 64 80"
                     xmlns="http://www.w3.org/2000/svg"
@@ -294,15 +295,15 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                       strokeLinejoin="round"
                       strokeWidth="1.5"
                     />
-                    <circle className="fill-[#3d6562]" cx="43" cy="58" r="2.75" />
+                    <circle className="fill-[#3d6562] dark:fill-[#5eead4]" cx="43" cy="58" r="2.75" />
                   </svg>
                 </div>
               </div>
 
-              <h2 className="text-[26px] leading-[32px] font-bold text-[#15263c] tracking-tight mb-2">
+              <h2 className="text-[26px] leading-[32px] font-bold text-[#15263c] dark:text-[#f3f6fa] tracking-tight mb-2">
                 No invoices yet.
               </h2>
-              <p className="text-sm text-[#44474d] max-w-md mb-8 leading-relaxed">
+              <p className="text-sm text-[#44474d] dark:text-[#94a3b8] max-w-md mb-8 leading-relaxed">
                 Create your first invoice in your preferred currency ({userPreferredCurrency === 'INR' ? 'INR ₹' : 'USD $'}) to start tracking client payments and automated reminders.
               </p>
 
@@ -311,7 +312,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 className="btn-action-primary group inline-flex items-center gap-2.5 px-6 py-3 rounded-xl text-sm font-semibold shadow-md cursor-pointer"
                 type="button"
               >
-                <span className="material-symbols-outlined text-[18px] text-[#fbf9f4]">
+                <span className="material-symbols-outlined text-[18px] text-[#fbf9f4] dark:text-[#001126]">
                   receipt_long
                 </span>
                 <span>Create your first invoice</span>
@@ -321,7 +322,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         ) : (
           <div className="relative z-10 w-full space-y-4">
             {/* Filter and Search Bar Controls */}
-            <div className="bg-[#ffffff]/90 backdrop-blur-md rounded-2xl border border-[#15263c]/10 p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
+            <div className="bg-[#ffffff]/90 dark:bg-[#141f2e]/95 backdrop-blur-md rounded-2xl border border-[#15263c]/10 dark:border-white/10 p-4 shadow-2xs flex flex-col md:flex-row md:items-center justify-between gap-4">
               {/* Filter Tabs */}
               <div className="flex items-center gap-1.5 overflow-x-auto pb-1 md:pb-0">
                 {(
@@ -349,18 +350,18 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                     <button
                       key={tab.id}
                       onClick={() => setFilterStatus(tab.id)}
-                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap ${
+                      className={`inline-flex items-center gap-1.5 px-3 py-1.5 rounded-lg text-xs font-semibold transition-all cursor-pointer whitespace-nowrap active:scale-[0.98] ${
                         isActive
-                          ? 'bg-[#15263c] text-[#ffffff] shadow-xs'
-                          : 'bg-[#f5f3ee] text-[#44474d] hover:bg-[#15263c]/10 hover:text-[#15263c]'
+                          ? 'bg-[#15263c] dark:bg-white text-[#ffffff] dark:text-[#001126] shadow-xs'
+                          : 'bg-[#f5f3ee] dark:bg-[#192638] text-[#44474d] dark:text-[#94a3b8] hover:bg-[#15263c]/10 dark:hover:bg-white/10 hover:text-[#15263c] dark:hover:text-[#f3f6fa]'
                       }`}
                     >
                       <span>{tab.label}</span>
                       <span
                         className={`text-[10px] font-['Space_Mono'] px-1.5 py-0.2 rounded-full ${
                           isActive
-                            ? 'bg-[#ffffff]/20 text-[#ffffff]'
-                            : 'bg-[#15263c]/8 text-[#44474d]'
+                            ? 'bg-[#ffffff]/20 dark:bg-[#001126]/20 text-[#ffffff] dark:text-[#001126]'
+                            : 'bg-[#15263c]/8 dark:bg-white/10 text-[#44474d] dark:text-[#94a3b8]'
                         }`}
                       >
                         {tab.count}
@@ -377,15 +378,15 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   value={searchQuery}
                   onChange={(e) => setSearchQuery(e.target.value)}
                   placeholder="Search invoice #, client, description..."
-                  className="w-full px-3.5 py-2 pl-9 bg-[#fbf9f4] text-xs rounded-xl border border-[#15263c]/15 focus:outline-none focus:border-[#15263c] text-[#15263c] placeholder-[#74777d]"
+                  className="w-full px-3.5 py-2 pl-9 bg-[#fbf9f4] dark:bg-[#0c131d] text-xs rounded-xl border border-[#15263c]/15 dark:border-white/10 focus:outline-none focus:border-[#15263c] dark:focus:border-white/30 text-[#15263c] dark:text-[#f3f6fa] placeholder-[#74777d] dark:placeholder-[#64748b]"
                 />
-                <span className="material-symbols-outlined text-[18px] text-[#74777d] absolute left-2.5 top-2 pointer-events-none">
+                <span className="material-symbols-outlined text-[18px] text-[#74777d] dark:text-[#94a3b8] absolute left-2.5 top-2 pointer-events-none">
                   search
                 </span>
                 {searchQuery && (
                   <button
                     onClick={() => setSearchQuery('')}
-                    className="absolute right-2.5 top-2 text-[#74777d] hover:text-[#15263c]"
+                    className="absolute right-2.5 top-2 text-[#74777d] dark:text-[#94a3b8] hover:text-[#15263c] dark:hover:text-[#f3f6fa] cursor-pointer"
                   >
                     <span className="material-symbols-outlined text-[16px]">close</span>
                   </button>
@@ -395,12 +396,12 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
 
             {/* Invoices List / Table */}
             {filteredInvoices.length === 0 ? (
-              <div className="bg-[#ffffff]/80 rounded-2xl border border-[#15263c]/10 p-12 text-center space-y-3">
-                <span className="material-symbols-outlined text-[32px] text-[#74777d]">
+              <div className="bg-[#ffffff]/80 dark:bg-[#141f2e]/90 rounded-2xl border border-[#15263c]/10 dark:border-white/10 p-12 text-center space-y-3">
+                <span className="material-symbols-outlined text-[32px] text-[#74777d] dark:text-[#94a3b8]">
                   filter_list_off
                 </span>
-                <h3 className="text-base font-bold text-[#15263c]">No matching invoices</h3>
-                <p className="text-xs text-[#44474d] max-w-sm mx-auto">
+                <h3 className="text-base font-bold text-[#15263c] dark:text-[#f3f6fa]">No matching invoices</h3>
+                <p className="text-xs text-[#44474d] dark:text-[#94a3b8] max-w-sm mx-auto">
                   No invoices match your current filter ({filterStatus}) and search query ("{searchQuery}").
                 </p>
                 <button
@@ -414,11 +415,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                 </button>
               </div>
             ) : (
-              <div className="bg-[#ffffff]/95 rounded-2xl border border-[#15263c]/10 overflow-hidden shadow-xs">
+              <div className="bg-[#ffffff]/95 dark:bg-[#141f2e] rounded-2xl border border-[#15263c]/10 dark:border-white/10 overflow-hidden shadow-xs">
                 <div className="overflow-x-auto">
                   <table className="w-full text-left text-sm min-w-[720px]">
                     <thead>
-                      <tr className="border-b border-[#15263c]/10 bg-[#f5f3ee] text-[#44474d] font-['Space_Mono'] text-[10px] uppercase tracking-wider">
+                      <tr className="border-b border-[#15263c]/10 dark:border-white/10 bg-[#f5f3ee] dark:bg-[#0f1724] text-[#44474d] dark:text-[#94a3b8] font-['Space_Mono'] text-[10px] uppercase tracking-wider">
                         <th className="py-3 px-4">Invoice #</th>
                         <th className="py-3 px-4">Client</th>
                         <th className="py-3 px-4">Description</th>
@@ -428,7 +429,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         <th className="py-3 px-4 text-right">Actions</th>
                       </tr>
                     </thead>
-                    <tbody className="divide-y divide-[#15263c]/8">
+                    <tbody className="divide-y divide-[#15263c]/8 dark:divide-white/10">
                       {filteredInvoices.map((inv) => {
                         const isDownloadingThis = downloadingPdfId === inv.id;
                         const isStatusUpdatingThis = isUpdatingStatus === inv.id;
@@ -436,37 +437,37 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                         return (
                           <tr
                             key={inv.id}
-                            className="hover:bg-[#fbf9f4] transition-colors cursor-pointer group"
+                            className="hover:bg-[#fbf9f4] dark:hover:bg-white/5 transition-colors cursor-pointer group"
                             onClick={() => setSelectedInvoiceForDetails(inv)}
                           >
-                            <td className="py-3.5 px-4 font-['Space_Mono'] text-xs font-semibold text-[#15263c]">
+                            <td className="py-3.5 px-4 font-['Space_Mono'] text-xs font-semibold text-[#15263c] dark:text-[#93c5fd]">
                               {inv.invoiceNumber}
                             </td>
-                            <td className="py-3.5 px-4 font-semibold text-[#15263c]">
+                            <td className="py-3.5 px-4 font-semibold text-[#15263c] dark:text-[#f3f6fa]">
                               <div>{inv.clientName}</div>
                               {inv.clientEmail && (
-                                <div className="text-[11px] text-[#74777d] font-normal truncate max-w-[180px]">
+                                <div className="text-[11px] text-[#74777d] dark:text-[#94a3b8] font-normal truncate max-w-[180px]">
                                   {inv.clientEmail}
                                 </div>
                               )}
                             </td>
-                            <td className="py-3.5 px-4 text-[#44474d] text-xs truncate max-w-xs">
+                            <td className="py-3.5 px-4 text-[#44474d] dark:text-[#94a3b8] text-xs truncate max-w-xs">
                               {inv.description}
                             </td>
-                            <td className="py-3.5 px-4 font-['Space_Mono'] text-xs text-[#44474d]">
+                            <td className="py-3.5 px-4 font-['Space_Mono'] text-xs text-[#44474d] dark:text-[#94a3b8]">
                               {formatDisplayDate(inv.dueDate)}
                             </td>
-                            <td className="py-3.5 px-4 text-right font-bold text-[#15263c]">
+                            <td className="py-3.5 px-4 text-right font-bold text-[#15263c] dark:text-[#f3f6fa]">
                               {formatCurrency(inv.amount, inv.currency)}
                             </td>
                             <td className="py-3.5 px-4 text-center">
                               <span
                                 className={`font-['Space_Mono'] text-[9px] uppercase px-2.5 py-0.5 rounded-full font-semibold ${
                                   inv.status === 'paid'
-                                    ? 'bg-[#bfebe6] text-[#00201e]'
+                                    ? 'bg-[#bfebe6] dark:bg-teal-950/60 text-[#00201e] dark:text-[#5eead4]'
                                     : inv.status === 'overdue'
-                                    ? 'bg-[#ffdad6] text-[#ba1a1a]'
-                                    : 'bg-[#15263c]/8 text-[#15263c]'
+                                    ? 'bg-[#ffdad6] dark:bg-red-950/60 text-[#ba1a1a] dark:text-[#f87171]'
+                                    : 'bg-[#15263c]/8 dark:bg-blue-950/60 text-[#15263c] dark:text-[#93c5fd]'
                                 }`}
                               >
                                 {inv.status === 'pending' ? 'Unpaid' : inv.status}
@@ -477,7 +478,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 {/* View button */}
                                 <button
                                   onClick={() => setSelectedInvoiceForDetails(inv)}
-                                  className="px-2.5 py-1 text-xs text-[#15263c] hover:bg-[#15263c]/10 rounded-lg border border-[#15263c]/15 font-medium transition-all active:scale-[0.97] cursor-pointer"
+                                  className="px-2.5 py-1 text-xs text-[#15263c] dark:text-[#f3f6fa] hover:bg-[#15263c]/10 dark:hover:bg-white/10 rounded-lg border border-[#15263c]/15 dark:border-white/10 font-medium transition-all active:scale-[0.97] cursor-pointer"
                                   title="View Invoice Details"
                                 >
                                   View
@@ -487,7 +488,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 <button
                                   onClick={(e) => handleDownloadPdf(inv, e)}
                                   disabled={isDownloadingThis}
-                                  className="p-1 text-[#15263c] hover:bg-[#15263c]/10 rounded-lg border border-[#15263c]/15 transition-all active:scale-[0.97] disabled:opacity-50 cursor-pointer"
+                                  className="p-1 text-[#15263c] dark:text-[#f3f6fa] hover:bg-[#15263c]/10 dark:hover:bg-white/10 rounded-lg border border-[#15263c]/15 dark:border-white/10 transition-all active:scale-[0.97] disabled:opacity-50 cursor-pointer"
                                   title="Download PDF"
                                 >
                                   <span className="material-symbols-outlined text-[16px] block">
@@ -500,7 +501,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                   <button
                                     onClick={(e) => handleStatusChangeClick(inv, 'paid', e)}
                                     disabled={isStatusUpdatingThis}
-                                    className="px-2.5 py-1 bg-[#3d6562]/10 text-[#3d6562] hover:bg-[#3d6562]/20 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.97] cursor-pointer"
+                                    className="px-2.5 py-1 bg-[#3d6562]/10 dark:bg-teal-950/50 text-[#3d6562] dark:text-[#5eead4] hover:bg-[#3d6562]/20 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.97] cursor-pointer"
                                     title="Mark invoice as paid"
                                   >
                                     Mark paid
@@ -509,7 +510,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                   <button
                                     onClick={(e) => handleStatusChangeClick(inv, 'pending', e)}
                                     disabled={isStatusUpdatingThis}
-                                    className="px-2.5 py-1 bg-[#001126]/8 text-[#001126] hover:bg-[#001126]/15 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.97] cursor-pointer"
+                                    className="px-2.5 py-1 bg-[#001126]/8 dark:bg-white/10 text-[#001126] dark:text-[#93c5fd] hover:bg-[#001126]/15 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.97] cursor-pointer"
                                     title="Reopen invoice as unpaid"
                                   >
                                     Reopen
@@ -519,7 +520,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 {/* Delete invoice button */}
                                 <button
                                   onClick={() => setInvoiceToDelete(inv)}
-                                  className="text-[#74777d] hover:text-[#ba1a1a] hover:bg-[#ba1a1a]/10 p-1 rounded-lg transition-all active:scale-[0.95] cursor-pointer"
+                                  className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#ba1a1a] dark:hover:text-[#f87171] hover:bg-[#ba1a1a]/10 p-1 rounded-lg transition-all active:scale-[0.95] cursor-pointer"
                                   title="Delete invoice"
                                 >
                                   <span className="material-symbols-outlined text-[16px]">delete</span>
@@ -541,30 +542,30 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       {/* Confirmation Modal: Delete Invoice */}
       {invoiceToDelete && (
         <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => !isDeleting && setInvoiceToDelete(null)}
         >
           <div
-            className="bg-[#ffffff] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#15263c]/15"
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#15263c]/15 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 text-[#ba1a1a]">
-              <div className="p-2.5 rounded-full bg-[#ba1a1a]/10">
+            <div className="flex items-center gap-3 text-[#ba1a1a] dark:text-[#f87171]">
+              <div className="p-2.5 rounded-full bg-[#ba1a1a]/10 dark:bg-red-950/50">
                 <span className="material-symbols-outlined text-[24px]">warning</span>
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#15263c]">Delete Invoice</h3>
-                <p className="text-xs text-[#74777d]">This action cannot be undone.</p>
+                <h3 className="text-base font-bold text-[#15263c] dark:text-[#f3f6fa]">Delete Invoice</h3>
+                <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">This action cannot be undone.</p>
               </div>
             </div>
 
-            <p className="text-xs text-[#44474d] leading-relaxed">
+            <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
               Are you sure you want to permanently delete invoice{' '}
-              <strong className="text-[#15263c]">{invoiceToDelete.invoiceNumber}</strong> for{' '}
-              <strong className="text-[#15263c]">{invoiceToDelete.clientName}</strong> ({formatCurrency(invoiceToDelete.amount, invoiceToDelete.currency)})?
+              <strong className="text-[#15263c] dark:text-[#f3f6fa]">{invoiceToDelete.invoiceNumber}</strong> for{' '}
+              <strong className="text-[#15263c] dark:text-[#f3f6fa]">{invoiceToDelete.clientName}</strong> ({formatCurrency(invoiceToDelete.amount, invoiceToDelete.currency)})?
             </p>
 
-            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#15263c]/10">
+            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#15263c]/10 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setInvoiceToDelete(null)}
@@ -589,30 +590,30 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       {/* Confirmation Modal: Status Reversal (Paid -> Pending) */}
       {statusReversalInvoice && (
         <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4"
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
           onClick={() => statusReversalInvoice && setStatusReversalInvoice(null)}
         >
           <div
-            className="bg-[#ffffff] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#15263c]/15"
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#15263c]/15 dark:border-white/10"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center gap-3 text-[#15263c]">
-              <div className="p-2.5 rounded-full bg-[#15263c]/10">
+            <div className="flex items-center gap-3 text-[#15263c] dark:text-[#60a5fa]">
+              <div className="p-2.5 rounded-full bg-[#15263c]/10 dark:bg-blue-950/50">
                 <span className="material-symbols-outlined text-[24px]">history</span>
               </div>
               <div>
-                <h3 className="text-base font-bold text-[#15263c]">Reopen Invoice</h3>
-                <p className="text-xs text-[#74777d]">Reverse payment confirmation</p>
+                <h3 className="text-base font-bold text-[#15263c] dark:text-[#f3f6fa]">Reopen Invoice</h3>
+                <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">Reverse payment confirmation</p>
               </div>
             </div>
 
-            <p className="text-xs text-[#44474d] leading-relaxed">
+            <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
               Do you want to change invoice{' '}
-              <strong className="text-[#15263c]">{statusReversalInvoice.invoiceNumber}</strong> back to{' '}
-              <span className="font-semibold text-[#ba1a1a]">Unpaid</span>? This will make it eligible for reminder scheduling again.
+              <strong className="text-[#15263c] dark:text-[#f3f6fa]">{statusReversalInvoice.invoiceNumber}</strong> back to{' '}
+              <span className="font-semibold text-[#ba1a1a] dark:text-[#f87171]">Unpaid</span>? This will make it eligible for reminder scheduling again.
             </p>
 
-            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#15263c]/10">
+            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#15263c]/10 dark:border-white/10">
               <button
                 type="button"
                 onClick={() => setStatusReversalInvoice(null)}
@@ -635,168 +636,174 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       {/* New Invoice Modal */}
       {isModalOpen && (
         <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4"
-          onClick={() => setIsModalOpen(false)}
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => !isSubmitting && setIsModalOpen(false)}
         >
           <div
-            className="bg-[#ffffff] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#15263c]/15 max-h-[90vh] overflow-y-auto"
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-lg w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#15263c]/15 dark:border-white/10 max-h-[90vh] overflow-y-auto"
             onClick={(e) => e.stopPropagation()}
           >
-            <div className="flex items-center justify-between pb-3 border-b border-[#15263c]/10">
-              <h3 className="text-xl font-bold text-[#15263c]">New Invoice</h3>
-              <button
-                onClick={() => setIsModalOpen(false)}
-                className="text-[#74777d] hover:text-[#001126] cursor-pointer"
-                aria-label="Close"
-              >
-                <span className="material-symbols-outlined text-[20px]">close</span>
-              </button>
+            <div className="flex items-center justify-between pb-3 border-b border-[#15263c]/10 dark:border-white/10">
+              <h3 className="text-xl font-bold text-[#15263c] dark:text-[#f3f6fa]">New Invoice</h3>
+              {!isSubmitting && (
+                <button
+                  onClick={() => setIsModalOpen(false)}
+                  className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] cursor-pointer"
+                  aria-label="Close"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              )}
             </div>
 
-            <form onSubmit={handleSubmit} className="space-y-4">
-              {formError && (
-                <div className="p-3 rounded-xl bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 text-[#ba1a1a] text-xs font-medium flex items-center gap-2">
-                  <span className="material-symbols-outlined text-[18px]">error</span>
-                  <span>{formError}</span>
-                </div>
-              )}
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                  Client Name *
-                </label>
-                <input
-                  type="text"
-                  list="client-suggestions"
-                  value={clientName}
-                  onChange={(e) => {
-                    const val = e.target.value;
-                    setClientName(val);
-                    const matched = safeClients.find((c) => c && c.name && c.name.toLowerCase() === val.trim().toLowerCase());
-                    if (matched && matched.email) {
-                      setClientEmail(matched.email);
-                    }
-                  }}
-                  placeholder="e.g. Acme Corp"
-                  className="w-full px-3 py-2 bg-[#fbf9f4] text-sm rounded-lg border border-[#15263c]/15 focus:outline-none focus:border-[#15263c]"
-                  required
-                />
-                <datalist id="client-suggestions">
-                  {safeClients.filter((c) => c && c.name).map((c) => (
-                    <option key={c.id} value={c.name}>{c.email}</option>
-                  ))}
-                </datalist>
-              </div>
-
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                  Client Email
-                </label>
-                <input
-                  type="email"
-                  value={clientEmail}
-                  onChange={(e) => setClientEmail(e.target.value)}
-                  placeholder="e.g. billing@acme.com"
-                  className="w-full px-3 py-2 bg-[#fbf9f4] text-sm rounded-lg border border-[#15263c]/15 focus:outline-none focus:border-[#15263c]"
+            {/* If actively processing invoice creation, show the signature animated visual */}
+            {isSubmitting ? (
+              <div className="py-8 flex flex-col items-center justify-center">
+                <InvoiceProcessingAnimation
+                  invoiceNumber={invoiceNumber || 'INV-DRAFT'}
+                  clientName={clientName}
+                  amount={amount ? `${getCurrencySymbol(currency)} ${amount}` : undefined}
                 />
               </div>
-
-              {/* Currency & Amount Grid */}
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                    Currency *
-                  </label>
-                  <select
-                    value={currency}
-                    onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
-                    className="w-full px-3 py-2 bg-[#fbf9f4] text-sm font-semibold text-[#001126] rounded-lg border border-[#15263c]/15 focus:outline-none focus:border-[#15263c] cursor-pointer"
-                  >
-                    <option value="INR">Indian Rupee (INR ₹)</option>
-                    <option value="USD">US Dollar (USD $)</option>
-                  </select>
-                </div>
+            ) : (
+              <form onSubmit={handleSubmit} className="space-y-4">
+                {formError && (
+                  <div className="p-3 rounded-xl bg-[#ba1a1a]/10 dark:bg-red-950/40 border border-[#ba1a1a]/20 dark:border-red-500/20 text-[#ba1a1a] dark:text-[#f87171] text-xs font-medium flex items-center gap-2">
+                    <span className="material-symbols-outlined text-[18px]">error</span>
+                    <span>{formError}</span>
+                  </div>
+                )}
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                    Amount ({getCurrencySymbol(currency)}) *
-                  </label>
-                  <input
-                    type="number"
-                    step="any"
-                    value={amount}
-                    onChange={(e) => setAmount(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#fbf9f4] text-sm font-semibold rounded-lg border border-[#15263c]/15 focus:outline-none focus:border-[#15263c]"
-                    required
-                  />
-                </div>
-              </div>
-
-              <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                    Invoice # <span className="text-[10px] text-[#74777d] lowercase font-normal">(optional - auto-generated if blank)</span>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    Client Name *
                   </label>
                   <input
                     type="text"
-                    value={invoiceNumber}
-                    onChange={(e) => setInvoiceNumber(e.target.value)}
-                    placeholder="Auto-generated (e.g. INV-2026-001)"
-                    className="w-full px-3 py-2 bg-[#fbf9f4] text-sm rounded-lg border border-[#15263c]/15"
+                    list="client-suggestions"
+                    value={clientName}
+                    onChange={(e) => {
+                      const val = e.target.value;
+                      setClientName(val);
+                      const matched = safeClients.find((c) => c && c.name && c.name.toLowerCase() === val.trim().toLowerCase());
+                      if (matched && matched.email) {
+                        setClientEmail(matched.email);
+                      }
+                    }}
+                    placeholder="e.g. Acme Corp"
+                    className="w-full px-3 py-2 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#15263c] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#15263c]/15 dark:border-white/10 focus:outline-none focus:border-[#15263c] dark:focus:border-white/30"
+                    required
                   />
+                  <datalist id="client-suggestions">
+                    {safeClients.filter((c) => c && c.name).map((c) => (
+                      <option key={c.id} value={c.name}>{c.email}</option>
+                    ))}
+                  </datalist>
                 </div>
 
                 <div>
-                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                    Due Date
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    Client Email
                   </label>
                   <input
-                    type="date"
-                    value={dueDate}
-                    onChange={(e) => setDueDate(e.target.value)}
-                    className="w-full px-3 py-2 bg-[#fbf9f4] text-sm rounded-lg border border-[#15263c]/15"
-                    required
+                    type="email"
+                    value={clientEmail}
+                    onChange={(e) => setClientEmail(e.target.value)}
+                    placeholder="e.g. billing@acme.com"
+                    className="w-full px-3 py-2 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#15263c] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#15263c]/15 dark:border-white/10 focus:outline-none focus:border-[#15263c] dark:focus:border-white/30"
                   />
                 </div>
-              </div>
 
-              <div>
-                <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] mb-1">
-                  Description
-                </label>
-                <textarea
-                  value={description}
-                  onChange={(e) => setDescription(e.target.value)}
-                  rows={2}
-                  className="w-full p-2.5 bg-[#fbf9f4] text-sm rounded-lg border border-[#15263c]/15 resize-y"
-                />
-              </div>
+                {/* Currency & Amount Grid */}
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                      Currency *
+                    </label>
+                    <select
+                      value={currency}
+                      onChange={(e) => setCurrency(e.target.value as SupportedCurrency)}
+                      className="w-full px-3 py-2 bg-[#fbf9f4] dark:bg-[#0c131d] text-sm font-semibold text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-[#15263c]/15 dark:border-white/10 focus:outline-none focus:border-[#15263c] cursor-pointer"
+                    >
+                      <option value="INR">Indian Rupee (INR ₹)</option>
+                      <option value="USD">US Dollar (USD $)</option>
+                    </select>
+                  </div>
 
-              <div className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 border-t border-[#15263c]/10">
-                <button
-                  type="button"
-                  onClick={() => setIsModalOpen(false)}
-                  disabled={isSubmitting}
-                  className="btn-action-secondary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer"
-                >
-                  Cancel
-                </button>
-                <button
-                  type="submit"
-                  disabled={isSubmitting}
-                  className="btn-action-primary w-full sm:w-auto px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer"
-                >
-                  {isSubmitting ? (
-                    <>
-                      <span className="animate-spin inline-block w-3.5 h-3.5 border-2 border-current border-t-transparent rounded-full" />
-                      <span>Creating invoice...</span>
-                    </>
-                  ) : (
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                      Amount ({getCurrencySymbol(currency)}) *
+                    </label>
+                    <input
+                      type="number"
+                      step="any"
+                      value={amount}
+                      onChange={(e) => setAmount(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#15263c] dark:text-[#f3f6fa] text-sm font-semibold rounded-lg border border-[#15263c]/15 dark:border-white/10 focus:outline-none focus:border-[#15263c] dark:focus:border-white/30"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                      Invoice # <span className="text-[10px] text-[#74777d] dark:text-[#94a3b8] lowercase font-normal">(optional - auto-generated if blank)</span>
+                    </label>
+                    <input
+                      type="text"
+                      value={invoiceNumber}
+                      onChange={(e) => setInvoiceNumber(e.target.value)}
+                      placeholder="Auto-generated (e.g. INV-2026-001)"
+                      className="w-full px-3 py-2 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#15263c] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#15263c]/15 dark:border-white/10"
+                    />
+                  </div>
+
+                  <div>
+                    <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                      Due Date
+                    </label>
+                    <input
+                      type="date"
+                      value={dueDate}
+                      onChange={(e) => setDueDate(e.target.value)}
+                      className="w-full px-3 py-2 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#15263c] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#15263c]/15 dark:border-white/10"
+                      required
+                    />
+                  </div>
+                </div>
+
+                <div>
+                  <label className="block text-xs font-semibold uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
+                    Description
+                  </label>
+                  <textarea
+                    value={description}
+                    onChange={(e) => setDescription(e.target.value)}
+                    rows={2}
+                    className="w-full p-2.5 bg-[#fbf9f4] dark:bg-[#0c131d] text-[#15263c] dark:text-[#f3f6fa] text-sm rounded-lg border border-[#15263c]/15 dark:border-white/10 resize-y"
+                  />
+                </div>
+
+                <div className="pt-3 flex flex-col-reverse sm:flex-row sm:justify-end gap-2.5 sm:gap-3 border-t border-[#15263c]/10 dark:border-white/10">
+                  <button
+                    type="button"
+                    onClick={() => setIsModalOpen(false)}
+                    disabled={isSubmitting}
+                    className="btn-action-secondary w-full sm:w-auto px-4 py-2.5 text-xs font-semibold rounded-lg disabled:opacity-50 cursor-pointer"
+                  >
+                    Cancel
+                  </button>
+                  <button
+                    type="submit"
+                    disabled={isSubmitting}
+                    className="btn-action-primary w-full sm:w-auto px-5 py-2.5 text-xs font-semibold rounded-lg shadow-sm disabled:opacity-50 inline-flex items-center justify-center gap-2 cursor-pointer"
+                  >
                     <span>Create Invoice</span>
-                  )}
-                </button>
-              </div>
-            </form>
+                  </button>
+                </div>
+              </form>
+            )}
           </div>
         </div>
       )}

@@ -1,6 +1,7 @@
 import React, { useEffect, useRef, useState } from 'react';
 import { AmbientShaderCanvas } from './AmbientShaderCanvas';
 import { UserProfile } from '../types';
+import { ThemeToggle } from './ThemeToggle';
 
 interface LandingViewProps {
   onSignInClick: () => void;
@@ -246,20 +247,20 @@ export const LandingView: React.FC<LandingViewProps> = ({
                   className="absolute right-0 top-full pt-2 z-50 animate-in fade-in slide-in-from-top-1 duration-200"
                   role="menu"
                 >
-                  <div className="w-60 bg-white/95 backdrop-blur-md rounded-2xl shadow-xl border border-[#001126]/10 p-3">
+                  <div className="w-60 bg-white/95 dark:bg-[#141f2e]/95 backdrop-blur-md rounded-2xl shadow-xl border border-[#001126]/10 dark:border-white/10 p-3">
                     {userProfile && userProfile.email ? (
                       <>
                         {/* Signed-in User State */}
-                        <div className="p-3 bg-[#fbf9f4] rounded-xl border border-[#001126]/5 mb-2">
+                        <div className="p-3 bg-[#fbf9f4] dark:bg-[#101926] rounded-xl border border-[#001126]/5 dark:border-white/10 mb-2">
                           <div className="flex items-center gap-2.5">
-                            <div className="w-8 h-8 rounded-full bg-[#001126] text-[#ffffff] flex items-center justify-center font-bold text-xs shrink-0">
+                            <div className="w-8 h-8 rounded-full bg-[#001126] dark:bg-[#38bdf8] text-[#ffffff] dark:text-[#001126] flex items-center justify-center font-bold text-xs shrink-0">
                               {userProfile.fullName ? userProfile.fullName.charAt(0).toUpperCase() : 'U'}
                             </div>
                             <div className="min-w-0">
-                              <p className="text-sm font-bold text-[#001126] truncate">
+                              <p className="text-sm font-bold text-[#001126] dark:text-[#f3f6fa] truncate">
                                 {userProfile.fullName || 'User'}
                               </p>
-                              <p className="font-['Space_Mono'] text-[10px] text-[#74777d] truncate">
+                              <p className="font-['Space_Mono'] text-[10px] text-[#74777d] dark:text-[#94a3b8] truncate">
                                 {userProfile.email}
                               </p>
                             </div>
@@ -272,24 +273,25 @@ export const LandingView: React.FC<LandingViewProps> = ({
                                 setIsProfileOpen(false);
                                 onOpenSettings();
                               }}
-                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer"
+                              className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#f5f3ee] dark:hover:bg-[#192638] rounded-lg transition-colors text-left cursor-pointer"
                               role="menuitem"
                             >
-                              <span className="material-symbols-outlined text-[18px] text-[#44474d]">tune</span>
+                              <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">tune</span>
                               <span>Settings</span>
                             </button>
                           )}
-                          <div className="border-t border-[#001126]/10 my-1" />
+                          <ThemeToggle variant="dropdown-row" />
+                          <div className="border-t border-[#001126]/10 dark:border-white/10 my-1" />
                           <button
                             onClick={() => {
                               setIsProfileOpen(false);
                               if (onSignOut) onSignOut();
                               else onSignInClick();
                             }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#ba1a1a] hover:bg-[#ffdad6]/40 rounded-lg transition-colors text-left cursor-pointer"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#ba1a1a] dark:text-[#ffb4ab] hover:bg-[#ffdad6]/40 dark:hover:bg-[#ba1a1a]/20 rounded-lg transition-colors text-left cursor-pointer"
                             role="menuitem"
                           >
-                            <span className="material-symbols-outlined text-[18px] text-[#ba1a1a]">logout</span>
+                            <span className="material-symbols-outlined text-[18px] text-[#ba1a1a] dark:text-[#ffb4ab]">logout</span>
                             <span>Sign out</span>
                           </button>
                         </div>
@@ -297,19 +299,20 @@ export const LandingView: React.FC<LandingViewProps> = ({
                     ) : (
                       <>
                         {/* Signed-out Visitor State */}
-                        <div className="px-3 py-2 text-xs text-[#74777d] font-medium border-b border-[#001126]/8 mb-1.5">
+                        <div className="px-3 py-2 text-xs text-[#74777d] dark:text-[#94a3b8] font-medium border-b border-[#001126]/8 dark:border-white/10 mb-1.5">
                           Welcome to DueFlow
                         </div>
                         <div className="space-y-1">
+                          <ThemeToggle variant="dropdown-row" />
                           <button
                             onClick={() => {
                               setIsProfileOpen(false);
                               onSignInClick();
                             }}
-                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#001126] hover:bg-[#f5f3ee] rounded-lg transition-colors text-left cursor-pointer"
+                            className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] hover:bg-[#f5f3ee] dark:hover:bg-[#192638] rounded-lg transition-colors text-left cursor-pointer"
                             role="menuitem"
                           >
-                            <span className="material-symbols-outlined text-[18px] text-[#44474d]">login</span>
+                            <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">login</span>
                             <span>Sign In</span>
                           </button>
                           <button

@@ -111,32 +111,32 @@ export const DueflowChatbot: React.FC<DueflowChatbotProps> = ({
   };
 
   return (
-    <div className="fixed inset-0 z-50 bg-[#001126]/40 backdrop-blur-xs flex justify-end">
-      <div className="w-full max-w-md bg-[#fbf9f4] h-full flex flex-col shadow-2xl border-l border-[#001126]/10 animate-fade-in font-['Hanken_Grotesk']">
+    <div className="fixed inset-0 z-50 bg-[#001126]/40 dark:bg-black/60 backdrop-blur-xs flex justify-end">
+      <div className="w-full max-w-md bg-[#fbf9f4] dark:bg-[#0c131d] h-full flex flex-col shadow-2xl border-l border-[#001126]/10 dark:border-white/10 animate-fade-in font-['Hanken_Grotesk']">
         {/* Header */}
-        <div className="p-4 bg-[#f5f3ee] border-b border-[#001126]/10 flex items-center justify-between">
+        <div className="p-4 bg-[#f5f3ee] dark:bg-[#141f2e] border-b border-[#001126]/10 dark:border-white/10 flex items-center justify-between">
           <div className="flex items-center gap-2">
-            <span className="w-2 h-2 rounded-full bg-[#3d6562] animate-pulse" />
-            <h3 className="font-bold text-[#001126] text-sm">DueFlow AI Assistant</h3>
+            <span className="w-2 h-2 rounded-full bg-[#3d6562] dark:bg-[#68b5ad] animate-pulse" />
+            <h3 className="font-bold text-[#001126] dark:text-[#f3f6fa] text-sm">DueFlow AI Assistant</h3>
           </div>
-          <button onClick={onClose} className="p-1 text-[#44474d] hover:text-[#001126]">
+          <button onClick={onClose} className="p-1 text-[#44474d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] cursor-pointer">
             <span className="material-symbols-outlined text-[20px]">close</span>
           </button>
         </div>
 
         {/* Role Selector Tabs (gemini-3.1-pro-preview, gemini-3.5-flash, gemini-3.1-flash-lite) */}
-        <div className="p-3 bg-[#ffffff] border-b border-[#001126]/5">
-          <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#f0eee9] rounded-lg">
+        <div className="p-3 bg-[#ffffff] dark:bg-[#141f2e] border-b border-[#001126]/5 dark:border-white/10">
+          <div className="grid grid-cols-3 gap-1.5 p-1 bg-[#f0eee9] dark:bg-[#0c131d] rounded-lg">
             {(['complex', 'general', 'fast'] as const).map((r) => {
               const active = role === r;
               return (
                 <button
                   key={r}
                   onClick={() => setRole(r)}
-                  className={`py-1.5 px-2 text-center rounded-md transition-all text-xs ${
+                  className={`py-1.5 px-2 text-center rounded-md transition-all text-xs cursor-pointer ${
                     active
-                      ? 'bg-[#15263c] text-[#fbf9f4] font-semibold shadow-xs'
-                      : 'text-[#44474d] hover:text-[#001126]'
+                      ? 'bg-[#15263c] dark:bg-[#38bdf8] text-[#fbf9f4] dark:text-[#0c131d] font-semibold shadow-xs'
+                      : 'text-[#44474d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa]'
                   }`}
                 >
                   <div className="font-semibold leading-tight">{roleDetails[r].title}</div>
@@ -153,10 +153,10 @@ export const DueflowChatbot: React.FC<DueflowChatbotProps> = ({
             const isUser = m.role === 'user';
             return (
               <div key={m.id} className={`flex flex-col ${isUser ? 'items-end' : 'items-start'}`}>
-                <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-[#44474d]">
+                <div className="flex items-center gap-1.5 mb-1 px-1 text-[10px] text-[#44474d] dark:text-[#94a3b8]">
                   <span>{isUser ? 'You' : 'DueFlow AI'}</span>
                   {!isUser && m.modelUsed && (
-                    <span className="font-['Space_Mono'] text-[8px] px-1 py-0.2 rounded bg-[#001126]/8">
+                    <span className="font-['Space_Mono'] text-[8px] px-1 py-0.2 rounded bg-[#001126]/8 dark:bg-white/10">
                       {m.modelUsed}
                     </span>
                   )}
@@ -165,8 +165,8 @@ export const DueflowChatbot: React.FC<DueflowChatbotProps> = ({
                 <div
                   className={`p-3.5 rounded-2xl text-xs leading-relaxed max-w-[88%] whitespace-pre-wrap ${
                     isUser
-                      ? 'bg-[#15263c] text-[#fbf9f4] rounded-tr-none'
-                      : 'bg-[#ffffff] text-[#1b1c19] border border-[#001126]/10 rounded-tl-none shadow-2xs'
+                      ? 'bg-[#15263c] dark:bg-[#38bdf8] text-[#fbf9f4] dark:text-[#0c131d] rounded-tr-none font-medium'
+                      : 'bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] border border-[#001126]/10 dark:border-white/10 rounded-tl-none shadow-2xs'
                   }`}
                 >
                   {m.content}
@@ -175,10 +175,10 @@ export const DueflowChatbot: React.FC<DueflowChatbotProps> = ({
             );
           })}
           {isLoading && (
-            <div className="flex items-center gap-2 p-2 text-xs text-[#44474d]">
-              <div className="w-2 h-2 rounded-full bg-[#15263c] animate-bounce" />
-              <div className="w-2 h-2 rounded-full bg-[#15263c] animate-bounce delay-100" />
-              <div className="w-2 h-2 rounded-full bg-[#15263c] animate-bounce delay-200" />
+            <div className="flex items-center gap-2 p-2 text-xs text-[#44474d] dark:text-[#94a3b8]">
+              <div className="w-2 h-2 rounded-full bg-[#15263c] dark:bg-[#38bdf8] animate-bounce" />
+              <div className="w-2 h-2 rounded-full bg-[#15263c] dark:bg-[#38bdf8] animate-bounce delay-100" />
+              <div className="w-2 h-2 rounded-full bg-[#15263c] dark:bg-[#38bdf8] animate-bounce delay-200" />
               <span className="font-['Space_Mono'] text-[10px]">Consulting {roleDetails[role].model}...</span>
             </div>
           )}
@@ -186,23 +186,23 @@ export const DueflowChatbot: React.FC<DueflowChatbotProps> = ({
         </div>
 
         {/* Quick Suggestion Chips */}
-        <div className="p-2 border-t border-[#001126]/5 bg-[#ffffff] flex items-center gap-1.5 overflow-x-auto text-[11px]">
+        <div className="p-2 border-t border-[#001126]/5 dark:border-white/10 bg-[#ffffff] dark:bg-[#141f2e] flex items-center gap-1.5 overflow-x-auto text-[11px]">
           <button
             onClick={() => setInput('Draft a 3-step gentle reminder drip sequence for overdue clients.')}
-            className="px-2.5 py-1 bg-[#f5f3ee] hover:bg-[#eae8e3] rounded text-[#001126] whitespace-nowrap"
+            className="px-2.5 py-1 bg-[#f5f3ee] dark:bg-[#192638] hover:bg-[#eae8e3] dark:hover:bg-[#203046] rounded text-[#001126] dark:text-[#f3f6fa] whitespace-nowrap cursor-pointer"
           >
             Drip sequence
           </button>
           <button
             onClick={() => setInput('Write 5 subject lines with high open rates for invoice follow-ups.')}
-            className="px-2.5 py-1 bg-[#f5f3ee] hover:bg-[#eae8e3] rounded text-[#001126] whitespace-nowrap"
+            className="px-2.5 py-1 bg-[#f5f3ee] dark:bg-[#192638] hover:bg-[#eae8e3] dark:hover:bg-[#203046] rounded text-[#001126] dark:text-[#f3f6fa] whitespace-nowrap cursor-pointer"
           >
             Subject lines
           </button>
           {onOpenVisualGenerator && (
             <button
               onClick={onOpenVisualGenerator}
-              className="px-2.5 py-1 bg-[#bfebe6]/60 hover:bg-[#bfebe6] rounded text-[#00201e] whitespace-nowrap font-medium flex items-center gap-1"
+              className="px-2.5 py-1 bg-[#bfebe6]/60 dark:bg-[#3d6562]/40 hover:bg-[#bfebe6] rounded text-[#00201e] dark:text-[#9ec9c4] whitespace-nowrap font-medium flex items-center gap-1 cursor-pointer"
             >
               <span className="material-symbols-outlined text-[13px]">image</span>
               <span>Visual Studio (1K/2K/4K)</span>
@@ -211,19 +211,19 @@ export const DueflowChatbot: React.FC<DueflowChatbotProps> = ({
         </div>
 
         {/* Input Form */}
-        <form onSubmit={handleSend} className="p-3 bg-[#f5f3ee] border-t border-[#001126]/10 flex items-center gap-2">
+        <form onSubmit={handleSend} className="p-3 bg-[#f5f3ee] dark:bg-[#101926] border-t border-[#001126]/10 dark:border-white/10 flex items-center gap-2">
           <input
             type="text"
             value={input}
             onChange={(e) => setInput(e.target.value)}
             placeholder={`Ask ${roleDetails[role].title}...`}
-            className="flex-1 px-3 py-2 bg-[#ffffff] text-xs rounded border border-[#001126]/10 outline-none"
+            className="flex-1 px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/10 dark:border-white/15 outline-none focus:border-[#001126] dark:focus:border-[#38bdf8]"
             disabled={isLoading}
           />
           <button
             type="submit"
             disabled={isLoading || !input.trim()}
-            className="px-3 py-2 bg-[#15263c] text-[#fbf9f4] text-xs font-semibold rounded hover:bg-[#001126] disabled:opacity-50"
+            className="btn-action-primary px-3 py-2 text-xs font-semibold rounded disabled:opacity-50 cursor-pointer"
           >
             Send
           </button>

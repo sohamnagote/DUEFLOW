@@ -1,5 +1,57 @@
 @import "tailwindcss";
 
+@custom-variant dark (&:where([data-theme="dark"], [data-theme="dark"] *, .dark, .dark *));
+
+:root {
+  --bg-app: #fbf9f4;
+  --bg-sidebar: #fbf9f4;
+  --bg-card: #ffffff;
+  --bg-card-elevated: #ffffff;
+  --bg-card-subtle: #f5f3ee;
+  --bg-surface-hover: #f0eee9;
+  --text-primary: #15263c;
+  --text-secondary: #44474d;
+  --text-muted: #74777d;
+  --border-subtle: rgba(21, 38, 60, 0.08);
+  --border-strong: rgba(21, 38, 60, 0.16);
+  --btn-primary-bg: #071426;
+  --btn-primary-text: #ffffff;
+  --btn-primary-hover: #15263c;
+  --btn-secondary-bg: #ffffff;
+  --btn-secondary-text: #1b1c19;
+  --btn-secondary-border: rgba(7, 20, 38, 0.14);
+  --btn-secondary-hover: #f8f7f4;
+  --accent-teal: #3d6562;
+  --accent-teal-subtle: #bfebe6;
+  --accent-red: #ba1a1a;
+  --accent-red-subtle: #ffdad6;
+}
+
+.dark, [data-theme="dark"] {
+  --bg-app: #0c131d;
+  --bg-sidebar: #0f1724;
+  --bg-card: #141f2e;
+  --bg-card-elevated: #192638;
+  --bg-card-subtle: #182435;
+  --bg-surface-hover: #22334a;
+  --text-primary: #f3f6fa;
+  --text-secondary: #94a3b8;
+  --text-muted: #64748b;
+  --border-subtle: rgba(255, 255, 255, 0.09);
+  --border-strong: rgba(255, 255, 255, 0.18);
+  --btn-primary-bg: #f3f6fa;
+  --btn-primary-text: #0c131d;
+  --btn-primary-hover: #e2e8f0;
+  --btn-secondary-bg: #192638;
+  --btn-secondary-text: #f3f6fa;
+  --btn-secondary-border: rgba(255, 255, 255, 0.14);
+  --btn-secondary-hover: #22334a;
+  --accent-teal: #68b5ad;
+  --accent-teal-subtle: rgba(104, 181, 173, 0.18);
+  --accent-red: #ff897d;
+  --accent-red-subtle: rgba(255, 137, 125, 0.18);
+}
+
 @layer base {
   *, *::before, *::after {
     box-sizing: border-box;
@@ -11,11 +63,12 @@
     width: 100%;
     min-height: 100%;
     overflow-x: hidden;
-    background-color: #fbf9f4;
-    color: #1b1c19;
+    background-color: var(--bg-app);
+    color: var(--text-primary);
     font-family: 'Hanken Grotesk', -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
     -webkit-font-smoothing: antialiased;
     -moz-osx-font-smoothing: grayscale;
+    transition: background-color 200ms ease, color 200ms ease;
   }
 
   button, input, textarea, select {
@@ -60,128 +113,124 @@
   border-radius: 9999px;
 }
 
+.dark ::-webkit-scrollbar-thumb {
+  background: rgba(255, 255, 255, 0.16);
+}
+
 ::-webkit-scrollbar-thumb:hover {
   background: rgba(21, 38, 60, 0.32);
 }
 
-/* Tactile Button Interaction Utilities (Premium, subtle, no neon glow) */
-.btn-primary-pop {
-  background-color: #071426;
-  color: #ffffff;
-  box-shadow: 0 2px 8px -1px rgba(7, 20, 38, 0.22);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease;
-  will-change: transform, box-shadow;
+.dark ::-webkit-scrollbar-thumb:hover {
+  background: rgba(255, 255, 255, 0.32);
 }
 
-.btn-primary-pop:hover {
-  transform: translateY(-2px) scale(1.03);
-  box-shadow: 0 8px 22px -3px rgba(7, 20, 38, 0.32);
-  background-color: #0e1e36;
-}
+/* ==========================================================================
+   BUTTON INTERACTION SYSTEM (Subtle, tactile, responsive micro-interactions)
+   ========================================================================== */
 
-.btn-primary-pop:active {
-  transform: translateY(0px) scale(0.98);
-  box-shadow: 0 2px 6px -1px rgba(7, 20, 38, 0.2);
-}
-
-.btn-secondary-pop {
-  background-color: rgba(255, 255, 255, 0.55);
-  color: #071426;
-  border: 1px solid rgba(7, 20, 38, 0.18);
-  backdrop-filter: blur(8px);
-  -webkit-backdrop-filter: blur(8px);
-  box-shadow: 0 2px 6px -1px rgba(7, 20, 38, 0.08);
-  transition: transform 220ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 220ms cubic-bezier(0.16, 1, 0.3, 1), background-color 200ms ease, border-color 200ms ease;
-  will-change: transform, box-shadow;
-}
-
-.btn-secondary-pop:hover {
-  transform: translateY(-2px) scale(1.02);
-  background-color: rgba(255, 255, 255, 0.85);
-  border-color: rgba(7, 20, 38, 0.32);
-  box-shadow: 0 6px 16px -2px rgba(7, 20, 38, 0.14);
-}
-
-.btn-secondary-pop:active {
-  transform: translateY(0px) scale(0.98);
-  box-shadow: 0 2px 4px -1px rgba(7, 20, 38, 0.08);
-}
-
-/* Workspace Micro-interaction Utilities */
+/* Primary Button */
 .btn-action-primary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background-color: #071426;
-  color: #ffffff;
+  background-color: var(--btn-primary-bg);
+  color: var(--btn-primary-text);
   font-weight: 600;
-  border-radius: 0.5rem;
-  box-shadow: 0 1px 3px 0 rgba(7, 20, 38, 0.18);
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease;
+  border-radius: 0.75rem;
+  box-shadow: 0 1px 3px 0 rgba(7, 20, 38, 0.16);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 140ms ease,
+              color 140ms ease;
   will-change: transform;
+  cursor: pointer;
+  user-select: none;
 }
 
 .btn-action-primary:hover:not(:disabled) {
   transform: translateY(-1.5px);
-  box-shadow: 0 4px 12px 0 rgba(7, 20, 38, 0.22);
-  background-color: #15263c;
+  box-shadow: 0 4px 14px 0 rgba(7, 20, 38, 0.22);
+  background-color: var(--btn-primary-hover);
+}
+
+.dark .btn-action-primary:hover:not(:disabled) {
+  box-shadow: 0 4px 16px 0 rgba(255, 255, 255, 0.15);
 }
 
 .btn-action-primary:active:not(:disabled) {
   transform: translateY(0px) scale(0.98);
+  box-shadow: 0 1px 2px 0 rgba(7, 20, 38, 0.1);
 }
 
 .btn-action-primary:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px #071426;
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px #071426;
+}
+
+.dark .btn-action-primary:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px #38bdf8;
 }
 
 .btn-action-primary:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
 }
 
+/* Secondary Button */
 .btn-action-secondary {
   display: inline-flex;
   align-items: center;
   justify-content: center;
   gap: 0.5rem;
-  background-color: #ffffff;
-  color: #1b1c19;
-  border: 1px solid rgba(7, 20, 38, 0.12);
+  background-color: var(--btn-secondary-bg);
+  color: var(--btn-secondary-text);
+  border: 1px solid var(--btn-secondary-border);
   font-weight: 500;
-  border-radius: 0.5rem;
+  border-radius: 0.75rem;
   box-shadow: 0 1px 2px 0 rgba(7, 20, 38, 0.05);
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease, border-color 180ms ease;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 140ms ease,
+              border-color 140ms ease,
+              color 140ms ease;
   will-change: transform;
+  cursor: pointer;
+  user-select: none;
 }
 
 .btn-action-secondary:hover:not(:disabled) {
   transform: translateY(-1.5px);
-  background-color: #f8f7f4;
-  border-color: rgba(7, 20, 38, 0.24);
-  box-shadow: 0 3px 8px 0 rgba(7, 20, 38, 0.09);
+  background-color: var(--btn-secondary-hover);
+  border-color: var(--border-strong);
+  box-shadow: 0 3px 8px 0 rgba(7, 20, 38, 0.08);
 }
 
 .btn-action-secondary:active:not(:disabled) {
   transform: translateY(0px) scale(0.98);
+  box-shadow: 0 1px 2px 0 rgba(7, 20, 38, 0.04);
 }
 
 .btn-action-secondary:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px rgba(7, 20, 38, 0.4);
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px rgba(21, 38, 60, 0.35);
+}
+
+.dark .btn-action-secondary:focus-visible {
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px rgba(255, 255, 255, 0.35);
 }
 
 .btn-action-secondary:disabled {
-  opacity: 0.5;
+  opacity: 0.45;
   cursor: not-allowed;
   transform: none !important;
   box-shadow: none !important;
 }
 
+/* Danger Button */
 .btn-action-danger {
   display: inline-flex;
   align-items: center;
@@ -190,13 +239,27 @@
   color: #ba1a1a;
   background-color: transparent;
   font-weight: 500;
-  border-radius: 0.5rem;
-  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease, color 180ms ease;
+  border-radius: 0.75rem;
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 140ms ease,
+              color 140ms ease;
+  cursor: pointer;
+  user-select: none;
+}
+
+.dark .btn-action-danger {
+  color: #ff897d;
 }
 
 .btn-action-danger:hover:not(:disabled) {
   background-color: rgba(186, 26, 26, 0.08);
   color: #93000a;
+  transform: translateY(-1px);
+}
+
+.dark .btn-action-danger:hover:not(:disabled) {
+  background-color: rgba(255, 137, 125, 0.14);
+  color: #ffb4ab;
 }
 
 .btn-action-danger:active:not(:disabled) {
@@ -205,11 +268,136 @@
 
 .btn-action-danger:focus-visible {
   outline: none;
-  box-shadow: 0 0 0 2px #fbf9f4, 0 0 0 4px #ba1a1a;
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px #ba1a1a;
+}
+
+.btn-action-danger:disabled {
+  opacity: 0.45;
+  cursor: not-allowed;
+  transform: none !important;
+}
+
+/* Icon Button */
+.btn-icon-subtle {
+  display: inline-flex;
+  align-items: center;
+  justify-content: center;
+  width: 2.25rem;
+  height: 2.25rem;
+  border-radius: 0.625rem;
+  background-color: transparent;
+  color: var(--text-secondary);
+  transition: transform 140ms cubic-bezier(0.16, 1, 0.3, 1),
+              background-color 140ms ease,
+              color 140ms ease;
+  cursor: pointer;
+}
+
+.btn-icon-subtle:hover:not(:disabled) {
+  background-color: var(--bg-surface-hover);
+  color: var(--text-primary);
+  transform: translateY(-1px);
+}
+
+.btn-icon-subtle:active:not(:disabled) {
+  transform: scale(0.94);
+}
+
+.btn-icon-subtle:focus-visible {
+  outline: none;
+  box-shadow: 0 0 0 2px var(--bg-app), 0 0 0 4px var(--border-strong);
+}
+
+/* Pop variations from landing page */
+.btn-primary-pop {
+  background-color: #071426;
+  color: #ffffff;
+  box-shadow: 0 2px 8px -1px rgba(7, 20, 38, 0.22);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease;
+  will-change: transform, box-shadow;
+}
+
+.dark .btn-primary-pop {
+  background-color: #f3f6fa;
+  color: #0c131d;
+  box-shadow: 0 2px 12px -1px rgba(255, 255, 255, 0.15);
+}
+
+.btn-primary-pop:hover {
+  transform: translateY(-2px) scale(1.02);
+  box-shadow: 0 8px 22px -3px rgba(7, 20, 38, 0.32);
+  background-color: #0e1e36;
+}
+
+.dark .btn-primary-pop:hover {
+  background-color: #ffffff;
+  box-shadow: 0 8px 24px -2px rgba(255, 255, 255, 0.25);
+}
+
+.btn-primary-pop:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+.btn-secondary-pop {
+  background-color: rgba(255, 255, 255, 0.65);
+  color: #071426;
+  border: 1px solid rgba(7, 20, 38, 0.18);
+  backdrop-filter: blur(8px);
+  box-shadow: 0 2px 6px -1px rgba(7, 20, 38, 0.08);
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1), box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1), background-color 180ms ease;
+}
+
+.dark .btn-secondary-pop {
+  background-color: rgba(25, 38, 56, 0.7);
+  color: #f3f6fa;
+  border: 1px solid rgba(255, 255, 255, 0.16);
+  box-shadow: 0 2px 8px -1px rgba(0, 0, 0, 0.25);
+}
+
+.btn-secondary-pop:hover {
+  transform: translateY(-2px) scale(1.02);
+  background-color: rgba(255, 255, 255, 0.9);
+  box-shadow: 0 6px 16px -2px rgba(7, 20, 38, 0.14);
+}
+
+.dark .btn-secondary-pop:hover {
+  background-color: rgba(30, 46, 68, 0.9);
+  box-shadow: 0 6px 16px -2px rgba(0, 0, 0, 0.35);
+}
+
+.btn-secondary-pop:active {
+  transform: translateY(0px) scale(0.98);
+}
+
+/* Card hover lift */
+.card-hover-lift {
+  transition: transform 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              box-shadow 180ms cubic-bezier(0.16, 1, 0.3, 1),
+              border-color 180ms ease;
+  will-change: transform;
+}
+
+.card-hover-lift:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 8px 24px -4px rgba(7, 20, 38, 0.08);
+  border-color: var(--border-strong);
+}
+
+.dark .card-hover-lift:hover {
+  box-shadow: 0 8px 28px -4px rgba(0, 0, 0, 0.35);
+}
+
+/* Micro pulse for status badges */
+@keyframes badge-gentle-pulse {
+  0%, 100% { transform: scale(1); opacity: 1; }
+  50% { transform: scale(1.04); opacity: 0.92; }
+}
+
+.animate-gentle-pulse {
+  animation: badge-gentle-pulse 2.4s ease-in-out infinite;
 }
 
 @media (max-width: 640px) {
-  /* Auto layout & comfortable touch targets for mobile buttons */
   .btn-primary-pop,
   .btn-secondary-pop,
   .btn-action-primary,
@@ -220,22 +408,24 @@
     font-size: 0.8125rem;
     touch-action: manipulation;
   }
-
-  /* Prevent text clipping / awkward wraps on mobile action buttons */
-  .btn-action-primary,
-  .btn-action-secondary {
-    white-space: nowrap;
-  }
 }
 
 @media (prefers-reduced-motion: reduce) {
+  *, ::before, ::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+
   .btn-primary-pop,
   .btn-secondary-pop,
   .btn-action-primary,
   .btn-action-secondary,
-  .btn-action-danger {
+  .btn-action-danger,
+  .card-hover-lift {
     animation: none !important;
     transform: none !important;
-    transition: background-color 100ms ease, border-color 100ms ease, opacity 100ms ease !important;
+    transition: background-color 80ms ease, border-color 80ms ease, opacity 80ms ease !important;
   }
 }

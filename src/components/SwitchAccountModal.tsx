@@ -66,24 +66,24 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
 
   return (
     <div
-      className="fixed inset-0 z-50 bg-[#001126]/60 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
+      className="fixed inset-0 z-50 bg-black/50 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-200"
       onClick={onClose}
     >
       <div
-        className="bg-[#ffffff] rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-[#001126]/10"
+        className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-md w-full p-6 space-y-6 shadow-2xl border border-[#001126]/10 dark:border-white/10"
         onClick={(e) => e.stopPropagation()}
       >
         {/* Header */}
-        <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10">
+        <div className="flex items-center justify-between pb-3 border-b border-[#001126]/10 dark:border-white/10">
           <div>
-            <h3 className="text-lg font-bold text-[#001126]">Switch account</h3>
-            <p className="text-xs text-[#44474d] mt-0.5">
+            <h3 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">Switch account</h3>
+            <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
               Choose an account or log in with another email.
             </p>
           </div>
           <button
             onClick={onClose}
-            className="text-[#74777d] hover:text-[#001126] p-1.5 rounded-lg transition-colors active:scale-95"
+            className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] p-1.5 rounded-lg transition-colors active:scale-95 cursor-pointer"
             aria-label="Close"
           >
             <span className="material-symbols-outlined text-[20px]">close</span>
@@ -91,33 +91,33 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
         </div>
 
         {/* Current Active Account Box */}
-        <div className="p-3.5 bg-[#fbf9f4] rounded-xl border border-[#001126]/10">
-          <div className="text-[10px] font-bold uppercase tracking-wider text-[#74777d] mb-2 font-['Space_Mono']">
+        <div className="p-3.5 bg-[#fbf9f4] dark:bg-[#0c131d] rounded-xl border border-[#001126]/10 dark:border-white/10">
+          <div className="text-[10px] font-bold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8] mb-2 font-['Space_Mono']">
             Current session
           </div>
           <div className="flex items-center justify-between">
             <div className="flex items-center gap-3 min-w-0">
-              <div className="w-9 h-9 rounded-full bg-[#001126] text-[#ffffff] flex items-center justify-center font-bold text-sm shrink-0">
+              <div className="w-9 h-9 rounded-full bg-[#001126] dark:bg-white/10 text-[#ffffff] flex items-center justify-center font-bold text-sm shrink-0">
                 {(currentAccount.name || 'U').charAt(0).toUpperCase()}
               </div>
               <div className="min-w-0">
-                <p className="text-sm font-bold text-[#001126] truncate">
+                <p className="text-sm font-bold text-[#001126] dark:text-[#f3f6fa] truncate">
                   {currentAccount.name || 'Current User'}
                 </p>
-                <p className="text-xs text-[#44474d] font-['Space_Mono'] truncate">
+                <p className="text-xs text-[#44474d] dark:text-[#94a3b8] font-['Space_Mono'] truncate">
                   {currentAccount.email || 'No email'}
                 </p>
               </div>
             </div>
-            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#15263c] bg-[#15263c]/10 px-2 py-0.5 rounded-full shrink-0">
-              <span className="w-1.5 h-1.5 rounded-full bg-[#15263c]" />
+            <span className="inline-flex items-center gap-1 text-[10px] font-semibold text-[#15263c] dark:text-[#60a5fa] bg-[#15263c]/10 dark:bg-blue-950/50 px-2 py-0.5 rounded-full shrink-0">
+              <span className="w-1.5 h-1.5 rounded-full bg-[#15263c] dark:bg-[#60a5fa]" />
               Active
             </span>
           </div>
         </div>
 
         {error && (
-          <div className="p-3 bg-[#ba1a1a]/10 border border-[#ba1a1a]/20 rounded-lg text-xs text-[#ba1a1a]">
+          <div className="p-3 bg-[#ba1a1a]/10 dark:bg-red-950/40 border border-[#ba1a1a]/20 dark:border-red-500/20 rounded-lg text-xs text-[#ba1a1a] dark:text-[#f87171]">
             {error}
           </div>
         )}
@@ -128,7 +128,7 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
             type="button"
             disabled={isLoading}
             onClick={handleGoogleSwitch}
-            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-[#ffffff] hover:bg-[#f5f3ee] text-[#1b1c19] text-xs font-semibold rounded-lg border border-[#001126]/15 transition-all shadow-2xs hover:shadow-xs active:scale-[0.98] disabled:opacity-50"
+            className="w-full flex items-center justify-center gap-3 py-2.5 px-4 bg-[#ffffff] dark:bg-[#192638] hover:bg-[#f5f3ee] dark:hover:bg-[#203148] text-[#1b1c19] dark:text-[#f3f6fa] text-xs font-semibold rounded-lg border border-[#001126]/15 dark:border-white/10 transition-all shadow-2xs hover:shadow-xs active:scale-[0.98] disabled:opacity-50 cursor-pointer"
           >
             <svg className="w-4 h-4 shrink-0" viewBox="0 0 24 24">
               <path
@@ -156,15 +156,15 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
               type="button"
               disabled={isLoading}
               onClick={() => setShowEmailForm(true)}
-              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#fbf9f4] hover:bg-[#eae8e3] text-[#001126] text-xs font-semibold rounded-lg border border-[#001126]/10 transition-all active:scale-[0.98] disabled:opacity-50"
+              className="w-full flex items-center justify-center gap-2 py-2.5 px-4 bg-[#fbf9f4] dark:bg-[#192638] hover:bg-[#eae8e3] dark:hover:bg-[#203148] text-[#001126] dark:text-[#f3f6fa] text-xs font-semibold rounded-lg border border-[#001126]/10 dark:border-white/10 transition-all active:scale-[0.98] disabled:opacity-50 cursor-pointer"
             >
-              <span className="material-symbols-outlined text-[18px] text-[#44474d]">mail</span>
+              <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">mail</span>
               <span>Use another email & password</span>
             </button>
           ) : (
-            <form onSubmit={handleEmailSwitch} className="p-4 bg-[#fbf9f4] rounded-xl border border-[#001126]/10 space-y-3">
+            <form onSubmit={handleEmailSwitch} className="p-4 bg-[#fbf9f4] dark:bg-[#0c131d] rounded-xl border border-[#001126]/10 dark:border-white/10 space-y-3">
               <div>
-                <label className="block text-[11px] font-semibold text-[#44474d] mb-1">
+                <label className="block text-[11px] font-semibold text-[#44474d] dark:text-[#94a3b8] mb-1">
                   Email address
                 </label>
                 <input
@@ -173,11 +173,11 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
                   value={email}
                   onChange={(e) => setEmail(e.target.value)}
                   placeholder="name@example.com"
-                  className="w-full px-3 py-2 text-xs bg-[#ffffff] rounded border border-[#001126]/15 focus:outline-none focus:border-[#001126]"
+                  className="w-full px-3 py-2 text-xs bg-[#ffffff] dark:bg-[#141f2e] text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30"
                 />
               </div>
               <div>
-                <label className="block text-[11px] font-semibold text-[#44474d] mb-1">
+                <label className="block text-[11px] font-semibold text-[#44474d] dark:text-[#94a3b8] mb-1">
                   Password
                 </label>
                 <input
@@ -186,21 +186,21 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
                   value={password}
                   onChange={(e) => setPassword(e.target.value)}
                   placeholder="••••••••"
-                  className="w-full px-3 py-2 text-xs bg-[#ffffff] rounded border border-[#001126]/15 focus:outline-none focus:border-[#001126]"
+                  className="w-full px-3 py-2 text-xs bg-[#ffffff] dark:bg-[#141f2e] text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/15 dark:border-white/10 focus:outline-none focus:border-[#001126] dark:focus:border-white/30"
                 />
               </div>
               <div className="flex gap-2 pt-1">
                 <button
                   type="submit"
                   disabled={isLoading}
-                  className="flex-1 btn-action-primary py-2 text-xs font-semibold rounded-lg shadow-sm"
+                  className="flex-1 btn-action-primary py-2 text-xs font-semibold rounded-lg shadow-sm cursor-pointer"
                 >
                   {isLoading ? 'Signing in...' : 'Sign in to account'}
                 </button>
                 <button
                   type="button"
                   onClick={() => setShowEmailForm(false)}
-                  className="btn-action-secondary px-3 py-2 text-xs rounded-lg"
+                  className="btn-action-secondary px-3 py-2 text-xs rounded-lg cursor-pointer"
                 >
                   Cancel
                 </button>
@@ -209,11 +209,11 @@ export const SwitchAccountModal: React.FC<SwitchAccountModalProps> = ({
           )}
         </div>
 
-        <div className="pt-2 flex justify-end border-t border-[#001126]/5">
+        <div className="pt-2 flex justify-end border-t border-[#001126]/5 dark:border-white/10">
           <button
             type="button"
             onClick={onClose}
-            className="text-xs text-[#74777d] hover:text-[#001126] font-medium transition-colors"
+            className="text-xs text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] font-medium transition-colors cursor-pointer"
           >
             Cancel
           </button>
