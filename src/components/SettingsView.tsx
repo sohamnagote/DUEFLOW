@@ -5,11 +5,15 @@ import { dueflowApi } from '../utils/api';
 interface SettingsViewProps {
   userProfile?: UserProfile;
   onUpdateProfile?: (profile: UserProfile) => void;
+  isOnboardingMode?: boolean;
+  onOnboardingComplete?: () => void;
 }
 
 export const SettingsView: React.FC<SettingsViewProps> = ({
   userProfile,
   onUpdateProfile,
+  isOnboardingMode = false,
+  onOnboardingComplete,
 }) => {
   const [fullName, setFullName] = useState(userProfile?.fullName || '');
   const [email, setEmail] = useState(userProfile?.email || '');
@@ -132,21 +136,28 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   }, []);
 
   const handleSaveProfile = async () => {
+    const trimmedName = fullName.trim();
+    if (!trimmedName) {
+      setProfileError('Please enter your full name or business name to configure your workspace.');
+      return;
+    }
+
     setIsSavingProfile(true);
     setProfileError(null);
     setProfileSaved(false);
 
     try {
       await dueflowApi.updateProfile({
-        fullName,
-        email,
+        fullName: trimmedName,
+        email: email.trim(),
         preferredCurrency,
         timezone,
+        onboardingCompleted: true,
       });
 
       const updatedProfile: UserProfile = {
-        fullName,
-        email,
+        fullName: trimmedName,
+        email: email.trim(),
         preferredCurrency,
         timezone,
         upiId,
@@ -158,11 +169,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         paymentQrUrl: qrFile,
         gmailConnected,
         automatedRemindersEnabled: automatedReminders,
+        onboardingCompleted: true,
       };
 
       setProfileSaved(true);
       if (onUpdateProfile) {
         onUpdateProfile(updatedProfile);
+      }
+      if (onOnboardingComplete) {
+        setTimeout(() => {
+          onOnboardingComplete();
+        }, 700);
       }
       setTimeout(() => setProfileSaved(false), 3500);
     } catch (err: any) {
@@ -326,15 +343,39 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </section>
 
-      {/* Card 1: Profile & Currency Selection per Requirement 5 */}
-      <div className="bg-[#ffffff] rounded-2xl border border-[#001126]/5 p-6 sm:p-8 space-y-6 shadow-2xs">
-        <div>
-          <h2 className="text-lg font-bold text-[#001126]">
-            Profile & Currency
-          </h2>
-          <p className="text-xs text-[#44474d] mt-0.5">
-            Configure your business details and default currency applied to invoices.
+      {/* Guided Onboarding Banner */}
+      {isOnboardingMode && (
+        <div className="p-6 rounded-2xl bg-[#001126] text-[#ffffff] shadow-lg border border-[#3d6562]/40 space-y-2 animate-fade-in">
+          <div className="flex items-center gap-2.5">
+            <span className="material-symbols-outlined text-[#9ec9c4] text-[24px]">waving_hand</span>
+            <h3 className="text-lg font-bold text-[#ffffff]">Welcome to DueFlow! Set up your workspace profile</h3>
+          </div>
+          <p className="text-xs text-[#c4c6cd] leading-relaxed max-w-2xl">
+            Please enter your name or business name and choose your preferred currency. This information is used on your invoices, payment receipts, and automated email reminders. Once saved, you will be taken directly to your Dashboard.
           </p>
+        </div>
+      )}
+
+      {/* Card 1: Profile & Currency Selection */}
+      <div id="profile-section" className="bg-[#ffffff] rounded-2xl border border-[#001126]/5 p-6 sm:p-8 space-y-6 shadow-2xs">
+        <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2">
+          <div>
+            <h2 className="text-lg font-bold text-[#001126]">
+              Profile & Currency
+            </h2>
+            <p className="text-xs text-[#44474d] mt-0.5">
+              Configure your business details and default currency applied to invoices.
+            </p>
+          </div>
+          <span
+            className={`font-['Space_Mono'] text-[10px] uppercase px-2.5 py-1 rounded-full font-semibold self-start sm:self-auto ${
+              userProfile?.onboardingCompleted
+                ? 'bg-[#bfebe6] text-[#00201e]'
+                : 'bg-[#ffdad6] text-[#ba1a1a]'
+            }`}
+          >
+            {userProfile?.onboardingCompleted ? 'Profile Complete' : 'Setup Required'}
+          </span>
         </div>
 
         <div className="space-y-5">
@@ -422,9 +463,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               onClick={handleSaveProfile}
               disabled={isSavingProfile}
-              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-stretch sm:self-start cursor-pointer"
+              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-xs font-semibold rounded-xl self-stretch sm:self-start cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
             >
-              {isSavingProfile ? 'Saving profile...' : 'Save profile'}
+              {isSavingProfile ? (
+                <>
+                  <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                  <span>Saving profile...</span>
+                </>
+              ) : isOnboardingMode ? (
+                <>
+                  <span>Save & Continue to Dashboard</span>
+                  <span className="material-symbols-outlined text-[16px]">arrow_forward</span>
+                </>
+              ) : (
+                <span>Save profile</span>
+              )}
             </button>
 
             {profileSaved && (

@@ -59,7 +59,14 @@ public class UserProfileService {
         UserProfile profile = getOrCreateProfile(userId, dto.getEmail());
 
         if (dto.getFullName() != null) {
-            profile.setFullName(dto.getFullName().trim());
+            String trimmedName = dto.getFullName().trim();
+            profile.setFullName(trimmedName);
+            if (!trimmedName.isEmpty()) {
+                profile.setOnboardingCompleted(true);
+            }
+        }
+        if (dto.isOnboardingCompleted()) {
+            profile.setOnboardingCompleted(true);
         }
         if (dto.getEmail() != null && !dto.getEmail().isBlank()) {
             profile.setEmail(dto.getEmail().trim());

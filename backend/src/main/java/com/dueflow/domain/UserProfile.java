@@ -26,6 +26,9 @@ public class UserProfile {
     @Column(name = "automated_reminders_enabled", nullable = false)
     private boolean automatedRemindersEnabled = true;
 
+    @Column(name = "onboarding_completed", nullable = false)
+    private boolean onboardingCompleted = false;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -95,6 +98,14 @@ public class UserProfile {
 
     public void setAutomatedRemindersEnabled(boolean automatedRemindersEnabled) {
         this.automatedRemindersEnabled = automatedRemindersEnabled;
+    }
+
+    public boolean isOnboardingCompleted() {
+        return onboardingCompleted;
+    }
+
+    public void setOnboardingCompleted(boolean onboardingCompleted) {
+        this.onboardingCompleted = onboardingCompleted;
     }
 
     public Instant getCreatedAt() {

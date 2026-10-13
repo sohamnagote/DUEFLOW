@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem } from '../types';
+import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, DashboardSummary } from '../types';
 
 const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
 const cleanRawUrl = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '';
@@ -98,6 +98,21 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
 
 export const dueflowApi = {
+  async getDashboardSummary(): Promise<DashboardSummary> {
+    const raw = await request<any>('/dashboard').catch(() => ({}));
+    return {
+      totalInvoices: Number(raw?.totalInvoices ?? 0),
+      unpaidInvoices: Number(raw?.unpaidInvoices ?? 0),
+      overdueInvoices: Number(raw?.overdueInvoices ?? 0),
+      paidInvoices: Number(raw?.paidInvoices ?? 0),
+      totalClients: Number(raw?.totalClients ?? 0),
+      upcomingReminders: Number(raw?.upcomingReminders ?? 0),
+      failedReminders: Number(raw?.failedReminders ?? 0),
+      totalOutstandingByCurrency: raw?.totalOutstandingByCurrency || {},
+      totalCollectedByCurrency: raw?.totalCollectedByCurrency || {},
+    };
+  },
+
   // --- Profile & Payment Settings ---
   async getProfile(): Promise<UserProfile> {
     let rawProfile: any = null;
@@ -112,6 +127,11 @@ export const dueflowApi = {
     }
     const profile = rawProfile?.profile || rawProfile || {};
     const payment = await request<any>('/settings/payment').catch(() => ({}));
+    const isOnboarded = Boolean(
+      profile.onboardingCompleted ??
+      profile.onboarding_completed ??
+      (profile.fullName && String(profile.fullName).trim() !== '')
+    );
     return {
       fullName: profile.fullName || profile.full_name || profile.name || '',
       email: profile.email || '',
@@ -126,10 +146,12 @@ export const dueflowApi = {
       paymentQrUrl: payment.paymentQrUrl || payment.payment_qr_url || profile.paymentQrUrl || null,
       gmailConnected: false,
       automatedRemindersEnabled: profile.automatedRemindersEnabled ?? profile.emailRemindersEnabled ?? true,
+      onboardingCompleted: isOnboarded,
     };
   },
 
   async updateProfile(profile: Partial<UserProfile>): Promise<void> {
+    const isOnboarding = profile.onboardingCompleted ?? (profile.fullName && profile.fullName.trim() !== '');
     const profilePayload = {
       fullName: profile.fullName,
       full_name: profile.fullName,
@@ -140,6 +162,8 @@ export const dueflowApi = {
       timezone: profile.timezone,
       automatedRemindersEnabled: profile.automatedRemindersEnabled,
       emailRemindersEnabled: profile.automatedRemindersEnabled,
+      onboardingCompleted: isOnboarding,
+      onboarding_completed: isOnboarding,
     };
 
     try {
@@ -551,6 +575,32 @@ export const dueflowApi = {
 
   getInvoicePdfUrl(id: string): string {
     return `${API_BASE}/invoices/${id}/pdf`;
+  },
+
+  async downloadInvoicePdf(id: string, invoiceNumber?: string): Promise<void> {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/invoices/${id}/pdf`, {
+      headers: authHeaders,
+    });
+    if (!res.ok) {
+      let errText = `Failed to download PDF (${res.status})`;
+      try {
+        const errJson = await res.json();
+        errText = errJson.message || errText;
+      } catch (_) {}
+      throw new Error(errText);
+    }
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = `${invoiceNumber || 'invoice-' + id}.pdf`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 100);
   },
 
   // --- Reminders ---

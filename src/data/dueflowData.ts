@@ -201,5 +201,6 @@ export const INITIAL_USER_PROFILE: UserProfile = {
   gmailConnected: false,
   gmailEmail: undefined,
   automatedRemindersEnabled: true,
+  onboardingCompleted: false,
 };
 

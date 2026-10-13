@@ -1,6 +1,7 @@
 package com.dueflow.dto;
 
 import com.dueflow.domain.UserProfile;
+import com.fasterxml.jackson.annotation.JsonAlias;
 
 public class UserProfileDto {
     private String userId;
@@ -9,6 +10,9 @@ public class UserProfileDto {
     private String preferredCurrency;
     private String timezone;
     private boolean automatedRemindersEnabled;
+
+    @JsonAlias({"onboarding_completed", "onboardingCompleted", "isOnboarded"})
+    private boolean onboardingCompleted;
 
     public UserProfileDto() {
     }
@@ -22,6 +26,7 @@ public class UserProfileDto {
         dto.setPreferredCurrency(p.getPreferredCurrency());
         dto.setTimezone(p.getTimezone());
         dto.setAutomatedRemindersEnabled(p.isAutomatedRemindersEnabled());
+        dto.setOnboardingCompleted(p.isOnboardingCompleted() || (p.getFullName() != null && !p.getFullName().trim().isEmpty()));
         return dto;
     }
 
@@ -71,5 +76,13 @@ public class UserProfileDto {
 
     public void setAutomatedRemindersEnabled(boolean automatedRemindersEnabled) {
         this.automatedRemindersEnabled = automatedRemindersEnabled;
+    }
+
+    public boolean isOnboardingCompleted() {
+        return onboardingCompleted;
+    }
+
+    public void setOnboardingCompleted(boolean onboardingCompleted) {
+        this.onboardingCompleted = onboardingCompleted;
     }
 }

@@ -52,6 +52,13 @@ export default function App() {
   // Switch Account Modal state
   const [isSwitchAccountOpen, setIsSwitchAccountOpen] = useState(false);
 
+  // Loading & error states for remote data synchronization
+  const [isDataLoading, setIsDataLoading] = useState(false);
+  const [dataLoadError, setDataLoadError] = useState<string | null>(null);
+
+  // Guided profile onboarding state for first-time or incomplete users
+  const [isOnboardingMode, setIsOnboardingMode] = useState(false);
+
   // Persistent User Profile state (INR default)
   const [userProfile, setUserProfile] = useState<UserProfile>(INITIAL_USER_PROFILE);
 
@@ -61,6 +68,8 @@ export default function App() {
 
   // Comprehensive data loader from verified PostgreSQL backend
   const refreshAllUserData = useCallback(async () => {
+    setIsDataLoading(true);
+    setDataLoadError(null);
     try {
       const [profileData, invData, clientData, activeUser] = await Promise.allSettled([
         dueflowApi.getProfile(),
@@ -69,16 +78,21 @@ export default function App() {
         getActiveUser(),
       ]);
 
+      let isComplete = false;
       if (profileData.status === 'fulfilled' && profileData.value) {
         const authUser = activeUser.status === 'fulfilled' ? activeUser.value : null;
         const resolvedName = profileData.value.fullName || authUser?.name || '';
         const resolvedEmail = profileData.value.email || authUser?.email || '';
+        isComplete = Boolean(profileData.value.onboardingCompleted);
+
         setUserProfile((prev) => ({
           ...prev,
           ...profileData.value,
           fullName: resolvedName || prev.fullName,
           email: resolvedEmail || prev.email,
+          onboardingCompleted: isComplete,
         }));
+
         // If profile on backend didn't have name but OAuth provider provides it, sync it to database
         if (!profileData.value.fullName && authUser?.name) {
           dueflowApi.updateProfile({ fullName: authUser.name, email: resolvedEmail }).catch(() => {});
@@ -91,6 +105,14 @@ export default function App() {
         }));
       }
 
+      // Requirement 2: Route first-time / incomplete users to Settings -> Profile setup
+      if (!isComplete) {
+        setIsOnboardingMode(true);
+        setActiveTab('settings');
+      } else {
+        setIsOnboardingMode(false);
+      }
+
       if (invData.status === 'fulfilled' && invData.value) {
         const list = Array.isArray(invData.value)
           ? invData.value
@@ -98,8 +120,9 @@ export default function App() {
           ? (invData.value as any).invoices
           : [];
         setInvoices(list.filter(Boolean));
-      } else {
-        console.warn('Backend invoices query rejected:', invData.status === 'rejected' ? invData.reason : 'empty');
+      } else if (invData.status === 'rejected') {
+        console.warn('Backend invoices query rejected:', invData.reason);
+        setDataLoadError('Could not load invoices from server. Please check your network.');
       }
 
       if (clientData.status === 'fulfilled' && clientData.value) {
@@ -109,11 +132,14 @@ export default function App() {
           ? (clientData.value as any).clients
           : [];
         setClients(list.filter(Boolean));
-      } else {
-        console.warn('Backend clients query rejected:', clientData.status === 'rejected' ? clientData.reason : 'empty');
+      } else if (clientData.status === 'rejected') {
+        console.warn('Backend clients query rejected:', clientData.reason);
       }
-    } catch (err) {
+    } catch (err: any) {
       console.warn('Could not load remote account data:', err);
+      setDataLoadError(err?.message || 'Failed to load workspace data');
+    } finally {
+      setIsDataLoading(false);
     }
   }, []);
 
@@ -252,6 +278,7 @@ export default function App() {
     setUserProfile(INITIAL_USER_PROFILE);
     setInvoices([]);
     setClients([]);
+    setIsOnboardingMode(false);
     setIsAuthenticated(false);
     navigateToSignIn();
   };
@@ -260,6 +287,7 @@ export default function App() {
     setInvoices([]);
     setClients([]);
     setUserProfile(INITIAL_USER_PROFILE);
+    setIsOnboardingMode(false);
     await refreshAllUserData();
     navigateToApp();
   };
@@ -438,6 +466,9 @@ export default function App() {
                 invoices={invoices}
                 clients={clients}
                 userPreferredCurrency={userProfile.preferredCurrency}
+                isLoading={isDataLoading}
+                loadError={dataLoadError}
+                onRetry={refreshAllUserData}
                 onNewInvoiceClick={() => setActiveTab('invoices')}
                 onAddClientClick={() => setActiveTab('clients')}
                 onClearData={() => {
@@ -482,7 +513,17 @@ export default function App() {
             {activeTab === 'settings' && (
               <SettingsView
                 userProfile={userProfile}
-                onUpdateProfile={(updated) => setUserProfile(updated)}
+                onUpdateProfile={(updated) => {
+                  setUserProfile(updated);
+                  if (updated.onboardingCompleted) {
+                    setIsOnboardingMode(false);
+                  }
+                }}
+                isOnboardingMode={isOnboardingMode}
+                onOnboardingComplete={() => {
+                  setIsOnboardingMode(false);
+                  setActiveTab('overview');
+                }}
               />
             )}
           </ErrorBoundary>

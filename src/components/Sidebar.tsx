@@ -106,6 +106,11 @@ export const Sidebar: React.FC<SidebarProps> = ({
                     {item.icon}
                   </span>
                   <span>{item.label}</span>
+                  {item.id === 'settings' && userProfile && !userProfile.onboardingCompleted && (
+                    <span className="ml-auto text-[9px] font-['Space_Mono'] uppercase px-1.5 py-0.5 rounded-full bg-[#ffdad6] text-[#ba1a1a] font-bold">
+                      Setup
+                    </span>
+                  )}
                 </button>
               );
             })}

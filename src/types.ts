@@ -85,6 +85,19 @@ export interface UserProfile {
   gmailConnected: boolean;
   gmailEmail?: string;
   automatedRemindersEnabled: boolean;
+  onboardingCompleted: boolean;
+}
+
+export interface DashboardSummary {
+  totalInvoices: number;
+  unpaidInvoices: number;
+  overdueInvoices: number;
+  paidInvoices: number;
+  totalClients: number;
+  upcomingReminders: number;
+  failedReminders: number;
+  totalOutstandingByCurrency: Record<string, number>;
+  totalCollectedByCurrency: Record<string, number>;
 }
 
 export interface SubjectLineOption {

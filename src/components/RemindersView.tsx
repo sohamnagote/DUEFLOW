@@ -144,13 +144,14 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
     return [...scheduledItems, ...invoiceItems];
   }, [safeInvoices, serverQueue, userPreferredCurrency]);
 
-  const activeTriggersCount = automatedEnabled ? (rules.length > 0 ? upcomingQueue.length * rules.length : upcomingQueue.length) : 0;
-  const invoicesCount = automatedEnabled ? new Set(upcomingQueue.map((q) => q.invoiceNumber)).size : 0;
+  const eligibleInvoices = safeInvoices.filter(
+    (inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid')
+  );
+  const eligibleInvoicesCount = eligibleInvoices.length;
+
   const triggerSummary = !automatedEnabled
-    ? 'Automated reminders are paused'
-    : activeTriggersCount === 0
-    ? '0 active triggers across 0 invoices'
-    : `${activeTriggersCount} active trigger${activeTriggersCount === 1 ? '' : 's'} across ${invoicesCount} invoice${invoicesCount === 1 ? '' : 's'}`;
+    ? 'Automated reminders are paused globally.'
+    : `${rules.length} reminder rule${rules.length === 1 ? '' : 's'} configured • ${eligibleInvoicesCount} eligible unpaid invoice${eligibleInvoicesCount === 1 ? '' : 's'}`;
 
   const handleToneSelect = (selected: 'friendly' | 'professional' | 'firm') => {
     setTone(selected);
@@ -321,6 +322,48 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         <p className="text-sm text-[#44474d]">
           Choose when DueFlow should email clients about unpaid invoices.
         </p>
+      </section>
+
+      {/* Automation Status & Metrics Ribbon */}
+      <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
+        <div className="p-4 rounded-xl bg-[#ffffff] border border-[#001126]/8 shadow-2xs">
+          <span className="font-['Space_Mono'] text-[10px] uppercase text-[#74777d] block">
+            SCHEDULE RULES
+          </span>
+          <span className="text-base font-bold text-[#001126] mt-0.5 block">
+            {rules.length} {rules.length === 1 ? 'rule' : 'rules'} configured
+          </span>
+          <p className="text-[11px] text-[#44474d] mt-1">
+            Execution triggers defining when emails are dispatched.
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#ffffff] border border-[#001126]/8 shadow-2xs">
+          <span className="font-['Space_Mono'] text-[10px] uppercase text-[#74777d] block">
+            ELIGIBLE INVOICES
+          </span>
+          <span className="text-base font-bold text-[#001126] mt-0.5 block">
+            {eligibleInvoicesCount} eligible unpaid {eligibleInvoicesCount === 1 ? 'invoice' : 'invoices'}
+          </span>
+          <p className="text-[11px] text-[#44474d] mt-1">
+            {eligibleInvoicesCount === 0 ? 'No pending unpaid invoices need follow-ups.' : 'Unpaid invoices queued for automatic reminders.'}
+          </p>
+        </div>
+
+        <div className="p-4 rounded-xl bg-[#ffffff] border border-[#001126]/8 shadow-2xs">
+          <span className="font-['Space_Mono'] text-[10px] uppercase text-[#74777d] block">
+            GMAIL CONNECTION
+          </span>
+          <div className="flex items-center gap-2 mt-0.5">
+            <span className={`w-2 h-2 rounded-full ${userProfile?.gmailConnected ? 'bg-[#3d6562]' : 'bg-[#ba1a1a]'}`} />
+            <span className="text-sm font-bold text-[#001126]">
+              {userProfile?.gmailConnected ? 'Connected & Ready' : 'Disconnected'}
+            </span>
+          </div>
+          <p className="text-[11px] text-[#44474d] mt-1">
+            {userProfile?.gmailConnected ? 'Automated emails dispatch through your verified Gmail.' : 'Connect Gmail in Settings to enable dispatch.'}
+          </p>
+        </div>
       </section>
 
       {/* Section 1: Reminder Schedule */}
@@ -499,13 +542,15 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
             </span>
 
             {upcomingQueue.length === 0 ? (
-              <div className="p-6 bg-[#ffffff]/60 rounded-lg border border-[#001126]/5 text-center py-8">
+              <div className="p-6 bg-[#ffffff]/80 rounded-xl border border-[#001126]/5 text-center py-8">
                 <span className="material-symbols-outlined text-[24px] text-[#74777d] mb-1.5 block">
                   notifications_off
                 </span>
-                <p className="text-xs font-semibold text-[#001126]">No upcoming reminders</p>
-                <p className="text-[11px] text-[#74777d] mt-1">
-                  Reminders will automatically queue when unpaid invoices are created.
+                <p className="text-xs font-semibold text-[#001126]">
+                  {rules.length} reminder {rules.length === 1 ? 'rule' : 'rules'} configured • 0 eligible unpaid invoices
+                </p>
+                <p className="text-[11px] text-[#74777d] mt-1 max-w-sm mx-auto">
+                  All current invoices are either paid or no unpaid invoices exist. Reminders will automatically queue when new unpaid invoices are created.
                 </p>
               </div>
             ) : (
