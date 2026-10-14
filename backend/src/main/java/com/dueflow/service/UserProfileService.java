@@ -26,31 +26,23 @@ public class UserProfileService {
 
     private final UserProfileRepository userProfileRepository;
     private final PaymentSettingsRepository paymentSettingsRepository;
-
-    @Autowired(required = false)
-    private GmailIntegrationRepository gmailIntegrationRepository;
-
-    @Autowired(required = false)
-    private ScheduledReminderRepository scheduledReminderRepository;
-
-    @Autowired(required = false)
-    private InvoiceRepository invoiceRepository;
-
-    @Autowired(required = false)
-    private ReminderScheduleCalculator reminderScheduleCalculator;
+    private final GmailIntegrationRepository gmailIntegrationRepository;
+    private final ScheduledReminderRepository scheduledReminderRepository;
+    private final InvoiceRepository invoiceRepository;
+    private final ReminderScheduleCalculator reminderScheduleCalculator;
 
     public UserProfileService(UserProfileRepository userProfileRepository,
                               PaymentSettingsRepository paymentSettingsRepository) {
-        this.userProfileRepository = userProfileRepository;
-        this.paymentSettingsRepository = paymentSettingsRepository;
+        this(userProfileRepository, paymentSettingsRepository, null, null, null, null);
     }
 
+    @Autowired
     public UserProfileService(UserProfileRepository userProfileRepository,
                               PaymentSettingsRepository paymentSettingsRepository,
-                              GmailIntegrationRepository gmailIntegrationRepository,
-                              ScheduledReminderRepository scheduledReminderRepository,
-                              InvoiceRepository invoiceRepository,
-                              ReminderScheduleCalculator reminderScheduleCalculator) {
+                              @Autowired(required = false) GmailIntegrationRepository gmailIntegrationRepository,
+                              @Autowired(required = false) ScheduledReminderRepository scheduledReminderRepository,
+                              @Autowired(required = false) InvoiceRepository invoiceRepository,
+                              @Autowired(required = false) ReminderScheduleCalculator reminderScheduleCalculator) {
         this.userProfileRepository = userProfileRepository;
         this.paymentSettingsRepository = paymentSettingsRepository;
         this.gmailIntegrationRepository = gmailIntegrationRepository;
