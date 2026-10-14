@@ -159,12 +159,17 @@ public class GmailOAuthService {
     @Transactional(readOnly = true)
     public GmailStatusDto getConnectionStatus(String userId) {
         return gmailIntegrationRepository.findByUserId(userId)
-                .map(i -> new GmailStatusDto(
-                        "CONNECTED".equalsIgnoreCase(i.getConnectionStatus()),
-                        i.getGmailEmail(),
-                        i.getConnectionStatus(),
-                        i.getCreatedAt()
-                ))
+                .map(i -> {
+                    boolean hasToken = i.getEncryptedRefreshToken() != null && !i.getEncryptedRefreshToken().isBlank();
+                    boolean isConnected = "CONNECTED".equalsIgnoreCase(i.getConnectionStatus()) && hasToken;
+                    String status = isConnected ? "CONNECTED" : (i.getConnectionStatus() != null ? i.getConnectionStatus() : "DISCONNECTED");
+                    return new GmailStatusDto(
+                            isConnected,
+                            i.getGmailEmail(),
+                            status,
+                            i.getTokenExpiry()
+                    );
+                })
                 .orElse(new GmailStatusDto(false, null, "DISCONNECTED", null));
     }
 
@@ -172,6 +177,7 @@ public class GmailOAuthService {
     public void disconnect(String userId) {
         gmailIntegrationRepository.findByUserId(userId).ifPresent(i -> {
             i.setConnectionStatus("DISCONNECTED");
+            i.setEncryptedRefreshToken("");
             gmailIntegrationRepository.save(i);
             log.info("Gmail integration disconnected for user {}", userId);
         });

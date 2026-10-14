@@ -84,4 +84,11 @@ public class InvoiceController {
                 .headers(headers)
                 .body(pdfBytes);
     }
+
+    @PostMapping({"/import-csv", "/import"})
+    public ResponseEntity<com.dueflow.dto.InvoiceImportResultDto> importInvoices(@RequestBody List<com.dueflow.dto.InvoiceCsvRowDto> rows) {
+        String userId = SecurityUtils.getRequiredUserId();
+        com.dueflow.dto.InvoiceImportResultDto result = invoiceService.importInvoices(userId, rows);
+        return ResponseEntity.ok(result);
+    }
 }

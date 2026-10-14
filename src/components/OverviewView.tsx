@@ -162,22 +162,22 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
         <div className="grid grid-cols-1 sm:grid-cols-2 lg:grid-cols-4 gap-4 w-full">
           {/* Metric 1: Total Outstanding */}
           <div className="p-5 rounded-2xl bg-[#ffffff]/80 dark:bg-[#141f2e]/90 backdrop-blur-xs border border-[#001126]/10 dark:border-white/10 flex flex-col justify-between shadow-2xs">
-            <span className="font-['Space_Mono'] text-[10px] uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
               Total Outstanding
             </span>
             <div className="my-2 space-y-1">
               {currencySummaries.length === 0 ? (
-                <span className="text-2xl sm:text-3xl font-extrabold text-[#001126] dark:text-[#f3f6fa]">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#001126] dark:text-[#f3f6fa] tabular-nums">
                   {formatCurrency(0, userPreferredCurrency)}
                 </span>
               ) : currencySummaries.length === 1 ? (
-                <span className="text-2xl sm:text-3xl font-extrabold text-[#001126] dark:text-[#f3f6fa]">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#001126] dark:text-[#f3f6fa] tabular-nums">
                   {currencySummaries[0].formattedOutstanding}
                 </span>
               ) : (
                 <div className="flex flex-col gap-1">
                   {currencySummaries.map((s) => (
-                    <span key={s.currency} className="text-xl sm:text-2xl font-extrabold text-[#001126] dark:text-[#f3f6fa]">
+                    <span key={s.currency} className="text-xl sm:text-2xl font-extrabold text-[#001126] dark:text-[#f3f6fa] tabular-nums">
                       {s.formattedOutstanding}
                     </span>
                   ))}
@@ -191,11 +191,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           {/* Metric 2: Overdue Follow-ups */}
           <div className="p-5 rounded-2xl bg-[#ffffff]/80 dark:bg-[#141f2e]/90 backdrop-blur-xs border border-[#001126]/10 dark:border-white/10 flex flex-col justify-between shadow-2xs">
-            <span className="font-['Space_Mono'] text-[10px] uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
               Overdue Invoices
             </span>
             <div className="my-2">
-              <span className={`text-2xl sm:text-3xl font-extrabold ${overdueCount > 0 ? 'text-[#ba1a1a] dark:text-[#f87171]' : 'text-[#001126] dark:text-[#f3f6fa]'}`}>
+              <span className={`text-2xl sm:text-3xl font-extrabold tabular-nums ${overdueCount > 0 ? 'text-[#ba1a1a] dark:text-[#f87171]' : 'text-[#001126] dark:text-[#f3f6fa]'}`}>
                 {overdueCount}
               </span>
             </div>
@@ -206,11 +206,11 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           {/* Metric 3: Clients Managed */}
           <div className="p-5 rounded-2xl bg-[#ffffff]/80 dark:bg-[#141f2e]/90 backdrop-blur-xs border border-[#001126]/10 dark:border-white/10 flex flex-col justify-between shadow-2xs">
-            <span className="font-['Space_Mono'] text-[10px] uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
               Clients Managed
             </span>
             <div className="my-2">
-              <span className="text-2xl sm:text-3xl font-extrabold text-[#001126] dark:text-[#f3f6fa]">
+              <span className="text-2xl sm:text-3xl font-extrabold text-[#001126] dark:text-[#f3f6fa] tabular-nums">
                 {safeClients.length}
               </span>
             </div>
@@ -221,22 +221,22 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
 
           {/* Metric 4: Total Collected */}
           <div className="p-5 rounded-2xl bg-[#ffffff]/80 dark:bg-[#141f2e]/90 backdrop-blur-xs border border-[#001126]/10 dark:border-white/10 flex flex-col justify-between shadow-2xs">
-            <span className="font-['Space_Mono'] text-[10px] uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
+            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
               Total Collected
             </span>
             <div className="my-2 space-y-1">
               {currencySummaries.length === 0 ? (
-                <span className="text-2xl sm:text-3xl font-extrabold text-[#3d6562] dark:text-[#5eead4]">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#3d6562] dark:text-[#5eead4] tabular-nums">
                   {formatCurrency(0, userPreferredCurrency)}
                 </span>
               ) : currencySummaries.length === 1 ? (
-                <span className="text-2xl sm:text-3xl font-extrabold text-[#3d6562] dark:text-[#5eead4]">
+                <span className="text-2xl sm:text-3xl font-extrabold text-[#3d6562] dark:text-[#5eead4] tabular-nums">
                   {currencySummaries[0].formattedCollected}
                 </span>
               ) : (
                 <div className="flex flex-col gap-1">
                   {currencySummaries.map((s) => (
-                    <span key={s.currency} className="text-xl sm:text-2xl font-extrabold text-[#3d6562] dark:text-[#5eead4]">
+                    <span key={s.currency} className="text-xl sm:text-2xl font-extrabold text-[#3d6562] dark:text-[#5eead4] tabular-nums">
                       {s.formattedCollected}
                     </span>
                   ))}

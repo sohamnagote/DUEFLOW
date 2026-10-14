@@ -430,7 +430,7 @@ export default function App() {
 
   // Screen 3: Core Dueflow Dashboard App
   return (
-    <div className="relative min-h-screen w-full bg-[#fbf9f4] dark:bg-[#0c131d] font-['Hanken_Grotesk'] text-[#1b1c19] dark:text-[#f3f6fa] transition-colors duration-200">
+    <div className="dashboard-root relative min-h-screen w-full bg-[#fbf9f4] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa] transition-colors duration-200">
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
@@ -492,6 +492,7 @@ export default function App() {
                   onAddInvoice={handleAddInvoice}
                   onUpdateStatus={handleUpdateStatus}
                   onDeleteInvoice={handleDeleteInvoice}
+                  onInvoiceImported={refreshAllUserData}
                 />
               )}
 

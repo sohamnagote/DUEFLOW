@@ -95,6 +95,52 @@ public class SupabaseStorageService {
     }
 
     /**
+     * Uploads a business logo image to Supabase Storage and returns its signed access URL.
+     */
+    public String uploadLogo(String userId, MultipartFile file) {
+        validateFile(file);
+
+        byte[] fileBytes;
+        try {
+            fileBytes = file.getBytes();
+        } catch (IOException e) {
+            log.error("Failed to read logo file bytes: {}", e.getMessage(), e);
+            throw new ValidationException("Could not read uploaded logo file");
+        }
+
+        String detectedMime = validateFileContent(fileBytes, file.getContentType());
+        String originalFilename = file.getOriginalFilename();
+        String extension = getFileExtension(originalFilename, detectedMime);
+        String objectPath = userId + "/logo-" + System.currentTimeMillis() + "." + extension;
+
+        if (isNotConfigured()) {
+            log.warn("Supabase credentials not fully configured. Storing dummy URL for local development.");
+            return supabaseUrl + "/storage/v1/object/public/" + storageBucket + "/" + objectPath;
+        }
+
+        ensureBucketExists();
+
+        try {
+            String uploadUrl = supabaseUrl + "/storage/v1/object/" + storageBucket + "/" + objectPath;
+
+            HttpHeaders headers = new HttpHeaders();
+            headers.set("Authorization", "Bearer " + supabaseSecretKey);
+            headers.set("apikey", supabaseSecretKey);
+            headers.setContentType(MediaType.parseMediaType(detectedMime));
+
+            HttpEntity<byte[]> requestEntity = new HttpEntity<>(fileBytes, headers);
+            restTemplate.exchange(uploadUrl, HttpMethod.POST, requestEntity, String.class);
+
+            return createSignedUrl(objectPath);
+        } catch (ValidationException ve) {
+            throw ve;
+        } catch (Exception e) {
+            log.error("Supabase Storage logo upload failed: {}", e.getMessage(), e);
+            throw new ValidationException("Failed to upload logo image to storage. Please try again.");
+        }
+    }
+
+    /**
      * Deletes a QR code object from Supabase Storage.
      */
     public void deleteQrCode(String qrCodeUrl) {

@@ -22,6 +22,10 @@ public interface ClientRepository extends JpaRepository<Client, String> {
 
     Optional<Client> findByIdAndUserId(String id, String userId);
 
+    Optional<Client> findByUserIdAndNameIgnoreCase(String userId, String name);
+
+    Optional<Client> findByUserIdAndEmailIgnoreCase(String userId, String email);
+
     boolean existsByIdAndUserId(String id, String userId);
 
     @Query("SELECT c FROM Client c WHERE c.userId = :userId AND " +

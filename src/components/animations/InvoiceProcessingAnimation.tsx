@@ -5,6 +5,9 @@ interface InvoiceProcessingAnimationProps {
   isSuccess?: boolean;
   isError?: boolean;
   statusText?: string;
+  invoiceNumber?: string;
+  clientName?: string;
+  amount?: string;
 }
 
 export const InvoiceProcessingAnimation: React.FC<InvoiceProcessingAnimationProps> = ({

@@ -84,8 +84,36 @@ export interface UserProfile {
   paymentQrUrl: string | null;
   gmailConnected: boolean;
   gmailEmail?: string;
+  gmailStatus?: 'connected' | 'reconnect_required' | 'disconnected' | 'unavailable';
   automatedRemindersEnabled: boolean;
   onboardingCompleted: boolean;
+  // Invoice branding
+  businessName?: string;
+  logoUrl?: string;
+  businessEmail?: string;
+  businessPhone?: string;
+  businessAddress?: string;
+  brandColor?: string;
+  footerTerms?: string;
+}
+
+export interface InvoiceCsvRow {
+  invoiceNumber?: string;
+  clientName: string;
+  clientEmail?: string;
+  amount: number;
+  currency?: string;
+  issueDate?: string;
+  dueDate?: string;
+  status?: string;
+  description?: string;
+}
+
+export interface InvoiceImportResult {
+  importedCount: number;
+  failedCount: number;
+  errors: string[];
+  importedInvoices: Invoice[];
 }
 
 export interface DashboardSummary {

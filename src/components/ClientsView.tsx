@@ -285,11 +285,11 @@ export const ClientsView: React.FC<ClientsViewProps> = ({
                     <div className="flex items-center justify-between pt-3 border-t border-[#001126]/5 dark:border-white/10 text-xs">
                       <div>
                         {c.totalOutstanding && c.totalOutstanding > 0 ? (
-                          <span className="font-['Space_Mono'] text-[11px] text-[#ba1a1a] dark:text-[#f87171] font-semibold">
+                          <span className="text-[11px] text-[#ba1a1a] dark:text-[#f87171] font-semibold tabular-nums">
                             Pending: {formatCurrency(c.totalOutstanding, 'INR')}
                           </span>
                         ) : (
-                          <span className="font-['Space_Mono'] text-[10px] text-[#3d6562] dark:text-[#5eead4] font-semibold">
+                          <span className="text-[11px] text-[#3d6562] dark:text-[#5eead4] font-medium">
                             No pending balance
                           </span>
                         )}

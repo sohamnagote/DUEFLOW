@@ -5,6 +5,8 @@ interface ClientProcessingAnimationProps {
   isSuccess?: boolean;
   isError?: boolean;
   statusText?: string;
+  clientName?: string;
+  clientEmail?: string;
 }
 
 export const ClientProcessingAnimation: React.FC<ClientProcessingAnimationProps> = ({

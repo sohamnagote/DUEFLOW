@@ -1,5 +1,5 @@
-import React, { useState } from 'react';
-import { Invoice, Client, InvoiceStatus, UserProfile } from '../types';
+import React, { useState, useRef } from 'react';
+import { Invoice, Client, InvoiceStatus, UserProfile, InvoiceCsvRow, InvoiceImportResult } from '../types';
 import { formatCurrency, getCurrencySymbol, SupportedCurrency } from '../utils/currency';
 import { formatDisplayDate } from '../utils/date';
 import { dueflowApi } from '../utils/api';
@@ -13,6 +13,7 @@ interface InvoicesViewProps {
   onAddInvoice: (inv: Omit<Invoice, 'id'>) => Promise<any> | void;
   onUpdateStatus: (id: string, status: InvoiceStatus) => Promise<any> | void;
   onDeleteInvoice: (id: string) => Promise<any> | void;
+  onInvoiceImported?: () => void;
 }
 
 export const InvoicesView: React.FC<InvoicesViewProps> = ({
@@ -23,6 +24,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   onAddInvoice,
   onUpdateStatus,
   onDeleteInvoice,
+  onInvoiceImported,
 }) => {
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
@@ -42,6 +44,205 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   // PDF download loading state per invoice
   const [downloadingPdfId, setDownloadingPdfId] = useState<string | null>(null);
   const [pdfError, setPdfError] = useState<string | null>(null);
+
+  // CSV Import State (Feature B)
+  const [isImportModalOpen, setIsImportModalOpen] = useState(false);
+  const [importRows, setImportRows] = useState<(InvoiceCsvRow & { isValid: boolean; error?: string })[]>([]);
+  const [isImporting, setIsImporting] = useState(false);
+  const [importSummary, setImportSummary] = useState<InvoiceImportResult | null>(null);
+  const [importError, setImportError] = useState<string | null>(null);
+  const [csvFileName, setCsvFileName] = useState<string | null>(null);
+  const csvFileInputRef = useRef<HTMLInputElement | null>(null);
+
+  const parseCsvText = (text: string): string[][] => {
+    const lines: string[] = [];
+    let currentLine = '';
+    let inQuotes = false;
+
+    for (let i = 0; i < text.length; i++) {
+      const char = text[i];
+      if (char === '"') {
+        inQuotes = !inQuotes;
+        currentLine += char;
+      } else if ((char === '\n' || char === '\r') && !inQuotes) {
+        if (char === '\r' && text[i + 1] === '\n') {
+          i++;
+        }
+        if (currentLine.trim()) {
+          lines.push(currentLine);
+        }
+        currentLine = '';
+      } else {
+        currentLine += char;
+      }
+    }
+    if (currentLine.trim()) {
+      lines.push(currentLine);
+    }
+
+    return lines.map((line) => {
+      const fields: string[] = [];
+      let field = '';
+      let inFieldQuotes = false;
+      for (let i = 0; i < line.length; i++) {
+        const c = line[i];
+        if (c === '"') {
+          if (inFieldQuotes && line[i + 1] === '"') {
+            field += '"';
+            i++;
+          } else {
+            inFieldQuotes = !inFieldQuotes;
+          }
+        } else if (c === ',' && !inFieldQuotes) {
+          fields.push(field.trim());
+          field = '';
+        } else {
+          field += c;
+        }
+      }
+      fields.push(field.trim());
+      return fields;
+    });
+  };
+
+  const handleDownloadCsvTemplate = () => {
+    const headers = 'Invoice Number,Client Name,Client Email,Issue Date,Due Date,Amount,Currency,Description,Status\n';
+    const sample1 = 'INV-2026-001,Acme Corporation,billing@acme.com,2026-10-01,2026-10-20,2500.00,USD,Consulting Services,UNPAID\n';
+    const sample2 = 'INV-2026-002,Global Tech Solutions,finance@globaltech.io,2026-10-05,2026-10-25,48000.00,INR,Full Stack Engineering,UNPAID\n';
+    const blob = new Blob(['\uFEFF' + headers + sample1 + sample2], { type: 'text/csv;charset=utf-8;' });
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = 'dueflow-invoices-template.csv';
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      document.body.removeChild(a);
+      URL.revokeObjectURL(url);
+    }, 150);
+  };
+
+  const handleCsvFileUpload = (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setCsvFileName(file.name);
+    setImportError(null);
+    setImportSummary(null);
+
+    const reader = new FileReader();
+    reader.onload = (event) => {
+      try {
+        const text = event.target?.result as string;
+        if (!text || !text.trim()) {
+          setImportError('The selected CSV file is empty.');
+          setImportRows([]);
+          return;
+        }
+
+        const rawLines = parseCsvText(text);
+        if (rawLines.length < 2) {
+          setImportError('CSV file must contain a header row and at least one data row.');
+          setImportRows([]);
+          return;
+        }
+
+        const headers = rawLines[0].map((h) => h.toLowerCase().trim().replace(/['"]/g, ''));
+        const invNumIdx = headers.findIndex((h) => h.includes('number') || h.includes('invoice'));
+        const clientNameIdx = headers.findIndex((h) => (h.includes('client') && !h.includes('email')) || h.includes('name') || h.includes('customer'));
+        const clientEmailIdx = headers.findIndex((h) => h.includes('email'));
+        const issueDateIdx = headers.findIndex((h) => (h.includes('issue') || h.includes('date')) && !h.includes('due'));
+        const dueDateIdx = headers.findIndex((h) => h.includes('due'));
+        const amountIdx = headers.findIndex((h) => h.includes('amount') || h.includes('total') || h.includes('price'));
+        const currencyIdx = headers.findIndex((h) => h.includes('currency'));
+        const descIdx = headers.findIndex((h) => h.includes('description') || h.includes('desc') || h.includes('notes') || h.includes('item'));
+        const statusIdx = headers.findIndex((h) => h.includes('status'));
+
+        const parsed: (InvoiceCsvRow & { isValid: boolean; error?: string })[] = [];
+
+        for (let i = 1; i < rawLines.length; i++) {
+          const row = rawLines[i];
+          if (row.length === 0 || (row.length === 1 && !row[0])) continue;
+
+          const invNumber = invNumIdx !== -1 ? row[invNumIdx]?.trim() : undefined;
+          const cName = clientNameIdx !== -1 ? row[clientNameIdx]?.trim() : '';
+          const cEmail = clientEmailIdx !== -1 ? row[clientEmailIdx]?.trim() : '';
+          const iDate = issueDateIdx !== -1 ? row[issueDateIdx]?.trim() : undefined;
+          const dDate = dueDateIdx !== -1 ? row[dueDateIdx]?.trim() : undefined;
+          const rawAmount = amountIdx !== -1 ? row[amountIdx]?.replace(/[^0-9.-]/g, '') : '0';
+          const amt = parseFloat(rawAmount) || 0;
+          const curr = currencyIdx !== -1 ? row[currencyIdx]?.trim().toUpperCase() : userPreferredCurrency;
+          const desc = descIdx !== -1 ? row[descIdx]?.trim() : '';
+          const st = statusIdx !== -1 ? row[statusIdx]?.trim().toUpperCase() : 'UNPAID';
+
+          let isValid = true;
+          let rowError = '';
+
+          if (!cName) {
+            isValid = false;
+            rowError = 'Missing client name';
+          } else if (amt <= 0 || isNaN(amt)) {
+            isValid = false;
+            rowError = 'Amount must be greater than 0';
+          }
+
+          parsed.push({
+            invoiceNumber: invNumber,
+            clientName: cName,
+            clientEmail: cEmail,
+            issueDate: iDate,
+            dueDate: dDate,
+            amount: amt,
+            currency: curr === 'USD' ? 'USD' : 'INR',
+            description: desc,
+            status: st === 'PAID' ? 'PAID' : st === 'DRAFT' ? 'DRAFT' : 'UNPAID',
+            isValid,
+            error: rowError,
+          });
+        }
+
+        setImportRows(parsed);
+      } catch (err: any) {
+        setImportError(err?.message || 'Failed to parse CSV file. Please check file format.');
+      }
+    };
+    reader.readAsText(file, 'UTF-8');
+  };
+
+  const handleConfirmImport = async () => {
+    const validRows = importRows.filter((r) => r.isValid);
+    if (validRows.length === 0) {
+      setImportError('No valid rows available to import.');
+      return;
+    }
+
+    setIsImporting(true);
+    setImportError(null);
+    try {
+      const payload: InvoiceCsvRow[] = validRows.map((r) => ({
+        invoiceNumber: r.invoiceNumber,
+        clientName: r.clientName,
+        clientEmail: r.clientEmail,
+        amount: r.amount,
+        currency: r.currency,
+        issueDate: r.issueDate,
+        dueDate: r.dueDate,
+        status: r.status,
+        description: r.description,
+      }));
+
+      const res = await dueflowApi.importInvoicesCsv(payload);
+      setImportSummary(res);
+
+      if (onInvoiceImported) {
+        onInvoiceImported();
+      }
+    } catch (err: any) {
+      console.error('CSV import failed:', err);
+      setImportError(err?.message || 'Failed to import invoices on server.');
+    } finally {
+      setIsImporting(false);
+    }
+  };
 
   const safeInvoices: Invoice[] = Array.isArray(invoices)
     ? (invoices.filter(Boolean) as Invoice[])
@@ -241,6 +442,22 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
             </p>
           </div>
           <div className="flex items-center gap-3 w-full sm:w-auto">
+            <button
+              onClick={() => {
+                setImportError(null);
+                setImportSummary(null);
+                setImportRows([]);
+                setCsvFileName(null);
+                setIsImportModalOpen(true);
+              }}
+              className="btn-action-secondary w-full sm:w-auto inline-flex items-center justify-center gap-2 px-4 py-2.5 rounded-xl text-sm font-medium cursor-pointer"
+              type="button"
+            >
+              <span className="material-symbols-outlined text-[18px]">
+                upload_file
+              </span>
+              <span>Import CSV</span>
+            </button>
             <button
               onClick={handleOpenNewModal}
               className="btn-action-primary group w-full sm:w-auto inline-flex items-center justify-center gap-2 px-5 py-2.5 rounded-xl text-sm font-medium shadow-sm cursor-pointer"
@@ -958,6 +1175,222 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                   <span className="font-bold text-[#001126]">Payment Note: </span>
                   {userProfile.paymentInstructions}
                 </div>
+              )}
+            </div>
+          </div>
+        </div>
+      )}
+
+      {/* CSV Invoice Import Modal (Feature B) */}
+      {isImportModalOpen && (
+        <div
+          className="fixed inset-0 z-50 bg-[#001126]/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 overflow-y-auto animate-in fade-in duration-150"
+          onClick={() => !isImporting && setIsImportModalOpen(false)}
+          role="dialog"
+          aria-modal="true"
+        >
+          <div
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-3xl w-full p-6 sm:p-7 space-y-5 shadow-2xl border border-[#15263c]/15 dark:border-white/10 my-8 max-h-[90vh] overflow-y-auto"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center justify-between pb-3 border-b border-[#15263c]/10 dark:border-white/10">
+              <div className="flex items-center gap-2.5">
+                <div className="p-2 rounded-lg bg-[#3d6562]/10 dark:bg-[#68b5ad]/20 text-[#3d6562] dark:text-[#68b5ad]">
+                  <span className="material-symbols-outlined text-[20px]">upload_file</span>
+                </div>
+                <div>
+                  <h3 className="text-lg font-bold text-[#15263c] dark:text-[#f3f6fa]">Import Invoices from CSV</h3>
+                  <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">Upload your client billing spreadsheet to bulk create or update invoices.</p>
+                </div>
+              </div>
+              {!isImporting && (
+                <button
+                  onClick={() => setIsImportModalOpen(false)}
+                  className="text-[#74777d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa] cursor-pointer"
+                >
+                  <span className="material-symbols-outlined text-[20px]">close</span>
+                </button>
+              )}
+            </div>
+
+            {/* Template & Upload Section */}
+            <div className="grid grid-cols-1 sm:grid-cols-2 gap-4">
+              <div className="p-4 rounded-xl bg-[#f0eee9]/40 dark:bg-[#101926] border border-[#15263c]/10 dark:border-white/10 space-y-2 flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-[#15263c] dark:text-[#f3f6fa]">1. Download standard template</h4>
+                  <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-1">
+                    Use our pre-formatted spreadsheet template with the required columns for invoices, clients, dates, and amounts.
+                  </p>
+                </div>
+                <button
+                  type="button"
+                  onClick={handleDownloadCsvTemplate}
+                  className="btn-action-secondary inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg self-start cursor-pointer mt-2"
+                >
+                  <span className="material-symbols-outlined text-[16px]">download</span>
+                  <span>Download template (.csv)</span>
+                </button>
+              </div>
+
+              <div className="p-4 rounded-xl bg-[#f0eee9]/40 dark:bg-[#101926] border border-[#15263c]/10 dark:border-white/10 space-y-2 flex flex-col justify-between">
+                <div>
+                  <h4 className="text-xs font-bold text-[#15263c] dark:text-[#f3f6fa]">2. Select your CSV file</h4>
+                  <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-1">
+                    Upload your UTF-8 CSV file. Quotation marks and commas inside descriptions are handled automatically.
+                  </p>
+                </div>
+                <input
+                  type="file"
+                  ref={csvFileInputRef}
+                  onChange={handleCsvFileUpload}
+                  accept=".csv,text/csv"
+                  className="hidden"
+                />
+                <button
+                  type="button"
+                  onClick={() => csvFileInputRef.current?.click()}
+                  className="btn-action-primary inline-flex items-center gap-2 px-3.5 py-2 text-xs font-semibold rounded-lg self-start cursor-pointer mt-2"
+                >
+                  <span className="material-symbols-outlined text-[16px]">folder_open</span>
+                  <span>{csvFileName ? `Change file (${csvFileName})` : 'Choose CSV file...'}</span>
+                </button>
+              </div>
+            </div>
+
+            {/* Deduplication Note */}
+            <div className="p-3 bg-[#f0eee9]/50 dark:bg-[#101926] rounded-lg border border-[#15263c]/5 dark:border-white/10 text-xs text-[#44474d] dark:text-[#94a3b8] flex items-start gap-2">
+              <span className="material-symbols-outlined text-[18px] text-[#3d6562] dark:text-[#68b5ad] shrink-0 mt-0.5">verified_user</span>
+              <span>
+                <strong>Safe deduplication:</strong> Existing invoice numbers within your workspace will be updated with confirmed CSV figures without wiping reminder records. New invoice numbers will auto-link or provision client records.
+              </span>
+            </div>
+
+            {/* Import Feedback / Error */}
+            {importError && (
+              <div className="p-3 rounded-lg bg-[#ffdad6]/40 dark:bg-red-950/40 border border-[#ba1a1a]/20 text-xs text-[#ba1a1a] dark:text-[#f87171] flex items-center gap-2 animate-fade-in">
+                <span className="material-symbols-outlined text-[18px]">error</span>
+                <span>{importError}</span>
+              </div>
+            )}
+
+            {/* Success Summary */}
+            {importSummary && (
+              <div className="p-4 rounded-xl bg-[#bfebe6]/40 dark:bg-teal-950/40 border border-[#3d6562]/30 text-xs text-[#00201e] dark:text-[#9ec9c4] space-y-2 animate-fade-in">
+                <div className="flex items-center gap-2 font-bold text-sm">
+                  <span className="material-symbols-outlined text-[20px] text-[#3d6562] dark:text-[#68b5ad]">check_circle</span>
+                  <span>Import Completed: {importSummary.importedCount} {importSummary.importedCount === 1 ? 'invoice' : 'invoices'} successfully saved.</span>
+                </div>
+                {importSummary.failedCount > 0 && (
+                  <p className="text-xs text-[#ba1a1a] dark:text-[#f87171]">
+                    {importSummary.failedCount} rows could not be imported. Please review the reported errors below:
+                  </p>
+                )}
+                {importSummary.errors && importSummary.errors.length > 0 && (
+                  <ul className="list-disc pl-5 space-y-1 text-xs">
+                    {importSummary.errors.map((err, idx) => (
+                      <li key={idx}>{err}</li>
+                    ))}
+                  </ul>
+                )}
+              </div>
+            )}
+
+            {/* Preview Table */}
+            {importRows.length > 0 && !importSummary && (
+              <div className="space-y-2">
+                <div className="flex items-center justify-between text-xs">
+                  <span className="font-semibold text-[#15263c] dark:text-[#f3f6fa]">
+                    Preview parsed rows ({importRows.length} total)
+                  </span>
+                  <span className="text-[#3d6562] dark:text-[#68b5ad] font-semibold">
+                    {importRows.filter((r) => r.isValid).length} valid rows ready to import
+                  </span>
+                </div>
+
+                <div className="border border-[#15263c]/10 dark:border-white/10 rounded-xl overflow-hidden max-h-56 overflow-y-auto">
+                  <table className="w-full text-left text-xs">
+                    <thead className="bg-[#f5f3ee] dark:bg-[#0f1724] border-b border-[#15263c]/10 dark:border-white/10 text-[#44474d] dark:text-[#94a3b8]">
+                      <tr>
+                        <th className="p-2.5">Invoice #</th>
+                        <th className="p-2.5">Client</th>
+                        <th className="p-2.5">Due Date</th>
+                        <th className="p-2.5 text-right">Amount</th>
+                        <th className="p-2.5 text-center">Status</th>
+                        <th className="p-2.5">Validation</th>
+                      </tr>
+                    </thead>
+                    <tbody className="divide-y divide-[#15263c]/5 dark:divide-white/5">
+                      {importRows.map((r, idx) => (
+                        <tr key={idx} className={r.isValid ? 'hover:bg-[#fbf9f4] dark:hover:bg-white/5' : 'bg-red-50/50 dark:bg-red-950/20'}>
+                          <td className="p-2.5 font-mono text-[11px] text-[#15263c] dark:text-[#93c5fd]">
+                            {r.invoiceNumber || 'Auto'}
+                          </td>
+                          <td className="p-2.5 font-medium">
+                            <div>{r.clientName || '—'}</div>
+                            {r.clientEmail && <div className="text-[10px] text-[#74777d]">{r.clientEmail}</div>}
+                          </td>
+                          <td className="p-2.5 text-[#44474d] dark:text-[#94a3b8]">
+                            {r.dueDate || 'Default (14d)'}
+                          </td>
+                          <td className="p-2.5 text-right font-semibold tabular-nums">
+                            {r.currency} {r.amount ? r.amount.toFixed(2) : '0.00'}
+                          </td>
+                          <td className="p-2.5 text-center">
+                            <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#15263c]/10 dark:bg-white/10">
+                              {r.status || 'UNPAID'}
+                            </span>
+                          </td>
+                          <td className="p-2.5">
+                            {r.isValid ? (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-[#3d6562] dark:text-[#68b5ad] font-semibold">
+                                <span className="material-symbols-outlined text-[14px]">check</span>
+                                Ready
+                              </span>
+                            ) : (
+                              <span className="inline-flex items-center gap-1 text-[11px] text-[#ba1a1a] dark:text-[#ffb4ab] font-semibold">
+                                <span className="material-symbols-outlined text-[14px]">close</span>
+                                {r.error}
+                              </span>
+                            )}
+                          </td>
+                        </tr>
+                      ))}
+                    </tbody>
+                  </table>
+                </div>
+              </div>
+            )}
+
+            {/* Modal Actions */}
+            <div className="pt-3 flex items-center justify-end gap-3 border-t border-[#15263c]/10 dark:border-white/10">
+              <button
+                type="button"
+                disabled={isImporting}
+                onClick={() => setIsImportModalOpen(false)}
+                className="btn-action-secondary px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer disabled:opacity-50"
+              >
+                {importSummary ? 'Close' : 'Cancel'}
+              </button>
+
+              {!importSummary && (
+                <button
+                  type="button"
+                  disabled={isImporting || importRows.filter((r) => r.isValid).length === 0}
+                  onClick={handleConfirmImport}
+                  className="btn-action-primary inline-flex items-center gap-2 px-5 py-2 text-xs font-semibold rounded-lg cursor-pointer disabled:opacity-50 shadow-sm"
+                >
+                  {isImporting ? (
+                    <>
+                      <span className="material-symbols-outlined text-[16px] animate-spin">progress_activity</span>
+                      <span>Importing invoices...</span>
+                    </>
+                  ) : (
+                    <>
+                      <span className="material-symbols-outlined text-[16px]">check</span>
+                      <span>Confirm & Import ({importRows.filter((r) => r.isValid).length} invoices)</span>
+                    </>
+                  )}
+                </button>
               )}
             </div>
           </div>

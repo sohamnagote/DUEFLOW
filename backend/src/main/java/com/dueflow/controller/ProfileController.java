@@ -1,5 +1,6 @@
 package com.dueflow.controller;
 
+import com.dueflow.domain.UserProfile;
 import com.dueflow.dto.UserProfileDto;
 import com.dueflow.security.SecurityUtils;
 import com.dueflow.service.UserProfileService;
@@ -21,12 +22,18 @@ public class ProfileController {
     public ResponseEntity<UserProfileDto> getProfile() {
         String userId = SecurityUtils.getRequiredUserId();
         String email = SecurityUtils.getCurrentUserEmail().orElse(null);
-        return ResponseEntity.ok(UserProfileDto.fromEntity(userProfileService.getOrCreateProfile(userId, email)));
+        UserProfile profile = userProfileService.getOrCreateProfile(userId, email);
+        UserProfileDto dto = UserProfileDto.fromEntity(profile);
+        userProfileService.populateGmailStatus(userId, dto);
+        return ResponseEntity.ok(dto);
     }
 
     @PutMapping
     public ResponseEntity<UserProfileDto> updateProfile(@Valid @RequestBody UserProfileDto dto) {
         String userId = SecurityUtils.getRequiredUserId();
-        return ResponseEntity.ok(UserProfileDto.fromEntity(userProfileService.updateProfile(userId, dto)));
+        UserProfile updated = userProfileService.updateProfile(userId, dto);
+        UserProfileDto result = UserProfileDto.fromEntity(updated);
+        userProfileService.populateGmailStatus(userId, result);
+        return ResponseEntity.ok(result);
     }
 }

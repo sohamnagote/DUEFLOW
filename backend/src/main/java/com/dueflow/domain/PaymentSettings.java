@@ -39,6 +39,30 @@ public class PaymentSettings {
     @Column(name = "qr_code_storage_path", length = 500)
     private String qrCodeStoragePath;
 
+    @Column(name = "business_name")
+    private String businessName;
+
+    @Column(name = "logo_url", columnDefinition = "TEXT")
+    private String logoUrl;
+
+    @Column(name = "logo_storage_path", length = 500)
+    private String logoStoragePath;
+
+    @Column(name = "business_email")
+    private String businessEmail;
+
+    @Column(name = "business_phone", length = 50)
+    private String businessPhone;
+
+    @Column(name = "business_address", columnDefinition = "TEXT")
+    private String businessAddress;
+
+    @Column(name = "brand_color", length = 20)
+    private String brandColor = "#001126";
+
+    @Column(name = "footer_terms", columnDefinition = "TEXT")
+    private String footerTerms;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -151,5 +175,69 @@ public class PaymentSettings {
 
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
+    }
+
+    public String getBusinessName() {
+        return businessName;
+    }
+
+    public void setBusinessName(String businessName) {
+        this.businessName = businessName;
+    }
+
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public void setLogoUrl(String logoUrl) {
+        this.logoUrl = logoUrl;
+    }
+
+    public String getLogoStoragePath() {
+        return logoStoragePath;
+    }
+
+    public void setLogoStoragePath(String logoStoragePath) {
+        this.logoStoragePath = logoStoragePath;
+    }
+
+    public String getBusinessEmail() {
+        return businessEmail;
+    }
+
+    public void setBusinessEmail(String businessEmail) {
+        this.businessEmail = businessEmail;
+    }
+
+    public String getBusinessPhone() {
+        return businessPhone;
+    }
+
+    public void setBusinessPhone(String businessPhone) {
+        this.businessPhone = businessPhone;
+    }
+
+    public String getBusinessAddress() {
+        return businessAddress;
+    }
+
+    public void setBusinessAddress(String businessAddress) {
+        this.businessAddress = businessAddress;
+    }
+
+    public String getBrandColor() {
+        return brandColor != null && !brandColor.isBlank() ? brandColor : "#001126";
+    }
+
+    public void setBrandColor(String brandColor) {
+        this.brandColor = brandColor;
+    }
+
+    public String getFooterTerms() {
+        return footerTerms;
+    }
+
+    public void setFooterTerms(String footerTerms) {
+        this.footerTerms = footerTerms;
     }
 }

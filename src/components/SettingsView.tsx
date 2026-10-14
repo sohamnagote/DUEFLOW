@@ -1,7 +1,6 @@
 import React, { useState, useEffect, useRef } from 'react';
 import { UserProfile } from '../types';
 import { dueflowApi } from '../utils/api';
-import { ThemeToggle } from './ThemeToggle';
 import { QrUploadProcessingAnimation } from './animations/QrUploadProcessingAnimation';
 
 interface SettingsViewProps {
@@ -17,6 +16,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   isOnboardingMode = false,
   onOnboardingComplete,
 }) => {
+  // Profile state
   const [fullName, setFullName] = useState(userProfile?.fullName || '');
   const [email, setEmail] = useState(userProfile?.email || '');
   const [preferredCurrency, setPreferredCurrency] = useState<'INR' | 'USD'>(
@@ -26,6 +26,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     userProfile?.timezone || 'Asia/Kolkata'
   );
 
+  // Payment settings state
   const [upiId, setUpiId] = useState(userProfile?.upiId || '');
   const [beneficiaryName, setBeneficiaryName] = useState(
     userProfile?.beneficiaryName || ''
@@ -36,12 +37,53 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [instructions, setInstructions] = useState(
     userProfile?.paymentInstructions || ''
   );
-
   const [qrFile, setQrFile] = useState<string | null>(userProfile?.paymentQrUrl || null);
+
+  // Custom Invoice Branding state (Feature A)
+  const [businessName, setBusinessName] = useState(
+    userProfile?.businessName || userProfile?.beneficiaryName || userProfile?.fullName || ''
+  );
+  const [logoUrl, setLogoUrl] = useState<string | null>(userProfile?.logoUrl || null);
+  const [businessEmail, setBusinessEmail] = useState(
+    userProfile?.businessEmail || userProfile?.email || ''
+  );
+  const [businessPhone, setBusinessPhone] = useState(userProfile?.businessPhone || '');
+  const [businessAddress, setBusinessAddress] = useState(userProfile?.businessAddress || '');
+  const [brandColor, setBrandColor] = useState(userProfile?.brandColor || '#4f46e5');
+  const [footerTerms, setFooterTerms] = useState(
+    userProfile?.footerTerms || 'Payment is due within 14 days of invoice date. Thank you for your business!'
+  );
+  const [isSavingBranding, setIsSavingBranding] = useState(false);
+  const [brandingSaved, setBrandingSaved] = useState(false);
+  const [brandingError, setBrandingError] = useState<string | null>(null);
+  const [isUploadingLogo, setIsUploadingLogo] = useState(false);
+  const [logoError, setLogoError] = useState<string | null>(null);
+  const logoInputRef = useRef<HTMLInputElement | null>(null);
+
+  // Gmail OAuth status states (Phase 2)
   const [gmailConnected, setGmailConnected] = useState(userProfile?.gmailConnected || false);
+  const [gmailStatus, setGmailStatus] = useState<'connected' | 'reconnect_required' | 'disconnected' | 'unavailable'>(
+    userProfile?.gmailStatus || (userProfile?.gmailConnected ? 'connected' : 'disconnected')
+  );
+  const [connectedGmailEmail, setConnectedGmailEmail] = useState<string | null>(
+    userProfile?.gmailEmail || null
+  );
+  const [isGmailLoading, setIsGmailLoading] = useState(false);
+  const [gmailError, setGmailError] = useState<string | null>(null);
+  const [gmailSuccess, setGmailSuccess] = useState<string | null>(null);
+
+  // Reminder preferences state (Phase 3)
   const [automatedReminders, setAutomatedReminders] = useState(
     userProfile?.automatedRemindersEnabled ?? true
   );
+  const [isSavingReminderPref, setIsSavingReminderPref] = useState(false);
+  const [reminderPrefSuccess, setReminderPrefSuccess] = useState<string | null>(null);
+  const [reminderPrefError, setReminderPrefError] = useState<string | null>(null);
+
+  // Data Export state (Feature C)
+  const [exportingEntity, setExportingEntity] = useState<string | null>(null);
+  const [exportError, setExportError] = useState<string | null>(null);
+  const [exportSuccess, setExportSuccess] = useState<string | null>(null);
 
   // Status indicators for saves
   const [isSavingProfile, setIsSavingProfile] = useState(false);
@@ -63,12 +105,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
   const fileInputRef = useRef<HTMLInputElement | null>(null);
 
-  // Gmail OAuth status states
-  const [isGmailLoading, setIsGmailLoading] = useState(false);
-  const [gmailError, setGmailError] = useState<string | null>(null);
-  const [gmailSuccess, setGmailSuccess] = useState<string | null>(null);
-  const [connectedGmailEmail, setConnectedGmailEmail] = useState<string | null>(null);
-
   // Load persisted user profile from backend database on mount
   useEffect(() => {
     let isMounted = true;
@@ -89,10 +125,26 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           setRoutingNumber(p.routingNumber || '');
           setInstructions(p.paymentInstructions || '');
           setQrFile(p.paymentQrUrl || null);
+
+          // Branding fields
+          if (p.businessName) setBusinessName(p.businessName);
+          if (p.logoUrl) setLogoUrl(p.logoUrl);
+          if (p.businessEmail) setBusinessEmail(p.businessEmail);
+          if (p.businessPhone) setBusinessPhone(p.businessPhone);
+          if (p.businessAddress) setBusinessAddress(p.businessAddress);
+          if (p.brandColor) setBrandColor(p.brandColor);
+          if (p.footerTerms) setFooterTerms(p.footerTerms);
+
+          // Gmail status
           if (typeof p.gmailConnected === 'boolean') setGmailConnected(p.gmailConnected);
+          if (p.gmailStatus) setGmailStatus(p.gmailStatus);
+          if (p.gmailEmail) setConnectedGmailEmail(p.gmailEmail);
+
+          // Reminder preferences
           if (typeof p.automatedRemindersEnabled === 'boolean') {
             setAutomatedReminders(p.automatedRemindersEnabled);
           }
+
           if (onUpdateProfile) {
             onUpdateProfile(p);
           }
@@ -109,8 +161,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           const emailParam = params.get('email');
           if (isMounted) {
             setGmailConnected(true);
+            setGmailStatus('connected');
             if (emailParam) setConnectedGmailEmail(emailParam);
             setGmailSuccess('Gmail account connected successfully.');
+            if (onUpdateProfile && userProfile) {
+              onUpdateProfile({
+                ...userProfile,
+                gmailConnected: true,
+                gmailStatus: 'connected',
+                gmailEmail: emailParam || userProfile.gmailEmail,
+              });
+            }
             setTimeout(() => setGmailSuccess(null), 5000);
           }
           window.history.replaceState({}, document.title, window.location.pathname);
@@ -124,15 +185,27 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         }
       }
 
-      // Query live Gmail integration status from backend
+      // Query authoritative Gmail integration status from backend
       try {
         const gStatus = await dueflowApi.getGmailStatus();
         if (isMounted && gStatus) {
           setGmailConnected(gStatus.connected);
+          const mappedStatus = gStatus.connected ? 'connected' : 'disconnected';
+          setGmailStatus(mappedStatus);
           if (gStatus.email) setConnectedGmailEmail(gStatus.email);
+
+          if (onUpdateProfile && userProfile) {
+            onUpdateProfile({
+              ...userProfile,
+              gmailConnected: gStatus.connected,
+              gmailStatus: mappedStatus,
+              gmailEmail: gStatus.email || userProfile.gmailEmail,
+            });
+          }
         }
       } catch (_) {}
     };
+
     fetchProfile();
     return () => {
       isMounted = false;
@@ -172,8 +245,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         paymentInstructions: instructions,
         paymentQrUrl: qrFile,
         gmailConnected,
+        gmailEmail: connectedGmailEmail || undefined,
+        gmailStatus,
         automatedRemindersEnabled: automatedReminders,
         onboardingCompleted: true,
+        businessName,
+        logoUrl: logoUrl || undefined,
+        businessEmail,
+        businessPhone,
+        businessAddress,
+        brandColor,
+        footerTerms,
       };
 
       setProfileSaved(true);
@@ -223,7 +305,17 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         paymentInstructions: instructions,
         paymentQrUrl: qrFile,
         gmailConnected,
+        gmailEmail: connectedGmailEmail || undefined,
+        gmailStatus,
         automatedRemindersEnabled: automatedReminders,
+        onboardingCompleted: userProfile?.onboardingCompleted ?? true,
+        businessName,
+        logoUrl: logoUrl || undefined,
+        businessEmail,
+        businessPhone,
+        businessAddress,
+        brandColor,
+        footerTerms,
       };
 
       setPaymentSaved(true);
@@ -308,6 +400,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  // Gmail OAuth connect / disconnect handler
   const handleToggleGmail = async () => {
     if (isGmailLoading) return;
     setGmailError(null);
@@ -318,8 +411,18 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
       try {
         await dueflowApi.disconnectGmail();
         setGmailConnected(false);
+        setGmailStatus('disconnected');
         setConnectedGmailEmail(null);
         setGmailSuccess('Gmail disconnected successfully.');
+
+        if (onUpdateProfile && userProfile) {
+          onUpdateProfile({
+            ...userProfile,
+            gmailConnected: false,
+            gmailStatus: 'disconnected',
+            gmailEmail: undefined,
+          });
+        }
         setTimeout(() => setGmailSuccess(null), 4000);
       } catch (err: any) {
         setGmailError(err?.message || 'Failed to disconnect Gmail.');
@@ -342,6 +445,135 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
     }
   };
 
+  // Automated reminders global toggle handler (Phase 3)
+  const handleToggleAutomatedReminders = async () => {
+    if (isSavingReminderPref) return;
+    const nextVal = !automatedReminders;
+    setIsSavingReminderPref(true);
+    setReminderPrefError(null);
+    setReminderPrefSuccess(null);
+
+    try {
+      await dueflowApi.updateProfile({ automatedRemindersEnabled: nextVal });
+      setAutomatedReminders(nextVal);
+      setReminderPrefSuccess(`Automated reminders ${nextVal ? 'enabled' : 'paused'} successfully.`);
+
+      if (onUpdateProfile && userProfile) {
+        onUpdateProfile({
+          ...userProfile,
+          automatedRemindersEnabled: nextVal,
+        });
+      }
+      setTimeout(() => setReminderPrefSuccess(null), 4000);
+    } catch (err: any) {
+      console.error('Failed to update reminder preferences:', err);
+      setReminderPrefError(err?.message || 'Failed to update reminder preferences.');
+      setTimeout(() => setReminderPrefError(null), 5000);
+    } finally {
+      setIsSavingReminderPref(false);
+    }
+  };
+
+  // Custom Invoice Branding handlers (Feature A)
+  const handleLogoUpload = async (e: React.ChangeEvent<HTMLInputElement>) => {
+    const file = e.target.files?.[0];
+    if (!file) return;
+    setLogoError(null);
+    setIsUploadingLogo(true);
+
+    try {
+      const res = await dueflowApi.uploadBrandingLogo(file);
+      setLogoUrl(res.logoUrl);
+      if (onUpdateProfile && userProfile) {
+        onUpdateProfile({ ...userProfile, logoUrl: res.logoUrl });
+      }
+    } catch (err: any) {
+      console.error('Logo upload failed:', err);
+      setLogoError(err?.message || 'Failed to upload logo image.');
+      setTimeout(() => setLogoError(null), 5000);
+    } finally {
+      setIsUploadingLogo(false);
+      if (logoInputRef.current) logoInputRef.current.value = '';
+    }
+  };
+
+  const handleDeleteLogo = async () => {
+    setIsUploadingLogo(true);
+    setLogoError(null);
+    try {
+      await dueflowApi.deleteBrandingLogo();
+      setLogoUrl(null);
+      if (onUpdateProfile && userProfile) {
+        onUpdateProfile({ ...userProfile, logoUrl: undefined });
+      }
+    } catch (err: any) {
+      console.error('Logo deletion failed:', err);
+      setLogoError(err?.message || 'Failed to delete logo.');
+      setTimeout(() => setLogoError(null), 5000);
+    } finally {
+      setIsUploadingLogo(false);
+    }
+  };
+
+  const handleSaveBranding = async () => {
+    setIsSavingBranding(true);
+    setBrandingSaved(false);
+    setBrandingError(null);
+
+    try {
+      await dueflowApi.updateProfile({
+        businessName: businessName.trim(),
+        logoUrl: logoUrl || undefined,
+        businessEmail: businessEmail.trim(),
+        businessPhone: businessPhone.trim(),
+        businessAddress: businessAddress.trim(),
+        brandColor,
+        footerTerms: footerTerms.trim(),
+      });
+
+      setBrandingSaved(true);
+      if (onUpdateProfile && userProfile) {
+        onUpdateProfile({
+          ...userProfile,
+          businessName: businessName.trim(),
+          logoUrl: logoUrl || undefined,
+          businessEmail: businessEmail.trim(),
+          businessPhone: businessPhone.trim(),
+          businessAddress: businessAddress.trim(),
+          brandColor,
+          footerTerms: footerTerms.trim(),
+        });
+      }
+      setTimeout(() => setBrandingSaved(false), 3500);
+    } catch (err: any) {
+      console.error('Failed to save branding:', err);
+      setBrandingError(err?.message || 'Failed to save branding settings.');
+      setTimeout(() => setBrandingError(null), 5000);
+    } finally {
+      setIsSavingBranding(false);
+    }
+  };
+
+  // Data Export handler (Feature C)
+  const handleExportData = async (entity: 'invoices' | 'clients' | 'payments' | 'reminders' | 'all') => {
+    if (exportingEntity) return;
+    setExportingEntity(entity);
+    setExportError(null);
+    setExportSuccess(null);
+
+    try {
+      await dueflowApi.exportData(entity);
+      setExportSuccess(`${entity.charAt(0).toUpperCase() + entity.slice(1)} exported successfully.`);
+      setTimeout(() => setExportSuccess(null), 4000);
+    } catch (err: any) {
+      console.error(`Export failed for ${entity}:`, err);
+      setExportError(err?.message || `Failed to export ${entity}. Please try again.`);
+      setTimeout(() => setExportError(null), 5000);
+    } finally {
+      setExportingEntity(null);
+    }
+  };
+
   return (
     <div className="flex flex-col w-full min-h-screen bg-[#fbf9f4] dark:bg-[#0c131d] px-6 sm:px-14 py-8 space-y-10 max-w-5xl">
       {/* Header Section */}
@@ -351,7 +583,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             Settings
           </h1>
           <p className="text-sm text-[#44474d] dark:text-[#94a3b8] mt-1">
-            Manage your visual appearance, currency preferences, business profile, payment details, and email connection.
+            Manage your currency preferences, business profile, invoice branding, payment details, email connection, and data exports.
           </p>
         </div>
       </section>
@@ -368,21 +600,6 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </p>
         </div>
       )}
-
-      {/* Card 0: Appearance / Theme Configuration */}
-      <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-4 shadow-2xs">
-        <div>
-          <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
-            Appearance
-          </h2>
-          <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
-            Choose your interface visual theme. Preference is saved locally and instantly applies across the entire workspace.
-          </p>
-        </div>
-        <div className="pt-2">
-          <ThemeToggle variant="segmented" />
-        </div>
-      </div>
 
       {/* Card 1: Profile & Currency Selection */}
       <div id="profile-section" className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-2xs">
@@ -412,12 +629,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <div className="flex items-center justify-between">
               <label
                 htmlFor="preferred-currency-select"
-                className="block text-[11px] font-semibold font-['Space_Mono'] uppercase tracking-wider text-[#001126] dark:text-[#f3f6fa]"
+                className="block text-[11px] font-semibold uppercase tracking-wider text-[#001126] dark:text-[#f3f6fa]"
               >
                 PREFERRED INVOICE CURRENCY *
               </label>
-              <span className="font-['Space_Mono'] text-[10px] text-[#3d6562] dark:text-[#68b5ad] font-semibold">
-                CURRENT DEFAULT: {preferredCurrency} ({preferredCurrency === 'INR' ? '₹' : '$'})
+              <span className="text-[11px] text-[#3d6562] dark:text-[#68b5ad] font-semibold">
+                Current default: {preferredCurrency} ({preferredCurrency === 'INR' ? '₹' : '$'})
               </span>
             </div>
 
@@ -432,45 +649,45 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             </select>
 
             <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
-              Default currency used when creating new invoices. Existing invoices preserve their own recorded currency and are never converted or altered.
+              Default currency used when creating new invoices. Existing invoices preserve their own recorded currency and are never altered.
             </p>
           </div>
 
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-['Space_Mono'] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
-                FULL NAME OR BUSINESS NAME
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Full name or Freelancer name
               </label>
               <input
                 type="text"
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
-                placeholder="e.g. Acme Studio LLC"
-                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+                placeholder="e.g. Jane Doe"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-['Space_Mono'] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
-                EMAIL ADDRESS
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Account email address
               </label>
               <input
                 type="email"
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
-                placeholder="e.g. billing@acme.com"
-                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+                placeholder="e.g. jane@example.com"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
               />
             </div>
           </div>
 
           <div>
-            <label className="block text-[10px] font-['Space_Mono'] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
-              TIMEZONE
+            <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+              Timezone
             </label>
             <select
               value={timezone}
               onChange={(e) => setTimezone(e.target.value)}
-              className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+              className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
             >
               <option value="(UTC+05:30) India Standard Time (Kolkata)">
                 (UTC+05:30) India Standard Time (Kolkata)
@@ -525,85 +742,289 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Card 2: Payment details */}
+      {/* Card 2: Custom Invoice Branding (Feature A) */}
+      <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-2xs">
+        <div>
+          <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
+            Custom invoice branding
+          </h2>
+          <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
+            Personalize your generated invoice PDFs with your company branding, logo, accent color, and terms.
+          </p>
+        </div>
+
+        <div className="space-y-5">
+          {/* Logo upload */}
+          <div className="space-y-2">
+            <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] block">
+              Business logo
+            </span>
+            <input
+              type="file"
+              ref={logoInputRef}
+              onChange={handleLogoUpload}
+              accept="image/png,image/jpeg,image/webp"
+              className="hidden"
+            />
+
+            {logoUrl ? (
+              <div className="flex flex-col sm:flex-row items-center sm:items-start gap-4 p-4 bg-[#f0eee9]/40 dark:bg-[#101926] rounded-xl border border-[#001126]/10 dark:border-white/10">
+                <img
+                  src={logoUrl}
+                  alt="Business Logo Preview"
+                  className="w-24 h-24 object-contain rounded-lg border border-[#001126]/10 dark:border-white/10 bg-white p-2 shadow-2xs"
+                />
+                <div className="flex flex-col justify-between self-stretch py-1 text-center sm:text-left">
+                  <div>
+                    <span className="text-xs font-bold text-[#001126] dark:text-[#f3f6fa]">
+                      Active business logo
+                    </span>
+                    <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-1">
+                      This logo is displayed in the header of your invoice PDFs.
+                    </p>
+                  </div>
+                  <div className="flex items-center justify-center sm:justify-start gap-3 mt-3">
+                    <button
+                      type="button"
+                      disabled={isUploadingLogo}
+                      onClick={() => logoInputRef.current?.click()}
+                      className="btn-action-secondary px-3 py-1.5 text-xs font-medium rounded-lg cursor-pointer disabled:opacity-50"
+                    >
+                      Change logo
+                    </button>
+                    <button
+                      type="button"
+                      disabled={isUploadingLogo}
+                      onClick={handleDeleteLogo}
+                      className="text-xs font-medium text-[#ba1a1a] dark:text-[#ffb4ab] hover:underline cursor-pointer disabled:opacity-50"
+                    >
+                      Remove
+                    </button>
+                  </div>
+                </div>
+              </div>
+            ) : (
+              <div
+                onClick={() => {
+                  if (!isUploadingLogo) logoInputRef.current?.click();
+                }}
+                className="border border-dashed border-[#001126]/20 dark:border-white/20 hover:border-[#001126]/40 dark:hover:border-white/40 rounded-xl p-6 flex flex-col items-center justify-center text-center cursor-pointer transition-colors bg-[#fbf9f4]/50 dark:bg-[#101926]/50"
+              >
+                <div className="w-8 h-8 rounded bg-[#f0eee9] dark:bg-[#192638] flex items-center justify-center mb-2 text-[#44474d] dark:text-[#94a3b8]">
+                  <span className="material-symbols-outlined text-[18px]">add_photo_alternate</span>
+                </div>
+                <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+                  {isUploadingLogo ? 'Uploading logo...' : 'Upload company logo (PNG, JPEG, WebP)'}
+                </span>
+                <span className="text-[10px] text-[#44474d]/70 dark:text-[#94a3b8]/70 mt-1">
+                  MAX 5MB • SQUARE OR HORIZONTAL RATIO RECOMMENDED
+                </span>
+              </div>
+            )}
+
+            {logoError && (
+              <span className="text-xs text-[#ba1a1a] dark:text-[#ffb4ab] font-medium flex items-center gap-1.5 animate-fade-in pt-1">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                {logoError}
+              </span>
+            )}
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Business / Studio Display Name
+              </label>
+              <input
+                type="text"
+                value={businessName}
+                onChange={(e) => setBusinessName(e.target.value)}
+                placeholder="e.g. Acme Design Studio LLC"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Brand Accent Color
+              </label>
+              <div className="flex items-center gap-2">
+                <input
+                  type="color"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  className="w-10 h-9 p-0.5 rounded cursor-pointer border border-[#001126]/10 dark:border-white/10 bg-transparent"
+                />
+                <input
+                  type="text"
+                  value={brandColor}
+                  onChange={(e) => setBrandColor(e.target.value)}
+                  placeholder="#4f46e5"
+                  className="w-full px-3.5 py-2 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs font-mono text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none uppercase"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
+            <div>
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Business Contact Email
+              </label>
+              <input
+                type="email"
+                value={businessEmail}
+                onChange={(e) => setBusinessEmail(e.target.value)}
+                placeholder="e.g. billing@acmedesign.com"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+              />
+            </div>
+
+            <div>
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Business Phone (Optional)
+              </label>
+              <input
+                type="text"
+                value={businessPhone}
+                onChange={(e) => setBusinessPhone(e.target.value)}
+                placeholder="e.g. +1 (555) 234-5678"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+              />
+            </div>
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+              Business Physical / Registered Address
+            </label>
+            <input
+              type="text"
+              value={businessAddress}
+              onChange={(e) => setBusinessAddress(e.target.value)}
+              placeholder="e.g. 100 Tech Boulevard, Suite 400, San Francisco, CA 94107"
+              className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+            />
+          </div>
+
+          <div>
+            <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+              Footer Terms & Payment Policy (Printed on invoice documents)
+            </label>
+            <textarea
+              rows={2}
+              value={footerTerms}
+              onChange={(e) => setFooterTerms(e.target.value)}
+              placeholder="e.g. Payment is due within 14 days of invoice date. Late payments subject to 1.5% interest."
+              className="w-full px-3.5 py-2 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none resize-none"
+            />
+          </div>
+
+          <div className="pt-2 flex flex-col sm:flex-row sm:items-center gap-3">
+            <button
+              onClick={handleSaveBranding}
+              disabled={isSavingBranding}
+              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-xs font-semibold rounded-xl self-stretch sm:self-start cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
+            >
+              {isSavingBranding ? 'Saving branding...' : 'Save branding preferences'}
+            </button>
+
+            {brandingSaved && (
+              <span className="text-xs text-[#3d6562] dark:text-[#68b5ad] font-semibold flex items-center gap-1.5 animate-fade-in">
+                <span className="material-symbols-outlined text-[16px]">check_circle</span>
+                Invoice branding saved
+              </span>
+            )}
+
+            {brandingError && (
+              <span className="text-xs text-[#ba1a1a] dark:text-[#ffb4ab] font-semibold flex items-center gap-1.5 animate-fade-in">
+                <span className="material-symbols-outlined text-[16px]">error</span>
+                {brandingError}
+              </span>
+            )}
+          </div>
+        </div>
+      </div>
+
+      {/* Card 3: Payment details */}
       <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-6 shadow-2xs">
         <div>
           <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
             Payment details
           </h2>
           <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
-            Add the information your clients need to pay you in your chosen currency.
+            Add the settlement details your clients need to pay you in your chosen currency.
           </p>
         </div>
 
         <div className="space-y-5">
           <div className="grid grid-cols-1 md:grid-cols-2 gap-4">
             <div>
-              <label className="block text-[10px] font-['Space_Mono'] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
-                UPI ID (INR PAYMENTS)
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                UPI ID (INR Payments)
               </label>
               <input
                 type="text"
                 value={upiId}
                 onChange={(e) => setUpiId(e.target.value)}
                 placeholder="e.g. yourname@okhdfcbank"
-                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
               />
             </div>
             <div>
-              <label className="block text-[10px] font-['Space_Mono'] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
-                BENEFICIARY OR BUSINESS NAME
+              <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+                Beneficiary Name
               </label>
               <input
                 type="text"
                 value={beneficiaryName}
                 onChange={(e) => setBeneficiaryName(e.target.value)}
                 placeholder="e.g. Acme Studio LLC"
-                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+                className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
               />
             </div>
           </div>
 
           {/* Direct Bank Transfer */}
           <div className="space-y-2">
-            <span className="font-['Space_Mono'] text-[9px] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] block">
-              DIRECT BANK TRANSFER (OPTIONAL)
+            <span className="text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] block">
+              Direct Bank Transfer (Optional)
             </span>
             <div className="grid grid-cols-1 sm:grid-cols-3 gap-3">
               <div>
-                <label className="block font-['Space_Mono'] text-[9px] uppercase text-[#44474d] dark:text-[#94a3b8] mb-1">
-                  BANK NAME
+                <label className="block text-[10px] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                  Bank Name
                 </label>
                 <input
                   type="text"
                   value={bankName}
                   onChange={(e) => setBankName(e.target.value)}
                   placeholder="e.g. HDFC Bank, Mumbai"
-                  className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/10 dark:border-white/15 focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none"
+                  className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-[#001126]/10 dark:border-white/15 focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none"
                 />
               </div>
               <div>
-                <label className="block font-['Space_Mono'] text-[9px] uppercase text-[#44474d] dark:text-[#94a3b8] mb-1">
-                  ACCOUNT NUMBER
+                <label className="block text-[10px] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                  Account Number
                 </label>
                 <input
                   type="text"
                   value={accountNumber}
                   onChange={(e) => setAccountNumber(e.target.value)}
                   placeholder="e.g. 0123456789"
-                  className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/10 dark:border-white/15 focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none"
+                  className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-[#001126]/10 dark:border-white/15 focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none tabular-nums"
                 />
               </div>
               <div>
-                <label className="block font-['Space_Mono'] text-[9px] uppercase text-[#44474d] dark:text-[#94a3b8] mb-1">
-                  IFSC / ROUTING / BIC
+                <label className="block text-[10px] text-[#44474d] dark:text-[#94a3b8] mb-1">
+                  IFSC / Routing / BIC
                 </label>
                 <input
                   type="text"
                   value={routingNumber}
                   onChange={(e) => setRoutingNumber(e.target.value)}
                   placeholder="e.g. HDFC0001234"
-                  className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-[#001126]/10 dark:border-white/15 focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none"
+                  className="w-full px-3 py-2 bg-[#ffffff] dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-[#001126]/10 dark:border-white/15 focus:border-[#001126] dark:focus:border-[#38bdf8] outline-none uppercase"
                 />
               </div>
             </div>
@@ -611,21 +1032,21 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
 
           {/* Payment Instructions */}
           <div>
-            <label className="block text-[10px] font-['Space_Mono'] uppercase tracking-wider text-[#44474d] dark:text-[#94a3b8] mb-1">
-              PAYMENT INSTRUCTIONS
+            <label className="block text-[11px] font-medium text-[#44474d] dark:text-[#94a3b8] mb-1">
+              Payment Instructions & Notes
             </label>
             <input
               type="text"
               value={instructions}
               onChange={(e) => setInstructions(e.target.value)}
               placeholder="e.g. Please include invoice number in the payment note"
-              className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
+              className="w-full px-3.5 py-2.5 bg-[#f0eee9]/60 dark:bg-[#0c131d] text-xs text-[#001126] dark:text-[#f3f6fa] rounded-lg border border-transparent focus:border-[#001126] dark:focus:border-[#38bdf8] focus:bg-[#ffffff] dark:focus:bg-[#101926] outline-none"
             />
           </div>
 
           {/* Payment QR code */}
           <div className="space-y-2">
-            <span className="text-xs font-bold text-[#001126] dark:text-[#f3f6fa] block">
+            <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] block">
               Payment QR code
             </span>
             <span className="text-xs text-[#44474d] dark:text-[#94a3b8] block">
@@ -640,7 +1061,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
               className="hidden"
             />
 
-            {/* Contextual Processing State during upload */}
+            {/* Processing State during upload */}
             {isUploadingQr || qrUploadSuccess ? (
               <QrUploadProcessingAnimation
                 isUploading={isUploadingQr}
@@ -668,14 +1089,12 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     </p>
                   </div>
 
-                  {/* Two clearly distinguishable actions: Replace QR code and Delete QR code */}
                   <div className="flex flex-wrap items-center justify-center sm:justify-start gap-3 mt-4 pt-3 border-t border-[#001126]/5 dark:border-white/10">
                     <button
                       type="button"
                       disabled={isUploadingQr || isDeletingQr}
                       onClick={() => fileInputRef.current?.click()}
-                      className="btn-action-secondary inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg cursor-pointer disabled:opacity-50"
-                      title="Upload a new QR image to replace the current one"
+                      className="btn-action-secondary inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg cursor-pointer disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[16px]">sync</span>
                       <span>Replace QR code</span>
@@ -688,8 +1107,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                         setQrDeleteError(null);
                         setShowDeleteQrModal(true);
                       }}
-                      className="btn-action-danger inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-semibold rounded-lg border border-[#ba1a1a]/30 dark:border-[#ffb4ab]/30 text-[#ba1a1a] dark:text-[#ffb4ab] bg-transparent hover:bg-[#ba1a1a]/10 hover:border-[#ba1a1a]/50 active:scale-[0.98] transition-all cursor-pointer disabled:opacity-50"
-                      title="Remove this QR code from payment details"
+                      className="btn-action-danger inline-flex items-center gap-1.5 px-3.5 py-2 text-xs font-medium rounded-lg border border-[#ba1a1a]/30 dark:border-[#ffb4ab]/30 text-[#ba1a1a] dark:text-[#ffb4ab] bg-transparent hover:bg-[#ba1a1a]/10 cursor-pointer disabled:opacity-50"
                     >
                       <span className="material-symbols-outlined text-[16px]">delete</span>
                       <span>Delete QR code</span>
@@ -710,7 +1128,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
                   Upload QR image (PNG, JPEG, WebP)
                 </span>
-                <span className="font-['Space_Mono'] text-[9px] uppercase tracking-wider text-[#44474d]/70 dark:text-[#94a3b8]/70 mt-1">
+                <span className="text-[10px] text-[#44474d]/70 dark:text-[#94a3b8]/70 mt-1">
                   MAX FILE SIZE 5MB • 1:1 ASPECT RATIO RECOMMENDED
                 </span>
               </div>
@@ -734,7 +1152,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
             <button
               onClick={handleSavePayment}
               disabled={isSavingPayment}
-              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-[11px] uppercase tracking-[0.14em] rounded-[6px] self-stretch sm:self-start cursor-pointer"
+              className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-xs font-semibold rounded-xl self-stretch sm:self-start cursor-pointer inline-flex items-center justify-center gap-2 shadow-sm"
             >
               {isSavingPayment ? 'Saving payment details...' : 'Save payment details'}
             </button>
@@ -756,27 +1174,41 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         </div>
       </div>
 
-      {/* Card 3: Gmail connection */}
+      {/* Card 4: Gmail connection (Phase 2) */}
       <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-4 shadow-2xs">
         <div>
           <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
             Gmail connection
           </h2>
           <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
-            Connect Gmail to send invoice reminders from your own account.
+            Connect Gmail to send invoice reminders directly from your own authenticated mailbox.
           </p>
         </div>
 
         <div className="p-5 bg-[#f0eee9]/40 dark:bg-[#101926] rounded-xl border border-[#001126]/5 dark:border-white/10 flex flex-col sm:flex-row sm:items-center justify-between gap-4">
           <div className="space-y-1">
             <div className="flex items-center gap-2">
-              <div className={`w-2 h-2 rounded-full ${gmailConnected ? 'bg-[#3d6562] dark:bg-[#68b5ad]' : 'bg-[#c4c6cd] dark:bg-[#475569]'}`} />
-              <span className="font-['Space_Mono'] text-[10px] text-[#44474d] dark:text-[#94a3b8]">
-                {gmailConnected ? (connectedGmailEmail || email ? `Connected (${connectedGmailEmail || email})` : 'Connected') : 'Not connected'}
+              <div
+                className={`w-2 h-2 rounded-full ${
+                  gmailStatus === 'connected'
+                    ? 'bg-[#3d6562] dark:bg-[#68b5ad]'
+                    : gmailStatus === 'reconnect_required'
+                    ? 'bg-[#d97706]'
+                    : 'bg-[#c4c6cd] dark:bg-[#475569]'
+                }`}
+              />
+              <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+                {gmailStatus === 'connected'
+                  ? `Connected (${connectedGmailEmail || email || 'Verified'})`
+                  : gmailStatus === 'reconnect_required'
+                  ? 'Reconnection required'
+                  : 'Not connected'}
               </span>
             </div>
             <p className="text-xs text-[#44474d] dark:text-[#94a3b8] max-w-md">
-              DueFlow sends reminder emails securely directly through your personal or Google Workspace account.
+              {gmailStatus === 'reconnect_required'
+                ? 'Your Google authorization expired or was revoked. Please reconnect your account to resume sending automated reminders.'
+                : 'DueFlow sends reminder emails securely through your personal or Google Workspace account without storing your password.'}
             </p>
           </div>
 
@@ -811,7 +1243,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                     fill="#EA4335"
                   />
                 </svg>
-                <span>{gmailConnected ? 'Disconnect Gmail' : 'Connect Gmail'}</span>
+                <span>
+                  {gmailStatus === 'connected'
+                    ? 'Disconnect Gmail'
+                    : gmailStatus === 'reconnect_required'
+                    ? 'Reconnect Gmail'
+                    : 'Connect Gmail'}
+                </span>
               </>
             )}
           </button>
@@ -831,24 +1269,31 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         )}
       </div>
 
-      {/* Card 4: Reminder preferences */}
+      {/* Card 5: Reminder preferences (Phase 3) */}
       <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-4 shadow-2xs">
-        <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
-          Reminder preferences
-        </h2>
+        <div>
+          <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
+            Reminder preferences
+          </h2>
+          <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
+            Control automated follow-ups across your active and upcoming client invoices.
+          </p>
+        </div>
 
-        <div className="flex items-center justify-between gap-4">
+        <div className="flex items-center justify-between gap-4 p-4 rounded-xl bg-[#f0eee9]/40 dark:bg-[#101926] border border-[#001126]/5 dark:border-white/10">
           <div>
             <h3 className="text-xs sm:text-sm font-semibold text-[#001126] dark:text-[#f3f6fa]">
               Enable automated reminder emails globally
             </h3>
-            <p className="text-xs text-[#44474d] dark:text-[#94a3b8]">
-              Autopilot triggers tailored reminders based on client risk rating and payment due dates.
+            <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
+              Autopilot triggers scheduled emails based on invoice due dates. Enabled by default for all new accounts.
             </p>
           </div>
           <button
-            onClick={() => setAutomatedReminders(!automatedReminders)}
-            className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 ${
+            type="button"
+            disabled={isSavingReminderPref}
+            onClick={handleToggleAutomatedReminders}
+            className={`w-11 h-6 rounded-full transition-colors relative p-0.5 shrink-0 cursor-pointer disabled:opacity-50 ${
               automatedReminders ? 'bg-[#15263c] dark:bg-[#38bdf8]' : 'bg-[#c4c6cd] dark:bg-[#475569]'
             }`}
           >
@@ -860,14 +1305,131 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
+        {reminderPrefSuccess && (
+          <div className="p-3 bg-[#3d6562]/10 dark:bg-[#3d6562]/30 border border-[#3d6562]/20 rounded-lg text-xs text-[#3d6562] dark:text-[#68b5ad] font-semibold flex items-center gap-2 animate-fade-in">
+            <span className="material-symbols-outlined text-[16px]">check_circle</span>
+            <span>{reminderPrefSuccess}</span>
+          </div>
+        )}
+
+        {reminderPrefError && (
+          <div className="p-3 bg-[#ba1a1a]/10 dark:bg-[#ba1a1a]/30 border border-[#ba1a1a]/20 rounded-lg text-xs text-[#ba1a1a] dark:text-[#ffb4ab] font-semibold flex items-center gap-2 animate-fade-in">
+            <span className="material-symbols-outlined text-[16px]">error</span>
+            <span>{reminderPrefError}</span>
+          </div>
+        )}
+
         <div className="p-3.5 bg-[#f0eee9]/40 dark:bg-[#101926] rounded-lg flex items-start gap-2.5">
           <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8] mt-0.5">
             info
           </span>
           <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
-            When disabled, scheduled follow-ups will be paused. Invoices marked as paid never receive reminders.
+            When disabled, future scheduled dispatches are paused without altering your invoice history. Paid or cancelled invoices never receive reminders.
           </p>
         </div>
+      </div>
+
+      {/* Card 6: Data Export (Feature C) */}
+      <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-5 shadow-2xs">
+        <div>
+          <h2 className="text-lg font-bold text-[#001126] dark:text-[#f3f6fa]">
+            Export your data
+          </h2>
+          <p className="text-xs text-[#44474d] dark:text-[#94a3b8] mt-0.5">
+            Download your authenticated business records as UTF-8 CSV files compatible with Excel, Google Sheets, and accounting software.
+          </p>
+        </div>
+
+        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 gap-3">
+          <button
+            type="button"
+            disabled={!!exportingEntity}
+            onClick={() => handleExportData('invoices')}
+            className="btn-action-secondary p-4 rounded-xl flex flex-col items-start gap-2 text-left cursor-pointer disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+              <span className="material-symbols-outlined text-[18px] text-[#3d6562] dark:text-[#68b5ad]">receipt_long</span>
+              <span>Invoices CSV</span>
+            </div>
+            <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8]">
+              {exportingEntity === 'invoices' ? 'Generating export...' : 'Invoice numbers, dates, client references, totals, and payment status.'}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={!!exportingEntity}
+            onClick={() => handleExportData('clients')}
+            className="btn-action-secondary p-4 rounded-xl flex flex-col items-start gap-2 text-left cursor-pointer disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+              <span className="material-symbols-outlined text-[18px] text-[#3d6562] dark:text-[#68b5ad]">groups</span>
+              <span>Clients CSV</span>
+            </div>
+            <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8]">
+              {exportingEntity === 'clients' ? 'Generating export...' : 'Client directory, billing contacts, notes, and outstanding balances.'}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={!!exportingEntity}
+            onClick={() => handleExportData('payments')}
+            className="btn-action-secondary p-4 rounded-xl flex flex-col items-start gap-2 text-left cursor-pointer disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+              <span className="material-symbols-outlined text-[18px] text-[#3d6562] dark:text-[#68b5ad]">payments</span>
+              <span>Payment Details CSV</span>
+            </div>
+            <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8]">
+              {exportingEntity === 'payments' ? 'Generating export...' : 'Configured UPI, bank transfer accounts, and instruction records.'}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={!!exportingEntity}
+            onClick={() => handleExportData('reminders')}
+            className="btn-action-secondary p-4 rounded-xl flex flex-col items-start gap-2 text-left cursor-pointer disabled:opacity-50"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+              <span className="material-symbols-outlined text-[18px] text-[#3d6562] dark:text-[#68b5ad]">history</span>
+              <span>Reminder History CSV</span>
+            </div>
+            <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8]">
+              {exportingEntity === 'reminders' ? 'Generating export...' : 'Email delivery attempts, message IDs, recipient records, and timestamps.'}
+            </p>
+          </button>
+
+          <button
+            type="button"
+            disabled={!!exportingEntity}
+            onClick={() => handleExportData('all')}
+            className="btn-action-primary p-4 rounded-xl flex flex-col items-start gap-2 text-left cursor-pointer disabled:opacity-50 sm:col-span-2 md:col-span-2"
+          >
+            <div className="flex items-center gap-2 text-xs font-semibold">
+              <span className="material-symbols-outlined text-[18px]">download</span>
+              <span>Complete Business Export CSV</span>
+            </div>
+            <p className="text-[11px] opacity-80">
+              {exportingEntity === 'all' ? 'Generating all datasets...' : 'Consolidated export of all your invoices, client accounts, payment settings, and reminders.'}
+            </p>
+          </button>
+        </div>
+
+        {exportSuccess && (
+          <div className="p-3 bg-[#3d6562]/10 dark:bg-[#3d6562]/30 border border-[#3d6562]/20 rounded-lg text-xs text-[#3d6562] dark:text-[#68b5ad] font-semibold flex items-center gap-2 animate-fade-in">
+            <span className="material-symbols-outlined text-[16px]">check_circle</span>
+            <span>{exportSuccess}</span>
+          </div>
+        )}
+
+        {exportError && (
+          <div className="p-3 bg-[#ba1a1a]/10 dark:bg-[#ba1a1a]/30 border border-[#ba1a1a]/20 rounded-lg text-xs text-[#ba1a1a] dark:text-[#ffb4ab] font-semibold flex items-center gap-2 animate-fade-in">
+            <span className="material-symbols-outlined text-[16px]">error</span>
+            <span>{exportError}</span>
+          </div>
+        )}
       </div>
 
       {/* Delete Payment QR Code Confirmation Dialog */}
@@ -925,7 +1487,7 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
                 type="button"
                 disabled={isDeletingQr}
                 onClick={handleConfirmDeleteQr}
-                className="btn-action-danger inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#ba1a1a] text-white hover:bg-[#93000a] active:scale-[0.98] transition-all cursor-pointer shadow-xs disabled:opacity-50"
+                className="btn-action-danger inline-flex items-center gap-1.5 px-4 py-2 text-xs font-semibold rounded-lg bg-[#ba1a1a] text-white hover:bg-[#93000a] transition-all cursor-pointer shadow-xs disabled:opacity-50"
               >
                 {isDeletingQr ? (
                   <>

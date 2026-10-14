@@ -39,6 +39,10 @@ public interface ScheduledReminderRepository extends JpaRepository<ScheduledRemi
     @Query("UPDATE ScheduledReminder r SET r.status = 'CANCELLED' WHERE r.invoice.id = :invoiceId AND r.status = 'PENDING'")
     int cancelPendingForInvoice(@Param("invoiceId") String invoiceId);
 
+    @Modifying
+    @Query("UPDATE ScheduledReminder r SET r.status = 'CANCELLED' WHERE r.userId = :userId AND r.status = 'PENDING'")
+    int cancelPendingForUser(@Param("userId") String userId);
+
     long countByUserIdAndStatus(String userId, ReminderStatus status);
 
     @Query("SELECT r FROM ScheduledReminder r WHERE r.userId = :userId AND r.status = 'PENDING' ORDER BY r.scheduledAt ASC")

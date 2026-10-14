@@ -87,4 +87,44 @@ public class PaymentSettingsController {
 
         return ResponseEntity.ok(Map.of("message", "QR code deleted successfully"));
     }
+
+    @PostMapping(value = {
+            "/api/settings/branding/logo",
+            "/settings/branding/logo"
+    }, consumes = MediaType.MULTIPART_FORM_DATA_VALUE)
+    public ResponseEntity<Map<String, String>> uploadLogo(@RequestParam("file") MultipartFile file) {
+        String userId = SecurityUtils.getRequiredUserId();
+
+        PaymentSettings current = userProfileService.getPaymentSettings(userId);
+        String oldLogoUrl = current != null ? current.getLogoUrl() : null;
+
+        String uploadedUrl = storageService.uploadLogo(userId, file);
+        userProfileService.updateLogoUrl(userId, uploadedUrl, null);
+
+        if (oldLogoUrl != null && !oldLogoUrl.isBlank() && !oldLogoUrl.equals(uploadedUrl)) {
+            storageService.deleteQrCode(oldLogoUrl);
+        }
+
+        return ResponseEntity.ok(Map.of(
+                "logoUrl", uploadedUrl,
+                "url", uploadedUrl,
+                "message", "Logo uploaded successfully"
+        ));
+    }
+
+    @DeleteMapping({
+            "/api/settings/branding/logo",
+            "/settings/branding/logo"
+    })
+    public ResponseEntity<Map<String, String>> deleteLogo() {
+        String userId = SecurityUtils.getRequiredUserId();
+        PaymentSettings current = userProfileService.getPaymentSettings(userId);
+
+        if (current != null && current.getLogoUrl() != null && !current.getLogoUrl().isBlank()) {
+            storageService.deleteQrCode(current.getLogoUrl());
+            userProfileService.updateLogoUrl(userId, null, null);
+        }
+
+        return ResponseEntity.ok(Map.of("message", "Logo deleted successfully"));
+    }
 }

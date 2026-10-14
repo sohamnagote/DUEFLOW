@@ -23,6 +23,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, String> {
 
     Optional<Invoice> findByIdAndUserId(String id, String userId);
 
+    Optional<Invoice> findByUserIdAndInvoiceNumber(String userId, String invoiceNumber);
+
     boolean existsByUserIdAndInvoiceNumber(String userId, String invoiceNumber);
 
     boolean existsByClientId(String clientId);

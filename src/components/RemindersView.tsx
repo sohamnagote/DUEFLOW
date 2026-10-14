@@ -63,14 +63,36 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
 
   const activeTimezone = userProfile?.timezone || 'Asia/Kolkata';
 
+  // Authoritative Gmail Status state (Phase 2)
+  const [liveGmailStatus, setLiveGmailStatus] = useState<{
+    connected: boolean;
+    status: 'connected' | 'reconnect_required' | 'disconnected' | 'unavailable';
+    email?: string;
+  }>({
+    connected: userProfile?.gmailConnected || false,
+    status: userProfile?.gmailStatus || (userProfile?.gmailConnected ? 'connected' : 'disconnected'),
+    email: userProfile?.gmailEmail,
+  });
+
+  useEffect(() => {
+    if (userProfile) {
+      setLiveGmailStatus({
+        connected: userProfile.gmailConnected,
+        status: userProfile.gmailStatus || (userProfile.gmailConnected ? 'connected' : 'disconnected'),
+        email: userProfile.gmailEmail,
+      });
+    }
+  }, [userProfile?.gmailConnected, userProfile?.gmailStatus, userProfile?.gmailEmail]);
+
   const loadRemindersData = async () => {
     setIsLoadingRules(true);
     setIsLoadingHistory(true);
     try {
-      const [loadedRules, loadedQueue, loadedHistory] = await Promise.allSettled([
+      const [loadedRules, loadedQueue, loadedHistory, gStatusResult] = await Promise.allSettled([
         dueflowApi.getReminderRules(),
         dueflowApi.getUpcomingReminders(),
         dueflowApi.getReminderHistory(),
+        dueflowApi.getGmailStatus(),
       ]);
 
       if (loadedRules.status === 'fulfilled') {
@@ -85,6 +107,15 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
 
       if (loadedHistory.status === 'fulfilled') {
         setHistory(loadedHistory.value);
+      }
+
+      if (gStatusResult.status === 'fulfilled' && gStatusResult.value) {
+        const g = gStatusResult.value;
+        setLiveGmailStatus({
+          connected: g.connected,
+          status: g.connected ? 'connected' : 'disconnected',
+          email: g.email,
+        });
       }
     } catch (err: any) {
       setRulesError(err?.message || 'Failed to load reminders');
@@ -353,10 +384,10 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
       {/* Automation Status & Metrics Ribbon */}
       <section className="grid grid-cols-1 sm:grid-cols-3 gap-3">
         <div className="p-4 rounded-xl bg-[#ffffff] dark:bg-[#141f2e] border border-[#001126]/8 dark:border-white/10 shadow-2xs">
-          <span className="font-['Space_Mono'] text-[10px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
-            SCHEDULE RULES
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8] block">
+            Schedule Rules
           </span>
-          <span className="text-base font-bold text-[#001126] dark:text-[#f3f6fa] mt-0.5 block">
+          <span className="text-base font-bold text-[#001126] dark:text-[#f3f6fa] mt-0.5 block tabular-nums">
             {rules.length} {rules.length === 1 ? 'rule' : 'rules'} configured
           </span>
           <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8] mt-1">
@@ -365,10 +396,10 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         </div>
 
         <div className="p-4 rounded-xl bg-[#ffffff] dark:bg-[#141f2e] border border-[#001126]/8 dark:border-white/10 shadow-2xs">
-          <span className="font-['Space_Mono'] text-[10px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
-            ELIGIBLE INVOICES
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8] block">
+            Eligible Invoices
           </span>
-          <span className="text-base font-bold text-[#001126] dark:text-[#f3f6fa] mt-0.5 block">
+          <span className="text-base font-bold text-[#001126] dark:text-[#f3f6fa] mt-0.5 block tabular-nums">
             {eligibleInvoicesCount} eligible unpaid {eligibleInvoicesCount === 1 ? 'invoice' : 'invoices'}
           </span>
           <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8] mt-1">
@@ -377,17 +408,33 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         </div>
 
         <div className="p-4 rounded-xl bg-[#ffffff] dark:bg-[#141f2e] border border-[#001126]/8 dark:border-white/10 shadow-2xs">
-          <span className="font-['Space_Mono'] text-[10px] uppercase text-[#74777d] dark:text-[#94a3b8] block">
-            GMAIL CONNECTION
+          <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8] block">
+            Gmail Connection
           </span>
           <div className="flex items-center gap-2 mt-0.5">
-            <span className={`w-2 h-2 rounded-full ${userProfile?.gmailConnected ? 'bg-[#3d6562] dark:bg-[#68b5ad]' : 'bg-[#ba1a1a] dark:bg-[#ffb4ab]'}`} />
+            <span
+              className={`w-2 h-2 rounded-full ${
+                liveGmailStatus.status === 'connected'
+                  ? 'bg-[#3d6562] dark:bg-[#68b5ad]'
+                  : liveGmailStatus.status === 'reconnect_required'
+                  ? 'bg-[#d97706]'
+                  : 'bg-[#ba1a1a] dark:bg-[#ffb4ab]'
+              }`}
+            />
             <span className="text-sm font-bold text-[#001126] dark:text-[#f3f6fa]">
-              {userProfile?.gmailConnected ? 'Connected & Ready' : 'Disconnected'}
+              {liveGmailStatus.status === 'connected'
+                ? `Connected (${liveGmailStatus.email || 'Ready'})`
+                : liveGmailStatus.status === 'reconnect_required'
+                ? 'Reconnection required'
+                : 'Disconnected'}
             </span>
           </div>
           <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8] mt-1">
-            {userProfile?.gmailConnected ? 'Automated emails dispatch through your verified Gmail.' : 'Connect Gmail in Settings to enable dispatch.'}
+            {liveGmailStatus.status === 'connected'
+              ? 'Automated emails dispatch through your verified Gmail.'
+              : liveGmailStatus.status === 'reconnect_required'
+              ? 'Google token expired. Reconnect in Settings to dispatch emails.'
+              : 'Connect Gmail in Settings to enable email dispatch.'}
           </p>
         </div>
       </section>

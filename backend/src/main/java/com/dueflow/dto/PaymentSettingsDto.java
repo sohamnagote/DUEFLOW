@@ -25,6 +25,27 @@ public class PaymentSettingsDto {
     @JsonAlias({"qrCodeUrl", "payment_qr_url", "qr_code_url"})
     private String paymentQrUrl;
 
+    @JsonAlias({"business_name", "company_name", "display_name", "brandName", "brand_name"})
+    private String businessName;
+
+    @JsonAlias({"logo_url", "businessLogoUrl", "business_logo_url"})
+    private String logoUrl;
+
+    @JsonAlias({"business_email", "company_email", "brand_email"})
+    private String businessEmail;
+
+    @JsonAlias({"business_phone", "company_phone", "brand_phone"})
+    private String businessPhone;
+
+    @JsonAlias({"business_address", "company_address", "brand_address", "address"})
+    private String businessAddress;
+
+    @JsonAlias({"brand_color", "accent_color", "accentColor"})
+    private String brandColor;
+
+    @JsonAlias({"footer_terms", "payment_terms", "footerText", "footer_text"})
+    private String footerTerms;
+
     public PaymentSettingsDto() {
     }
 
@@ -38,6 +59,13 @@ public class PaymentSettingsDto {
         dto.setRoutingNumber(s.getRoutingNumber());
         dto.setPaymentInstructions(s.getPaymentInstructions());
         dto.setPaymentQrUrl(s.getQrCodeUrl());
+        dto.setBusinessName(s.getBusinessName());
+        dto.setLogoUrl(s.getLogoUrl());
+        dto.setBusinessEmail(s.getBusinessEmail());
+        dto.setBusinessPhone(s.getBusinessPhone());
+        dto.setBusinessAddress(s.getBusinessAddress());
+        dto.setBrandColor(s.getBrandColor());
+        dto.setFooterTerms(s.getFooterTerms());
         return dto;
     }
 
@@ -103,5 +131,61 @@ public class PaymentSettingsDto {
 
     public void setQrCodeUrl(String qrCodeUrl) {
         this.paymentQrUrl = qrCodeUrl;
+    }
+
+    public String getBusinessName() {
+        return businessName;
+    }
+
+    public void setBusinessName(String businessName) {
+        this.businessName = businessName;
+    }
+
+    public String getLogoUrl() {
+        return logoUrl;
+    }
+
+    public void setLogoUrl(String logoUrl) {
+        this.logoUrl = logoUrl;
+    }
+
+    public String getBusinessEmail() {
+        return businessEmail;
+    }
+
+    public void setBusinessEmail(String businessEmail) {
+        this.businessEmail = businessEmail;
+    }
+
+    public String getBusinessPhone() {
+        return businessPhone;
+    }
+
+    public void setBusinessPhone(String businessPhone) {
+        this.businessPhone = businessPhone;
+    }
+
+    public String getBusinessAddress() {
+        return businessAddress;
+    }
+
+    public void setBusinessAddress(String businessAddress) {
+        this.businessAddress = businessAddress;
+    }
+
+    public String getBrandColor() {
+        return brandColor;
+    }
+
+    public void setBrandColor(String brandColor) {
+        this.brandColor = brandColor;
+    }
+
+    public String getFooterTerms() {
+        return footerTerms;
+    }
+
+    public void setFooterTerms(String footerTerms) {
+        this.footerTerms = footerTerms;
     }
 }

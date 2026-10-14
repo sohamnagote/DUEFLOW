@@ -85,8 +85,20 @@ public class PdfGenerationService {
             PdfWriter.getInstance(document, baos);
             document.open();
 
+            // Brand accent color
+            Color brandPrimary = COLOR_PRIMARY;
+            if (payment != null && payment.getBrandColor() != null && !payment.getBrandColor().isBlank()) {
+                try {
+                    String hex = payment.getBrandColor().trim();
+                    if (hex.startsWith("#")) hex = hex.substring(1);
+                    if (hex.length() == 6) {
+                        brandPrimary = new Color(Integer.parseInt(hex, 16));
+                    }
+                } catch (Exception ignored) {}
+            }
+
             // Font configurations
-            Font fontBrand = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 22, COLOR_PRIMARY);
+            Font fontBrand = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 20, brandPrimary);
             Font fontHeaderSubtitle = FontFactory.getFont(FontFactory.COURIER, 10, COLOR_TEXT_MUTED);
             Font fontSectionTitle = FontFactory.getFont(FontFactory.COURIER_BOLD, 9, COLOR_TEXT_MUTED);
             Font fontBodyBold = FontFactory.getFont(FontFactory.HELVETICA_BOLD, 10, COLOR_TEXT_DARK);
@@ -102,7 +114,29 @@ public class PdfGenerationService {
 
             PdfPCell leftCell = new PdfPCell();
             leftCell.setBorder(Rectangle.NO_BORDER);
-            leftCell.addElement(new Paragraph("dueflow", fontBrand));
+
+            // Embed business logo if configured
+            if (payment != null && payment.getLogoUrl() != null && !payment.getLogoUrl().isBlank()) {
+                try {
+                    Image logoImg = extractImage(payment.getLogoUrl());
+                    if (logoImg != null) {
+                        logoImg.scaleToFit(140, 45);
+                        leftCell.addElement(logoImg);
+                    }
+                } catch (Exception e) {
+                    log.warn("Could not embed business logo into invoice PDF: {}", e.getMessage());
+                }
+            }
+
+            String brandDisplayName = (payment != null && payment.getBusinessName() != null && !payment.getBusinessName().isBlank())
+                    ? payment.getBusinessName()
+                    : (payment != null && payment.getBeneficiaryName() != null && !payment.getBeneficiaryName().isBlank())
+                    ? payment.getBeneficiaryName()
+                    : (seller != null && seller.getFullName() != null && !seller.getFullName().isBlank())
+                    ? seller.getFullName()
+                    : "dueflow";
+
+            leftCell.addElement(new Paragraph(brandDisplayName, fontBrand));
             leftCell.addElement(new Paragraph("Autonomous Ledger Invoice", fontHeaderSubtitle));
             headerTable.addCell(leftCell);
 
@@ -136,27 +170,40 @@ public class PdfGenerationService {
             if (invoice.getClient() != null) {
                 billedToCell.addElement(new Paragraph(invoice.getClient().getName(), fontBodyBold));
                 billedToCell.addElement(new Paragraph(invoice.getClient().getEmail(), fontBodyMuted));
-                if (invoice.getClient().getPhone() != null) {
+                if (invoice.getClient().getPhone() != null && !invoice.getClient().getPhone().isBlank()) {
                     billedToCell.addElement(new Paragraph("Phone: " + invoice.getClient().getPhone(), fontBodyMuted));
                 }
-                if (invoice.getClient().getBillingAddress() != null) {
+                if (invoice.getClient().getBillingAddress() != null && !invoice.getClient().getBillingAddress().isBlank()) {
                     billedToCell.addElement(new Paragraph(invoice.getClient().getBillingAddress(), fontBodyMuted));
                 }
             }
             addressTable.addCell(billedToCell);
 
-            // Payable To (Seller)
+            // Payable To (Seller with custom branding)
             PdfPCell payableToCell = new PdfPCell();
             payableToCell.setBackgroundColor(COLOR_BG_LIGHT);
             payableToCell.setPadding(10);
             payableToCell.setBorderColor(new Color(230, 228, 222));
             payableToCell.addElement(new Paragraph("PAYABLE TO:", fontSectionTitle));
-            String sellerName = (payment != null && payment.getBeneficiaryName() != null && !payment.getBeneficiaryName().isBlank())
+
+            String sellerName = (payment != null && payment.getBusinessName() != null && !payment.getBusinessName().isBlank())
+                    ? payment.getBusinessName()
+                    : (payment != null && payment.getBeneficiaryName() != null && !payment.getBeneficiaryName().isBlank())
                     ? payment.getBeneficiaryName()
                     : (seller != null && seller.getFullName() != null && !seller.getFullName().isBlank()) ? seller.getFullName() : "Invoice Issuer";
             payableToCell.addElement(new Paragraph(sellerName, fontBodyBold));
-            if (seller != null && seller.getEmail() != null) {
-                payableToCell.addElement(new Paragraph(seller.getEmail(), fontBodyMuted));
+
+            String sellerEmail = (payment != null && payment.getBusinessEmail() != null && !payment.getBusinessEmail().isBlank())
+                    ? payment.getBusinessEmail()
+                    : (seller != null ? seller.getEmail() : null);
+            if (sellerEmail != null) {
+                payableToCell.addElement(new Paragraph(sellerEmail, fontBodyMuted));
+            }
+            if (payment != null && payment.getBusinessPhone() != null && !payment.getBusinessPhone().isBlank()) {
+                payableToCell.addElement(new Paragraph("Phone: " + payment.getBusinessPhone(), fontBodyMuted));
+            }
+            if (payment != null && payment.getBusinessAddress() != null && !payment.getBusinessAddress().isBlank()) {
+                payableToCell.addElement(new Paragraph(payment.getBusinessAddress(), fontBodyMuted));
             }
             if (payment != null && payment.getUpiId() != null && !payment.getUpiId().isBlank()) {
                 payableToCell.addElement(new Paragraph("UPI ID: " + payment.getUpiId(), fontBodyMuted));
@@ -248,7 +295,7 @@ public class PdfGenerationService {
             totalsTable.addCell(emptyLeft);
 
             PdfPCell totalBanner = new PdfPCell();
-            totalBanner.setBackgroundColor(COLOR_PRIMARY);
+            totalBanner.setBackgroundColor(brandPrimary);
             totalBanner.setPadding(10);
             Paragraph totalP = new Paragraph();
             totalP.setAlignment(Element.ALIGN_RIGHT);
@@ -319,6 +366,13 @@ public class PdfGenerationService {
                 document.add(new Paragraph("\n"));
                 document.add(new Paragraph("Notes:", fontSectionTitle));
                 document.add(new Paragraph(invoice.getNotes(), fontBodyMuted));
+            }
+
+            // 7. Terms & Conditions / Footer Branding
+            if (payment != null && payment.getFooterTerms() != null && !payment.getFooterTerms().isBlank()) {
+                document.add(new Paragraph("\n"));
+                document.add(new Paragraph("Terms & Conditions:", fontSectionTitle));
+                document.add(new Paragraph(payment.getFooterTerms(), fontBodyMuted));
             }
 
             document.close();

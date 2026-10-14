@@ -14,6 +14,15 @@ public class UserProfileDto {
     @JsonAlias({"onboarding_completed", "onboardingCompleted", "isOnboarded"})
     private boolean onboardingCompleted;
 
+    @JsonAlias({"gmail_connected", "isGmailConnected"})
+    private boolean gmailConnected;
+
+    @JsonAlias({"gmail_email", "connectedGmailEmail", "connected_gmail_email"})
+    private String gmailEmail;
+
+    @JsonAlias({"gmail_status", "connectionStatus", "connection_status"})
+    private String gmailStatus;
+
     public UserProfileDto() {
     }
 
@@ -84,5 +93,29 @@ public class UserProfileDto {
 
     public void setOnboardingCompleted(boolean onboardingCompleted) {
         this.onboardingCompleted = onboardingCompleted;
+    }
+
+    public boolean isGmailConnected() {
+        return gmailConnected;
+    }
+
+    public void setGmailConnected(boolean gmailConnected) {
+        this.gmailConnected = gmailConnected;
+    }
+
+    public String getGmailEmail() {
+        return gmailEmail;
+    }
+
+    public void setGmailEmail(String gmailEmail) {
+        this.gmailEmail = gmailEmail;
+    }
+
+    public String getGmailStatus() {
+        return gmailStatus;
+    }
+
+    public void setGmailStatus(String gmailStatus) {
+        this.gmailStatus = gmailStatus;
     }
 }

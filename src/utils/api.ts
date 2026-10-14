@@ -1,5 +1,5 @@
 import { supabase } from './supabase';
-import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, DashboardSummary } from '../types';
+import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, DashboardSummary, InvoiceCsvRow, InvoiceImportResult } from '../types';
 
 const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
 const cleanRawUrl = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '';
@@ -132,6 +132,13 @@ export const dueflowApi = {
       profile.onboarding_completed ??
       (profile.fullName && String(profile.fullName).trim() !== '')
     );
+    const isGmailConnected = Boolean(
+      profile.gmailConnected ??
+      profile.gmail_connected ??
+      (profile.gmailStatus === 'connected')
+    );
+    const resolvedGmailStatus = profile.gmailStatus || profile.gmail_status || (isGmailConnected ? 'connected' : 'disconnected');
+
     return {
       fullName: profile.fullName || profile.full_name || profile.name || '',
       email: profile.email || '',
@@ -144,9 +151,18 @@ export const dueflowApi = {
       routingNumber: payment.routingNumber || payment.routing_number || profile.bankIfsc || '',
       paymentInstructions: payment.paymentInstructions || payment.payment_instructions || profile.paymentNotes || '',
       paymentQrUrl: payment.paymentQrUrl || payment.payment_qr_url || profile.paymentQrUrl || null,
-      gmailConnected: false,
+      gmailConnected: isGmailConnected,
+      gmailEmail: profile.gmailEmail || profile.gmail_email || undefined,
+      gmailStatus: resolvedGmailStatus,
       automatedRemindersEnabled: profile.automatedRemindersEnabled ?? profile.emailRemindersEnabled ?? true,
       onboardingCompleted: isOnboarded,
+      businessName: payment.businessName || payment.business_name || profile.businessName || profile.fullName || '',
+      logoUrl: payment.logoUrl || payment.logo_url || null,
+      businessEmail: payment.businessEmail || payment.business_email || profile.email || '',
+      businessPhone: payment.businessPhone || payment.business_phone || '',
+      businessAddress: payment.businessAddress || payment.business_address || '',
+      brandColor: payment.brandColor || payment.brand_color || '#4f46e5',
+      footerTerms: payment.footerTerms || payment.footer_terms || '',
     };
   },
 
@@ -189,7 +205,20 @@ export const dueflowApi = {
         upi_id: profile.upiId,
         beneficiaryName: profile.beneficiaryName,
         beneficiary_name: profile.beneficiaryName,
-        businessName: profile.beneficiaryName,
+        businessName: profile.businessName || profile.beneficiaryName,
+        business_name: profile.businessName || profile.beneficiaryName,
+        logoUrl: profile.logoUrl,
+        logo_url: profile.logoUrl,
+        businessEmail: profile.businessEmail,
+        business_email: profile.businessEmail,
+        businessPhone: profile.businessPhone,
+        business_phone: profile.businessPhone,
+        businessAddress: profile.businessAddress,
+        business_address: profile.businessAddress,
+        brandColor: profile.brandColor,
+        brand_color: profile.brandColor,
+        footerTerms: profile.footerTerms,
+        footer_terms: profile.footerTerms,
         bankName: profile.bankName,
         bank_name: profile.bankName,
         accountNumber: profile.accountNumber,
@@ -766,17 +795,84 @@ export const dueflowApi = {
     await request('/integrations/gmail/disconnect', { method: 'POST' });
   },
 
-  // --- Dashboard Summary ---
-  async getDashboardSummary(): Promise<any> {
-    return request('/dashboard');
-  },
 
   // --- Notifications ---
   async getNotifications(): Promise<any[]> {
     return request<any[]>('/notifications');
   },
 
-  async markNotificationRead(id: string): Promise<void> {
-    await request(`/notifications/${id}/read`, { method: 'POST' });
+  // --- Invoice Branding Logo ---
+  async uploadBrandingLogo(file: File): Promise<{ logoUrl: string }> {
+    if (file.size > 5 * 1024 * 1024) {
+      throw new Error('Logo file size must not exceed 5MB limit.');
+    }
+    const allowedMime = ['image/png', 'image/jpeg', 'image/jpg', 'image/webp'];
+    if (!allowedMime.includes(file.type.toLowerCase())) {
+      throw new Error('Invalid image format. Allowed formats: PNG, JPEG, WEBP.');
+    }
+
+    const authHeaders = await getAuthHeader();
+    const formData = new FormData();
+    formData.append('file', file);
+
+    const res = await fetch(`${API_BASE}/settings/branding/logo`, {
+      method: 'POST',
+      headers: authHeaders,
+      body: formData,
+    });
+
+    if (!res.ok) {
+      let errMsg = 'Failed to upload logo';
+      try {
+        const j = await res.json();
+        errMsg = j.message || j.error || errMsg;
+      } catch (_) {}
+      throw new Error(errMsg);
+    }
+    return res.json();
+  },
+
+  async deleteBrandingLogo(): Promise<void> {
+    await request('/settings/branding/logo', { method: 'DELETE' });
+  },
+
+  // --- CSV Invoice Import ---
+  async importInvoicesCsv(rows: InvoiceCsvRow[]): Promise<InvoiceImportResult> {
+    return request<InvoiceImportResult>('/invoices/import-csv', {
+      method: 'POST',
+      body: JSON.stringify(rows),
+    });
+  },
+
+  // --- Data Export ---
+  async exportData(entity: 'invoices' | 'clients' | 'payments' | 'reminders' | 'all'): Promise<void> {
+    const authHeaders = await getAuthHeader();
+    const res = await fetch(`${API_BASE}/export/${entity}`, {
+      method: 'GET',
+      headers: authHeaders,
+    });
+
+    if (!res.ok) {
+      let errMsg = `Failed to export ${entity}`;
+      try {
+        const j = await res.json();
+        errMsg = j.message || j.error || errMsg;
+      } catch (_) {}
+      throw new Error(errMsg);
+    }
+
+    const blob = await res.blob();
+    const url = window.URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    const today = new Date().toISOString().split('T')[0];
+    a.download = `dueflow-${entity}-${today}.csv`;
+    document.body.appendChild(a);
+    a.click();
+    setTimeout(() => {
+      window.URL.revokeObjectURL(url);
+      document.body.removeChild(a);
+    }, 150);
   },
 };
+

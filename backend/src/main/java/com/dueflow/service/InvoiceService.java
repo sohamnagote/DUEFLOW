@@ -1,7 +1,9 @@
 package com.dueflow.service;
 
 import com.dueflow.domain.*;
+import com.dueflow.dto.InvoiceCsvRowDto;
 import com.dueflow.dto.InvoiceDto;
+import com.dueflow.dto.InvoiceImportResultDto;
 import com.dueflow.dto.InvoiceItemDto;
 import com.dueflow.exception.ResourceNotFoundException;
 import com.dueflow.exception.ValidationException;
@@ -307,5 +309,146 @@ public class InvoiceService {
             candidate = String.format("INV-%d-%03d", year, count);
         }
         return candidate;
+    }
+
+    @Transactional
+    public InvoiceImportResultDto importInvoices(String userId, List<InvoiceCsvRowDto> rows) {
+        ensureUserProfile(userId);
+        InvoiceImportResultDto result = new InvoiceImportResultDto();
+        if (rows == null || rows.isEmpty()) {
+            result.getErrors().add("No rows provided for import.");
+            return result;
+        }
+
+        result.setTotalRows(rows.size());
+        List<Client> userClients = clientRepository.findByUserId(userId);
+        LocalDate today = LocalDate.now();
+
+        int rowIdx = 1;
+        for (InvoiceCsvRowDto row : rows) {
+            String clientName = row.getClientName() != null ? row.getClientName().trim() : "";
+            String clientEmail = row.getClientEmail() != null ? row.getClientEmail().trim() : "";
+
+            if (clientName.isEmpty() && clientEmail.isEmpty()) {
+                result.setFailedCount(result.getFailedCount() + 1);
+                result.getErrors().add("Row " + rowIdx + ": Client name or email is required.");
+                rowIdx++;
+                continue;
+            }
+
+            if (clientName.isEmpty()) {
+                clientName = clientEmail.contains("@") ? clientEmail.substring(0, clientEmail.indexOf('@')) : clientEmail;
+            }
+            if (clientEmail.isEmpty()) {
+                clientEmail = clientName.toLowerCase().replaceAll("[^a-z0-9]", "") + "@client.com";
+            }
+
+            // Amount validation
+            BigDecimal amount = row.getAmount();
+            if (amount == null || amount.compareTo(BigDecimal.ZERO) <= 0) {
+                result.setFailedCount(result.getFailedCount() + 1);
+                result.getErrors().add("Row " + rowIdx + ": Invoice amount must be a positive number.");
+                rowIdx++;
+                continue;
+            }
+
+            // Date parsing
+            LocalDate issueDate = parseDate(row.getIssueDate(), today);
+            LocalDate dueDate = parseDate(row.getDueDate(), issueDate.plusDays(14));
+
+            // Currency validation
+            String currency = "USD".equalsIgnoreCase(row.getCurrency()) ? "USD" : "INR";
+
+            // Invoice number validation & deduplication
+            String invoiceNumber = row.getInvoiceNumber() != null ? row.getInvoiceNumber().trim() : "";
+            if (invoiceNumber.isEmpty()) {
+                invoiceNumber = generateUniqueInvoiceNumber(userId);
+            } else if (invoiceRepository.existsByUserIdAndInvoiceNumber(userId, invoiceNumber)) {
+                result.setSkippedCount(result.getSkippedCount() + 1);
+                result.getWarnings().add("Row " + rowIdx + ": Invoice #" + invoiceNumber + " already exists. Skipped to prevent overwriting.");
+                rowIdx++;
+                continue;
+            }
+
+            // Client resolution: match by email or name, or create safely
+            final String finalEmail = clientEmail;
+            final String finalName = clientName;
+            Client client = userClients.stream()
+                    .filter(c -> c.getEmail().equalsIgnoreCase(finalEmail) || c.getName().equalsIgnoreCase(finalName))
+                    .findFirst()
+                    .orElse(null);
+
+            if (client == null) {
+                client = new Client(userId, finalName, finalEmail);
+                if (row.getClientPhone() != null && !row.getClientPhone().isBlank()) {
+                    client.setPhone(row.getClientPhone().trim());
+                }
+                client = clientRepository.save(client);
+                userClients.add(client);
+            }
+
+            // Create Invoice
+            Invoice invoice = new Invoice();
+            invoice.setUserId(userId);
+            invoice.setClient(client);
+            invoice.setInvoiceNumber(invoiceNumber);
+            invoice.setIssueDate(issueDate);
+            invoice.setDueDate(dueDate);
+            invoice.setCurrency(currency);
+            invoice.setSubtotal(amount);
+            invoice.setTotalAmount(amount);
+
+            String statusStr = row.getStatus() != null ? row.getStatus().toUpperCase() : "UNPAID";
+            InvoiceStatus status = "PAID".equals(statusStr) ? InvoiceStatus.PAID :
+                    "DRAFT".equals(statusStr) ? InvoiceStatus.DRAFT :
+                    dueDate.isBefore(today) ? InvoiceStatus.OVERDUE : InvoiceStatus.UNPAID;
+            invoice.setStatus(status);
+
+            String desc = row.getDescription() != null && !row.getDescription().isBlank() ? row.getDescription().trim() : "Imported invoice services";
+            invoice.setDescription(desc);
+
+            Invoice savedInvoice = invoiceRepository.save(invoice);
+
+            // Add standard line item
+            InvoiceItem item = new InvoiceItem(desc, BigDecimal.ONE, amount);
+            item.setInvoice(savedInvoice);
+            savedInvoice.getItems().add(item);
+            savedInvoice = invoiceRepository.save(savedInvoice);
+
+            // Schedule reminders if eligible
+            if (savedInvoice.getStatus() != InvoiceStatus.PAID && savedInvoice.getStatus() != InvoiceStatus.CANCELLED) {
+                reminderScheduleCalculator.scheduleRemindersForInvoice(savedInvoice);
+            }
+
+            result.setImportedCount(result.getImportedCount() + 1);
+            result.getImportedInvoices().add(InvoiceDto.fromEntity(savedInvoice));
+            rowIdx++;
+        }
+
+        return result;
+    }
+
+    private LocalDate parseDate(String dateStr, LocalDate fallback) {
+        if (dateStr == null || dateStr.isBlank()) return fallback;
+        dateStr = dateStr.trim();
+        if (dateStr.contains("T")) dateStr = dateStr.substring(0, dateStr.indexOf("T"));
+        if (dateStr.contains(" ")) dateStr = dateStr.substring(0, dateStr.indexOf(" "));
+        try {
+            return LocalDate.parse(dateStr);
+        } catch (Exception e1) {
+            try {
+                if (dateStr.contains("/")) {
+                    String[] parts = dateStr.split("/");
+                    if (parts.length == 3) {
+                        if (parts[0].length() == 4) {
+                            return LocalDate.of(Integer.parseInt(parts[0]), Integer.parseInt(parts[1]), Integer.parseInt(parts[2]));
+                        } else if (parts[2].length() == 4) {
+                            return LocalDate.of(Integer.parseInt(parts[2]), Integer.parseInt(parts[1]), Integer.parseInt(parts[0]));
+                        }
+                    }
+                }
+            } catch (Exception ignored) {}
+            return fallback;
+        }
     }
 }
