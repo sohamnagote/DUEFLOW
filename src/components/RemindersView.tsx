@@ -137,51 +137,45 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
     : [];
 
   const upcomingQueue = React.useMemo(() => {
-    // 1. If serverQueue has scheduled reminders, map them
-    const scheduledItems = serverQueue.map((item) => {
-      const matchedInvoice = safeInvoices.find(
-        (inv) => inv.id === item.invoiceId || inv.invoiceNumber === item.invoiceNumber
-      );
-      const isOverdue = matchedInvoice ? matchedInvoice.status === 'overdue' : false;
-      const formattedAmount = matchedInvoice
-        ? formatCurrency(Number(matchedInvoice.amount || 0), matchedInvoice.currency || userPreferredCurrency)
-        : '';
+    // Only display reminders returned by the authoritative, filtered backend queue
+    return serverQueue
+      .filter((item) => {
+        // Exclude non-pending status
+        const itemStatus = (item.status || '').toLowerCase();
+        if (itemStatus && itemStatus !== 'pending' && itemStatus !== 'queued') {
+          return false;
+        }
 
-      return {
-        id: item.id,
-        invoiceId: item.invoiceId || matchedInvoice?.id,
-        clientName: item.clientName || matchedInvoice?.clientName || 'Client',
-        invoiceNumber: item.invoiceNumber || matchedInvoice?.invoiceNumber || 'INV',
-        relativeDueText: item.relativeDueText
-          ? `${item.relativeDueText}${formattedAmount ? ` • ${formattedAmount}` : ''}`
-          : 'Scheduled reminder',
-        status: isOverdue ? 'Overdue' : item.status === 'sent' ? 'Sent' : 'Queued',
-        isOverdue,
-      };
-    });
+        // Check authoritative invoice status in local memory
+        const matchedInvoice = safeInvoices.find(
+          (inv) => inv.id === item.invoiceId || inv.invoiceNumber === item.invoiceNumber
+        );
+        if (matchedInvoice && (matchedInvoice.status === 'paid' || matchedInvoice.status === 'cancelled')) {
+          return false;
+        }
+        return true;
+      })
+      .map((item) => {
+        const matchedInvoice = safeInvoices.find(
+          (inv) => inv.id === item.invoiceId || inv.invoiceNumber === item.invoiceNumber
+        );
+        const isOverdue = matchedInvoice ? matchedInvoice.status === 'overdue' : false;
+        const formattedAmount = matchedInvoice
+          ? formatCurrency(Number(matchedInvoice.amount || 0), matchedInvoice.currency || userPreferredCurrency)
+          : '';
 
-    // 2. Also include any unpaid invoices from safeInvoices that do not have a scheduled reminder
-    const scheduledInvoiceNumbers = new Set(scheduledItems.map((s) => s.invoiceNumber));
-    const invoiceItems = safeInvoices
-      .filter((inv) => inv && (inv.status === 'pending' || inv.status === 'overdue' || (inv.status as string) === 'unpaid'))
-      .filter((inv) => !scheduledInvoiceNumbers.has(inv.invoiceNumber))
-      .map((inv) => {
-        const isOverdue = inv.status === 'overdue';
-        const formattedAmount = formatCurrency(Number(inv.amount || 0), inv.currency || userPreferredCurrency);
         return {
-          id: inv.id || '',
-          invoiceId: inv.id,
-          clientName: inv.clientName || 'Client',
-          invoiceNumber: inv.invoiceNumber || 'INV',
-          relativeDueText: isOverdue
-            ? `Overdue • Due date was ${inv.dueDate || 'past'} • ${formattedAmount}`
-            : `Due on ${inv.dueDate || 'soon'} • ${formattedAmount}`,
+          id: item.id,
+          invoiceId: item.invoiceId || matchedInvoice?.id,
+          clientName: item.clientName || matchedInvoice?.clientName || 'Client',
+          invoiceNumber: item.invoiceNumber || matchedInvoice?.invoiceNumber || 'INV',
+          relativeDueText: item.relativeDueText
+            ? `${item.relativeDueText}${formattedAmount ? ` • ${formattedAmount}` : ''}`
+            : 'Scheduled reminder',
           status: isOverdue ? 'Overdue' : 'Queued',
           isOverdue,
         };
       });
-
-    return [...scheduledItems, ...invoiceItems];
   }, [safeInvoices, serverQueue, userPreferredCurrency]);
 
   const eligibleInvoices = safeInvoices.filter(
@@ -793,18 +787,18 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
           </p>
         </div>
 
-        <div className="bg-[#f0eee9]/40 dark:bg-[#101926] rounded-xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-6">
+        <div className="bg-[#f0eee9]/40 dark:bg-[#101926] rounded-xl border border-[#001126]/5 dark:border-white/10 p-4 sm:p-7 space-y-6">
           {/* Tone Selector */}
-          <div className="flex items-center justify-between">
+          <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-2.5">
             <span className="font-['Space_Mono'] text-[10px] uppercase text-[#44474d] dark:text-[#94a3b8]">
               TONE
             </span>
-            <div className="inline-flex rounded border border-[#001126]/10 dark:border-white/10 bg-[#ffffff] dark:bg-[#141f2e] p-0.5">
+            <div className="inline-flex rounded border border-[#001126]/10 dark:border-white/10 bg-[#ffffff] dark:bg-[#141f2e] p-0.5 w-full sm:w-auto">
               {(['friendly', 'professional', 'firm'] as const).map((t) => (
                 <button
                   key={t}
                   onClick={() => handleToneSelect(t)}
-                  className={`px-4 py-1 text-xs capitalize transition-all ${
+                  className={`flex-1 sm:flex-initial px-3 sm:px-4 py-1.5 sm:py-1 text-xs capitalize transition-all text-center justify-center cursor-pointer ${
                     tone === t
                       ? 'bg-[#ffffff] dark:bg-[#203046] font-semibold text-[#001126] dark:text-[#f3f6fa] shadow-2xs'
                       : 'text-[#44474d] dark:text-[#94a3b8] hover:text-[#001126] dark:hover:text-[#f3f6fa]'
@@ -842,21 +836,21 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
             />
           </div>
 
-          {/* Bottom Bar: Preview Email & Save Template */}
-          <div className="pt-4 flex items-center justify-between border-t border-[#001126]/5 dark:border-white/10">
+          {/* Bottom Bar: Preview Email & Save Template - Responsive Stacking */}
+          <div className="pt-4 flex flex-col sm:flex-row items-stretch sm:items-center justify-between gap-3 border-t border-[#001126]/5 dark:border-white/10">
             <button
               onClick={() => setShowPreviewModal(true)}
-              className="btn-action-secondary font-['Space_Mono'] text-[10px] uppercase tracking-wider px-3.5 py-1.5 rounded-lg"
+              className="btn-action-secondary font-['Space_Mono'] text-[10px] uppercase tracking-wider px-3.5 py-2.5 sm:py-1.5 rounded-lg justify-center text-center cursor-pointer"
             >
               PREVIEW EMAIL
             </button>
-            <div className="flex items-center gap-3">
+            <div className="flex items-center justify-between sm:justify-end gap-3">
               {savedNotice && (
                 <span className="text-xs text-[#3d6562] dark:text-[#68b5ad] font-semibold">Saved!</span>
               )}
               <button
                 onClick={handleSaveTemplate}
-                className="btn-action-primary px-6 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] rounded-lg shadow-sm"
+                className="btn-action-primary w-full sm:w-auto px-6 py-2.5 text-[11px] font-semibold uppercase tracking-[0.14em] rounded-lg shadow-sm justify-center cursor-pointer"
               >
                 SAVE TEMPLATE
               </button>

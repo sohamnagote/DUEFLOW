@@ -151,12 +151,12 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
   };
 
   return (
-    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#fbf9f4]/85 dark:bg-[#0c131d]/90 backdrop-blur-xl border-b border-[#e4e2dd] dark:border-white/10 z-40 flex items-center justify-between px-4 sm:px-8 transition-colors duration-200">
-      {/* Left side: Hamburger (mobile) + Clean Breadcrumb */}
-      <div className="flex items-center gap-4 min-w-0">
+    <header className="fixed top-0 left-0 lg:left-64 right-0 h-16 bg-[#fbf9f4]/85 dark:bg-[#0c131d]/90 backdrop-blur-xl border-b border-[#e4e2dd] dark:border-white/10 z-40 flex items-center justify-between px-3 sm:px-8 transition-colors duration-200">
+      {/* Left side: Hamburger (mobile) + Clean Breadcrumb / Search */}
+      <div className="flex items-center gap-2 sm:gap-4 min-w-0 flex-1 mr-2">
         <button
           onClick={onOpenMobileSidebar}
-          className="lg:hidden p-1.5 text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#eae8e3] dark:hover:bg-[#203046] rounded-lg transition-colors cursor-pointer"
+          className="lg:hidden p-1.5 text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#eae8e3] dark:hover:bg-[#203046] rounded-lg transition-colors cursor-pointer shrink-0"
           aria-label="Open sidebar navigation"
           type="button"
         >
@@ -164,23 +164,23 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
         </button>
 
         {activeTab === 'overview' ? (
-          /* Search bar on Overview */
-          <div className="flex items-center gap-3">
-            <span className="material-symbols-outlined text-[#44474d] dark:text-[#94a3b8] text-[20px]">search</span>
+          /* Search bar on Overview - adaptive width */
+          <div className="flex items-center gap-2 min-w-0 flex-1 max-w-[140px] xs:max-w-[200px] sm:max-w-xs">
+            <span className="material-symbols-outlined text-[#44474d] dark:text-[#94a3b8] text-[18px] sm:text-[20px] shrink-0">search</span>
             <input
-              className="bg-transparent border-none outline-none text-sm text-[#1b1c19] dark:text-[#f3f6fa] placeholder:text-[#74777d] dark:placeholder:text-[#64748b] w-36 sm:w-64"
-              placeholder="Search invoices, clients..."
+              className="bg-transparent border-none outline-none text-xs sm:text-sm text-[#1b1c19] dark:text-[#f3f6fa] placeholder:text-[#74777d] dark:placeholder:text-[#64748b] w-full min-w-0 truncate"
+              placeholder="Search..."
               type="text"
             />
           </div>
         ) : (
           /* Clean Professional Breadcrumb */
-          <div className="flex items-center gap-2">
-            <span className="text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
+          <div className="flex items-center gap-1.5 sm:gap-2 truncate">
+            <span className="text-[10px] sm:text-[11px] font-semibold uppercase tracking-wider text-[#74777d] dark:text-[#94a3b8]">
               DueFlow
             </span>
             <span className="text-[#c4c6cd] dark:text-white/20 font-['Space_Mono'] text-[10px]">/</span>
-            <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa]">
+            <span className="text-xs font-semibold text-[#001126] dark:text-[#f3f6fa] truncate">
               {tabLabels[activeTab]}
             </span>
           </div>
@@ -188,7 +188,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
       </div>
 
       {/* Right side: Actions, Notifications, Help, Theme Toggle, Profile Avatar */}
-      <div className="flex items-center gap-1.5 sm:gap-3">
+      <div className="flex items-center gap-1 sm:gap-2.5 shrink-0">
         {/* Theme Toggle Icon Button */}
         <ThemeToggle variant="icon" />
 
@@ -304,8 +304,8 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           )}
         </div>
 
-        {/* 2. Functional Help Icon per Requirement 7 & Screenshot 5 */}
-        <div className="relative" ref={helpRef}>
+        {/* 2. Functional Help Icon - visible on tablet and desktop */}
+        <div className="relative hidden md:block" ref={helpRef}>
           <button
             onClick={() => {
               setIsHelpOpen(!isHelpOpen);
@@ -313,7 +313,9 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
               setIsProfileOpen(false);
             }}
             className={`w-9 h-9 rounded-lg flex items-center justify-center transition-colors cursor-pointer ${
-              isHelpOpen ? 'bg-[#eae8e3] text-[#001126]' : 'text-[#44474d] hover:bg-[#eae8e3]/70 hover:text-[#1b1c19]'
+              isHelpOpen
+                ? 'bg-[#eae8e3] dark:bg-[#203046] text-[#001126] dark:text-[#f3f6fa]'
+                : 'text-[#44474d] dark:text-[#94a3b8] hover:bg-[#eae8e3]/70 dark:hover:bg-[#203046] hover:text-[#1b1c19] dark:hover:text-[#f3f6fa]'
             }`}
             aria-label="Help and guidance"
             aria-expanded={isHelpOpen}
@@ -326,7 +328,7 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
           {/* Help Menu / Flyout */}
           {isHelpOpen && (
             <div
-              className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-[#ffffff] rounded-2xl shadow-xl border border-[#001126]/10 p-5 z-50 animate-in fade-in slide-in-from-top-1"
+              className="absolute right-0 top-full mt-2 w-[calc(100vw-2rem)] sm:w-96 max-w-sm bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl shadow-xl border border-[#001126]/10 dark:border-white/10 p-5 z-50 animate-in fade-in slide-in-from-top-1"
               role="dialog"
               aria-label="DueFlow guide"
             >
@@ -515,6 +517,18 @@ export const TopHeader: React.FC<TopHeaderProps> = ({
                   >
                     <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">switch_account</span>
                     <span>Switch account</span>
+                  </button>
+
+                  <button
+                    onClick={() => {
+                      setIsProfileOpen(false);
+                      setIsHelpOpen(true);
+                    }}
+                    className="w-full flex items-center gap-2.5 px-3 py-2 text-xs font-semibold text-[#1b1c19] dark:text-[#f3f6fa] hover:bg-[#f5f3ee] dark:hover:bg-[#203046] rounded-lg transition-colors text-left cursor-pointer active:scale-[0.98]"
+                    role="menuitem"
+                  >
+                    <span className="material-symbols-outlined text-[18px] text-[#44474d] dark:text-[#94a3b8]">help</span>
+                    <span>Help & Guides</span>
                   </button>
 
                   <div className="border-t border-[#001126]/10 dark:border-white/10 my-1" />

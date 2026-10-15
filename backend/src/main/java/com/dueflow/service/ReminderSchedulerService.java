@@ -252,9 +252,11 @@ public class ReminderSchedulerService {
 
         // 2. Check invoice eligibility: Do not send reminders for paid or cancelled invoices
         if (invoice.getStatus() == InvoiceStatus.PAID) {
+            scheduledReminderRepository.cancelPendingForInvoice(invoice.getId());
             throw new ValidationException("Cannot send reminder: invoice is already paid.");
         }
         if (invoice.getStatus() == InvoiceStatus.CANCELLED) {
+            scheduledReminderRepository.cancelPendingForInvoice(invoice.getId());
             throw new ValidationException("Cannot send reminder: invoice is cancelled.");
         }
 

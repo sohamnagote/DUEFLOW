@@ -1,7 +1,8 @@
-import React from 'react';
+import React, { useState } from 'react';
 import { Invoice, Client } from '../types';
 import { formatCurrency, summarizeInvoicesByCurrency } from '../utils/currency';
 import { formatDisplayDate } from '../utils/date';
+import { ResetWorkspaceModal } from './ResetWorkspaceModal';
 
 interface OverviewViewProps {
   invoices?: Invoice[];
@@ -13,6 +14,7 @@ interface OverviewViewProps {
   onNewInvoiceClick: () => void;
   onAddClientClick: () => void;
   onClearData?: () => void;
+  onResetWorkspace?: () => Promise<void>;
   onNavigateToInvoices?: () => void;
   onNavigateToClients?: () => void;
   onNavigateToReminders?: () => void;
@@ -28,10 +30,12 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
   onNewInvoiceClick,
   onAddClientClick,
   onClearData,
+  onResetWorkspace,
   onNavigateToInvoices,
   onNavigateToClients,
   onNavigateToReminders,
 }) => {
+  const [isResetModalOpen, setIsResetModalOpen] = useState(false);
   const safeInvoices: Invoice[] = Array.isArray(invoices)
     ? (invoices.filter(Boolean) as Invoice[])
     : Array.isArray((invoices as any)?.invoices)
@@ -139,9 +143,9 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
           </div>
 
           <div className="flex flex-col sm:flex-row items-stretch sm:items-center gap-2.5 sm:gap-3 w-full sm:w-auto shrink-0">
-            {onClearData && (
+            {(onResetWorkspace || onClearData) && (
               <button
-                onClick={onClearData}
+                onClick={() => setIsResetModalOpen(true)}
                 className="btn-action-secondary w-full sm:w-auto text-xs text-[#74777d] dark:text-[#94a3b8] hover:text-[#ba1a1a] dark:hover:text-[#f87171] px-3.5 py-2.5 rounded-lg justify-center cursor-pointer"
                 title="Reset back to pristine empty state"
               >
@@ -392,6 +396,20 @@ export const OverviewView: React.FC<OverviewViewProps> = ({
             </div>
           </div>
         </div>
+
+        <ResetWorkspaceModal
+          isOpen={isResetModalOpen}
+          onClose={() => setIsResetModalOpen(false)}
+          onConfirmReset={async () => {
+            if (onResetWorkspace) {
+              await onResetWorkspace();
+            } else if (onClearData) {
+              onClearData();
+            }
+          }}
+          invoiceCount={safeInvoices.length}
+          clientCount={safeClients.length}
+        />
       </div>
     );
   }

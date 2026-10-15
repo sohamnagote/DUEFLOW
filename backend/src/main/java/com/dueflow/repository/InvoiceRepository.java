@@ -5,6 +5,7 @@ import com.dueflow.domain.InvoiceStatus;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -54,4 +55,8 @@ public interface InvoiceRepository extends JpaRepository<Invoice, String> {
 
     @Query("SELECT i.currency, SUM(i.totalAmount) FROM Invoice i WHERE i.userId = :userId AND i.status = 'PAID' GROUP BY i.currency")
     List<Object[]> sumCollectedAmountByCurrency(@Param("userId") String userId);
+
+    @Modifying
+    @Query("DELETE FROM Invoice i WHERE i.userId = :userId")
+    int deleteByUserId(@Param("userId") String userId);
 }

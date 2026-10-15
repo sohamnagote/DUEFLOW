@@ -4,6 +4,7 @@ import com.dueflow.domain.Client;
 import org.springframework.data.domain.Page;
 import org.springframework.data.domain.Pageable;
 import org.springframework.data.jpa.repository.JpaRepository;
+import org.springframework.data.jpa.repository.Modifying;
 import org.springframework.data.jpa.repository.Query;
 import org.springframework.data.repository.query.Param;
 import org.springframework.stereotype.Repository;
@@ -34,4 +35,8 @@ public interface ClientRepository extends JpaRepository<Client, String> {
     List<Client> searchClients(@Param("userId") String userId, @Param("query") String query);
 
     long countByUserId(String userId);
+
+    @Modifying
+    @Query("DELETE FROM Client c WHERE c.userId = :userId")
+    int deleteByUserId(@Param("userId") String userId);
 }

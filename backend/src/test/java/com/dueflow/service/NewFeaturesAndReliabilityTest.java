@@ -223,6 +223,8 @@ public class NewFeaturesAndReliabilityTest {
         assertEquals("Payment is due within 15 days of invoice date.", updated.getFooterTerms());
     }
 
+    @Mock private NotificationRepository notificationRepository;
+
     @Test
     @DisplayName("Reminder Toggle: Disabling reminders pauses pending scheduled reminders")
     void testDisablingRemindersCancelsPending() {
@@ -238,5 +240,38 @@ public class NewFeaturesAndReliabilityTest {
 
         // Verify scheduled reminders cancelled for this user
         verify(scheduledReminderRepository).cancelPendingForUser(USER_ID);
+    }
+
+    @Test
+    @DisplayName("Workspace Reset: Purges reminders, history, notifications, invoices, clients while preserving profile")
+    void testWorkspaceResetExecutesInCorrectOrder() {
+        DashboardService dashboardService = new DashboardService(
+                invoiceRepository,
+                clientRepository,
+                scheduledReminderRepository,
+                reminderHistoryRepository,
+                notificationRepository
+        );
+
+        dashboardService.resetWorkspace(USER_ID);
+
+        org.mockito.InOrder inOrder = inOrder(
+                scheduledReminderRepository,
+                reminderHistoryRepository,
+                notificationRepository,
+                invoiceRepository,
+                clientRepository
+        );
+
+        inOrder.verify(scheduledReminderRepository).deleteByUserId(USER_ID);
+        inOrder.verify(reminderHistoryRepository).deleteByUserId(USER_ID);
+        inOrder.verify(notificationRepository).deleteByUserId(USER_ID);
+        inOrder.verify(invoiceRepository).deleteByUserId(USER_ID);
+        inOrder.verify(clientRepository).deleteByUserId(USER_ID);
+
+        // Verify user profile and payment settings were NOT touched
+        verifyNoInteractions(userProfileRepository);
+        verifyNoInteractions(paymentSettingsRepository);
+        verifyNoInteractions(gmailIntegrationRepository);
     }
 }

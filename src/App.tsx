@@ -3,7 +3,7 @@
  * SPDX-License-Identifier: Apache-2.0
  */
 
-import React, { useState, useEffect, useCallback } from 'react';
+import React, { useState, useEffect, useCallback, useRef } from 'react';
 import { Invoice, Client, InvoiceStatus, UserProfile } from './types';
 import { INITIAL_USER_PROFILE } from './data/dueflowData';
 import { dueflowApi } from './utils/api';
@@ -25,6 +25,16 @@ import { ErrorBoundary } from './components/ErrorBoundary';
 import { PageTransition } from './components/animations/PageTransition';
 
 export default function App() {
+  const getInitialTabFromPath = (): DueflowTab => {
+    if (typeof window === 'undefined') return 'overview';
+    const path = window.location.pathname.toLowerCase();
+    if (path === '/invoices' || path.startsWith('/invoices')) return 'invoices';
+    if (path === '/clients' || path.startsWith('/clients')) return 'clients';
+    if (path === '/reminders' || path.startsWith('/reminders')) return 'reminders';
+    if (path === '/settings' || path.startsWith('/settings')) return 'settings';
+    return 'overview';
+  };
+
   // Determine initial page from URL path to support direct opens/refreshes of /dashboard, /privacy, /terms, etc.
   const getInitialPageMode = (): 'landing' | 'signin' | 'app' | 'privacy' | 'terms' => {
     if (typeof window === 'undefined') return 'landing';
@@ -32,7 +42,18 @@ export default function App() {
     const hasAuthCode = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
     if (path === '/privacy') return 'privacy';
     if (path === '/terms') return 'terms';
-    if (path === '/dashboard' || path === '/app' || hasAuthCode) return 'app';
+    if (
+      path === '/dashboard' ||
+      path === '/app' ||
+      path === '/overview' ||
+      path === '/invoices' ||
+      path === '/clients' ||
+      path === '/reminders' ||
+      path === '/settings' ||
+      hasAuthCode
+    ) {
+      return 'app';
+    }
     if (path === '/signin' || path === '/login') return 'signin';
     return 'landing';
   };
@@ -45,7 +66,7 @@ export default function App() {
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
 
   // App navigation tab: 'overview' | 'invoices' | 'clients' | 'reminders' | 'settings'
-  const [activeTab, setActiveTab] = useState<DueflowTab>('overview');
+  const [activeTab, setActiveTab] = useState<DueflowTab>(getInitialTabFromPath);
 
   // Sidebar mobile drawer state
   const [isMobileSidebarOpen, setIsMobileSidebarOpen] = useState(false);
@@ -67,81 +88,94 @@ export default function App() {
   const [invoices, setInvoices] = useState<Invoice[]>([]);
   const [clients, setClients] = useState<Client[]>([]);
 
+  // Deduplication ref for parallel refreshAllUserData calls
+  const refreshPromiseRef = useRef<Promise<void> | null>(null);
+
   // Comprehensive data loader from verified PostgreSQL backend
   const refreshAllUserData = useCallback(async () => {
-    setIsDataLoading(true);
-    setDataLoadError(null);
-    try {
-      const [profileData, invData, clientData, activeUser] = await Promise.allSettled([
-        dueflowApi.getProfile(),
-        dueflowApi.getInvoices(),
-        dueflowApi.getClients(),
-        getActiveUser(),
-      ]);
-
-      let isComplete = false;
-      if (profileData.status === 'fulfilled' && profileData.value) {
-        const authUser = activeUser.status === 'fulfilled' ? activeUser.value : null;
-        const resolvedName = profileData.value.fullName || authUser?.name || '';
-        const resolvedEmail = profileData.value.email || authUser?.email || '';
-        isComplete = Boolean(profileData.value.onboardingCompleted);
-
-        setUserProfile((prev) => ({
-          ...prev,
-          ...profileData.value,
-          fullName: resolvedName || prev.fullName,
-          email: resolvedEmail || prev.email,
-          onboardingCompleted: isComplete,
-        }));
-
-        // If profile on backend didn't have name but OAuth provider provides it, sync it to database
-        if (!profileData.value.fullName && authUser?.name) {
-          dueflowApi.updateProfile({ fullName: authUser.name, email: resolvedEmail }).catch(() => {});
-        }
-      } else if (activeUser.status === 'fulfilled' && activeUser.value) {
-        setUserProfile((prev) => ({
-          ...prev,
-          fullName: activeUser.value?.name || prev.fullName,
-          email: activeUser.value?.email || prev.email,
-        }));
-      }
-
-      // Requirement 2: Route first-time / incomplete users to Settings -> Profile setup
-      if (!isComplete) {
-        setIsOnboardingMode(true);
-        setActiveTab('settings');
-      } else {
-        setIsOnboardingMode(false);
-      }
-
-      if (invData.status === 'fulfilled' && invData.value) {
-        const list = Array.isArray(invData.value)
-          ? invData.value
-          : Array.isArray((invData.value as any)?.invoices)
-          ? (invData.value as any).invoices
-          : [];
-        setInvoices(list.filter(Boolean));
-      } else if (invData.status === 'rejected') {
-        console.warn('Backend invoices query rejected:', invData.reason);
-        setDataLoadError('Could not load invoices from server. Please check your network.');
-      }
-
-      if (clientData.status === 'fulfilled' && clientData.value) {
-        const list = Array.isArray(clientData.value)
-          ? clientData.value
-          : Array.isArray((clientData.value as any)?.clients)
-          ? (clientData.value as any).clients
-          : [];
-        setClients(list.filter(Boolean));
-      } else if (clientData.status === 'rejected') {
-        console.warn('Backend clients query rejected:', clientData.reason);
-      }
-    } catch (err: any) {
-      console.warn('Could not load remote account data:', err);
-      setDataLoadError(err?.message || 'Failed to load workspace data');
-    } finally {
-      setIsDataLoading(false);
+    if (refreshPromiseRef.current) {
+      return refreshPromiseRef.current;
     }
+
+    const run = async () => {
+      setIsDataLoading(true);
+      setDataLoadError(null);
+      try {
+        const [profileData, invData, clientData, activeUser] = await Promise.allSettled([
+          dueflowApi.getProfile(),
+          dueflowApi.getInvoices(),
+          dueflowApi.getClients(),
+          getActiveUser(),
+        ]);
+
+        let isComplete = false;
+        if (profileData.status === 'fulfilled' && profileData.value) {
+          const authUser = activeUser.status === 'fulfilled' ? activeUser.value : null;
+          const resolvedName = profileData.value.fullName || authUser?.name || '';
+          const resolvedEmail = profileData.value.email || authUser?.email || '';
+          isComplete = Boolean(profileData.value.onboardingCompleted);
+
+          setUserProfile((prev) => ({
+            ...prev,
+            ...profileData.value,
+            fullName: resolvedName || prev.fullName,
+            email: resolvedEmail || prev.email,
+            onboardingCompleted: isComplete,
+          }));
+
+          // If profile on backend didn't have name but OAuth provider provides it, sync it to database
+          if (!profileData.value.fullName && authUser?.name) {
+            dueflowApi.updateProfile({ fullName: authUser.name, email: resolvedEmail }).catch(() => {});
+          }
+        } else if (activeUser.status === 'fulfilled' && activeUser.value) {
+          setUserProfile((prev) => ({
+            ...prev,
+            fullName: activeUser.value?.name || prev.fullName,
+            email: activeUser.value?.email || prev.email,
+          }));
+        }
+
+        // Requirement 2: Route first-time / incomplete users to Settings -> Profile setup
+        if (!isComplete) {
+          setIsOnboardingMode(true);
+          setActiveTab('settings');
+        } else {
+          setIsOnboardingMode(false);
+        }
+
+        if (invData.status === 'fulfilled' && invData.value) {
+          const list = Array.isArray(invData.value)
+            ? invData.value
+            : Array.isArray((invData.value as any)?.invoices)
+            ? (invData.value as any).invoices
+            : [];
+          setInvoices(list.filter(Boolean));
+        } else if (invData.status === 'rejected') {
+          console.warn('Backend invoices query rejected:', invData.reason);
+          setDataLoadError('Could not load invoices from server. Please check your network.');
+        }
+
+        if (clientData.status === 'fulfilled' && clientData.value) {
+          const list = Array.isArray(clientData.value)
+            ? clientData.value
+            : Array.isArray((clientData.value as any)?.clients)
+            ? (clientData.value as any).clients
+            : [];
+          setClients(list.filter(Boolean));
+        } else if (clientData.status === 'rejected') {
+          console.warn('Backend clients query rejected:', clientData.reason);
+        }
+      } catch (err: any) {
+        console.warn('Could not load remote account data:', err);
+        setDataLoadError(err?.message || 'Failed to load workspace data');
+      } finally {
+        setIsDataLoading(false);
+        refreshPromiseRef.current = null;
+      }
+    };
+
+    refreshPromiseRef.current = run();
+    return refreshPromiseRef.current;
   }, []);
 
   // Check initial session & handle OAuth callback parameters if present
@@ -155,10 +189,12 @@ export default function App() {
         setIsAuthenticated(authenticated);
 
         if (authenticated) {
-          // If URL contains OAuth callback tokens / code, clean them up safely after session verification
+          // If URL contains OAuth callback tokens / code, clean them up safely while preserving route
           if (typeof window !== 'undefined' && (window.location.hash.includes('access_token=') || window.location.search.includes('code='))) {
-            const cleanUrl = window.location.pathname.startsWith('/dashboard') ? '/dashboard' : '/';
+            const currentPath = window.location.pathname;
+            const cleanUrl = (currentPath && currentPath !== '/' && currentPath !== '/signin') ? currentPath : '/overview';
             window.history.replaceState(null, '', cleanUrl);
+            setPageMode('app');
           }
           await refreshAllUserData();
         }
@@ -184,16 +220,18 @@ export default function App() {
       if (event === 'SIGNED_IN' || event === 'TOKEN_REFRESHED' || event === 'USER_UPDATED') {
         if (hasUser) {
           await refreshAllUserData();
-          // Clean callback hashes or queries from URL if present
+          // Clean callback hashes or queries from URL if present while preserving intended route
           if (typeof window !== 'undefined' && (window.location.hash.includes('access_token=') || window.location.search.includes('code='))) {
-            const cleanUrl = window.location.pathname.startsWith('/dashboard') ? '/dashboard' : '/';
+            const currentPath = window.location.pathname;
+            const cleanUrl = (currentPath && currentPath !== '/' && currentPath !== '/signin') ? currentPath : '/overview';
             window.history.replaceState(null, '', cleanUrl);
           }
           // Redirect from signin or landing to dashboard on successful sign in
           setPageMode((prev) => {
             if (prev === 'signin' || prev === 'landing') {
-              if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
-                window.history.pushState(null, '', '/dashboard');
+              const currentPath = window.location.pathname;
+              if (currentPath === '/' || currentPath === '/signin') {
+                window.history.pushState(null, '', '/overview');
               }
               return 'app';
             }
@@ -225,15 +263,18 @@ export default function App() {
   useEffect(() => {
     if (isAuthenticated === null) return; // Still verifying session
 
-    // Req 7: If user is already authenticated and opens /signin, redirect them to dashboard
+    // If user is already authenticated and opens /signin, redirect them to dashboard/requested tab
     if (pageMode === 'signin' && isAuthenticated) {
-      if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
-        window.history.replaceState(null, '', '/dashboard');
+      const targetTab = getInitialTabFromPath();
+      const targetPath = targetTab === 'overview' ? '/overview' : `/${targetTab}`;
+      if (window.location.pathname !== targetPath) {
+        window.history.replaceState(null, '', targetPath);
       }
+      setActiveTab(targetTab);
       setPageMode('app');
     }
 
-    // Req 8: Protect dashboard so unauthenticated users are redirected to /signin
+    // Protect dashboard so unauthenticated users are redirected to /signin
     if (pageMode === 'app' && !isAuthenticated) {
       if (window.location.pathname !== '/signin') {
         window.history.replaceState(null, '', '/signin');
@@ -245,13 +286,25 @@ export default function App() {
   // Listen to browser forward/back buttons
   useEffect(() => {
     const handlePopState = () => {
-      setPageMode(getInitialPageMode());
+      const newMode = getInitialPageMode();
+      setPageMode(newMode);
+      if (newMode === 'app') {
+        setActiveTab(getInitialTabFromPath());
+      }
     };
     window.addEventListener('popstate', handlePopState);
     return () => window.removeEventListener('popstate', handlePopState);
   }, []);
 
   // Navigation handlers
+  const handleSelectTab = (tab: DueflowTab) => {
+    setActiveTab(tab);
+    const targetPath = tab === 'overview' ? '/overview' : `/${tab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
+    }
+  };
+
   const navigateToLanding = () => {
     if (window.location.pathname !== '/') {
       window.history.pushState(null, '', '/');
@@ -267,11 +320,20 @@ export default function App() {
   };
 
   const navigateToApp = () => {
-    if (window.location.pathname !== '/dashboard' && window.location.pathname !== '/') {
-      window.history.pushState(null, '', '/dashboard');
+    const targetTab = activeTab || 'overview';
+    const targetPath = targetTab === 'overview' ? '/overview' : `/${targetTab}`;
+    if (window.location.pathname !== targetPath) {
+      window.history.pushState(null, '', targetPath);
     }
     setPageMode('app');
     refreshAllUserData();
+  };
+
+  const handleResetWorkspace = async () => {
+    await dueflowApi.resetWorkspace();
+    setInvoices([]);
+    setClients([]);
+    await refreshAllUserData();
   };
 
   const handleSignOut = async () => {
@@ -306,7 +368,7 @@ export default function App() {
           setClients(updatedClients.filter(Boolean));
         }
       } catch (_) {}
-      setActiveTab('invoices');
+      handleSelectTab('invoices');
       return created;
     } catch (err: any) {
       console.error('Invoice creation failed on backend:', err);
@@ -402,6 +464,28 @@ export default function App() {
     return <TermsView onBackToLanding={navigateToLanding} />;
   }
 
+  // Session verification screen for direct app / OAuth flows to prevent landing flicker
+  if (
+    isAuthenticated === null &&
+    (pageMode === 'app' ||
+      (typeof window !== 'undefined' &&
+        (window.location.search.includes('code=') || window.location.hash.includes('access_token='))))
+  ) {
+    return (
+      <div className="min-h-screen w-full flex flex-col items-center justify-center bg-[#fbf9f4] dark:bg-[#0c131d] text-[#1b1c19] dark:text-[#f3f6fa]">
+        <div className="flex flex-col items-center gap-4">
+          <div className="w-12 h-12 rounded-2xl bg-amber-500/10 border border-amber-500/20 flex items-center justify-center text-amber-600 dark:text-amber-400">
+            <svg className="w-6 h-6 animate-spin" viewBox="0 0 24 24" fill="none" stroke="currentColor" strokeWidth="2">
+              <circle cx="12" cy="12" r="10" strokeOpacity="0.25" />
+              <path d="M12 2a10 10 0 0 1 10 10" />
+            </svg>
+          </div>
+          <p className="text-sm font-medium text-stone-500 dark:text-stone-400">Restoring workspace session...</p>
+        </div>
+      </div>
+    );
+  }
+
   // Screen 1: Public Landing Page
   if (pageMode === 'landing') {
     return (
@@ -410,7 +494,7 @@ export default function App() {
         onGetStartedClick={navigateToApp}
         userProfile={userProfile}
         onOpenSettings={() => {
-          setActiveTab('settings');
+          handleSelectTab('settings');
           setPageMode('app');
         }}
         onSignOut={handleSignOut}
@@ -434,12 +518,12 @@ export default function App() {
       {/* Sidebar Navigation */}
       <Sidebar
         activeTab={activeTab}
-        onSelectTab={setActiveTab}
+        onSelectTab={handleSelectTab}
         isOpenMobile={isMobileSidebarOpen}
         onCloseMobile={() => setIsMobileSidebarOpen(false)}
         onBackToLanding={navigateToLanding}
         userProfile={userProfile}
-        onOpenSettings={() => setActiveTab('settings')}
+        onOpenSettings={() => handleSelectTab('settings')}
         onSwitchAccount={() => setIsSwitchAccountOpen(true)}
         onSignOut={handleSignOut}
       />
@@ -451,10 +535,10 @@ export default function App() {
           activeTab={activeTab}
           onOpenMobileSidebar={() => setIsMobileSidebarOpen(true)}
           onOpenLandingPage={navigateToLanding}
-          onOpenSettings={() => setActiveTab('settings')}
+          onOpenSettings={() => handleSelectTab('settings')}
           onSwitchAccount={() => setIsSwitchAccountOpen(true)}
           onSignOut={handleSignOut}
-          onNavigateToTab={(tab) => setActiveTab(tab)}
+          onNavigateToTab={handleSelectTab}
           invoices={invoices}
           userProfile={userProfile}
         />
@@ -471,15 +555,16 @@ export default function App() {
                   isLoading={isDataLoading}
                   loadError={dataLoadError}
                   onRetry={refreshAllUserData}
-                  onNewInvoiceClick={() => setActiveTab('invoices')}
-                  onAddClientClick={() => setActiveTab('clients')}
+                  onNewInvoiceClick={() => handleSelectTab('invoices')}
+                  onAddClientClick={() => handleSelectTab('clients')}
                   onClearData={() => {
                     setInvoices([]);
                     setClients([]);
                   }}
-                  onNavigateToInvoices={() => setActiveTab('invoices')}
-                  onNavigateToClients={() => setActiveTab('clients')}
-                  onNavigateToReminders={() => setActiveTab('reminders')}
+                  onResetWorkspace={handleResetWorkspace}
+                  onNavigateToInvoices={() => handleSelectTab('invoices')}
+                  onNavigateToClients={() => handleSelectTab('clients')}
+                  onNavigateToReminders={() => handleSelectTab('reminders')}
                 />
               )}
 
@@ -525,7 +610,7 @@ export default function App() {
                   isOnboardingMode={isOnboardingMode}
                   onOnboardingComplete={() => {
                     setIsOnboardingMode(false);
-                    setActiveTab('overview');
+                    handleSelectTab('overview');
                   }}
                 />
               )}

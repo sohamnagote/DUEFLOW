@@ -40,17 +40,26 @@ async function request<T>(endpoint: string, options: RequestInit = {}): Promise<
 
   const cleanEndpoint = endpoint.startsWith('/') ? endpoint : `/${endpoint}`;
 
+  const controller = new AbortController();
+  const timeoutId = setTimeout(() => controller.abort(), 18000);
+
   let response: Response;
   try {
     response = await fetch(`${API_BASE}${cleanEndpoint}`, {
       ...options,
       headers,
+      signal: options.signal || controller.signal,
     });
   } catch (err: any) {
+    if (err?.name === 'AbortError') {
+      throw new Error('Request timed out. Please verify server connection and retry.');
+    }
     if (err?.name === 'TypeError' && err?.message?.toLowerCase().includes('failed to fetch')) {
       throw new Error('Network or CORS error: Unable to connect to DueFlow backend. Please check server availability.');
     }
     throw err;
+  } finally {
+    clearTimeout(timeoutId);
   }
 
   if (!response.ok) {
@@ -873,6 +882,14 @@ export const dueflowApi = {
       window.URL.revokeObjectURL(url);
       document.body.removeChild(a);
     }, 150);
+  },
+
+  // --- Workspace Reset ---
+  async resetWorkspace(): Promise<{ success: boolean; message: string; invoicesDeleted: number; clientsDeleted: number }> {
+    return request<{ success: boolean; message: string; invoicesDeleted: number; clientsDeleted: number }>(
+      '/dashboard/reset',
+      { method: 'POST' }
+    );
   },
 };
 

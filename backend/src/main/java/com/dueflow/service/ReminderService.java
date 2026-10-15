@@ -1,7 +1,10 @@
 package com.dueflow.service;
 
+import com.dueflow.domain.Invoice;
+import com.dueflow.domain.InvoiceStatus;
 import com.dueflow.domain.ReminderHistory;
 import com.dueflow.domain.ReminderRule;
+import com.dueflow.domain.ReminderStatus;
 import com.dueflow.domain.ScheduledReminder;
 import com.dueflow.dto.ReminderHistoryDto;
 import com.dueflow.dto.ReminderRuleDto;
@@ -15,6 +18,8 @@ import org.springframework.data.domain.PageRequest;
 import org.springframework.stereotype.Service;
 import org.springframework.transaction.annotation.Transactional;
 
+import java.math.BigDecimal;
+import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
 import java.util.stream.Collectors;
@@ -124,17 +129,52 @@ public class ReminderService {
         }
     }
 
-    @Transactional(readOnly = true)
+    /**
+     * Central server-side authority check for invoice reminder eligibility.
+     */
+    public static boolean isInvoiceEligibleForReminders(Invoice invoice) {
+        if (invoice == null) return false;
+        if (invoice.getStatus() == InvoiceStatus.PAID || invoice.getStatus() == InvoiceStatus.CANCELLED || invoice.getStatus() == InvoiceStatus.DRAFT) {
+            return false;
+        }
+        if (invoice.getTotalAmount() == null || invoice.getTotalAmount().compareTo(BigDecimal.ZERO) <= 0) {
+            return false;
+        }
+        return invoice.getClient() != null && invoice.getClient().getEmail() != null && !invoice.getClient().getEmail().isBlank();
+    }
+
+    @Transactional
     public List<ScheduledReminderDto> getUpcomingReminders(String userId) {
-        return scheduledReminderRepository.findByUserIdOrderByScheduledAtAsc(userId).stream()
+        List<ScheduledReminder> all = scheduledReminderRepository.findByUserIdOrderByScheduledAtAsc(userId);
+        List<ScheduledReminder> eligible = new ArrayList<>();
+
+        for (ScheduledReminder reminder : all) {
+            // Reminders that are already cancelled, sent, or failed do not belong in the pending queue
+            if (reminder.getStatus() != ReminderStatus.PENDING) {
+                continue;
+            }
+
+            Invoice invoice = reminder.getInvoice();
+            // If the invoice is paid, cancelled, or missing, safely cancel the reminder and exclude it
+            if (invoice == null || invoice.getStatus() == InvoiceStatus.PAID || invoice.getStatus() == InvoiceStatus.CANCELLED) {
+                reminder.setStatus(ReminderStatus.CANCELLED);
+                scheduledReminderRepository.save(reminder);
+                continue;
+            }
+
+            eligible.add(reminder);
+        }
+
+        return eligible.stream()
                 .map(ScheduledReminderDto::fromEntity)
                 .collect(Collectors.toList());
     }
 
-    @Transactional(readOnly = true)
+    @Transactional
     public List<ScheduledReminderDto> getInvoiceReminders(String userId, String invoiceId) {
         return scheduledReminderRepository.findByInvoiceId(invoiceId).stream()
-                .filter(r -> r.getUserId().equals(userId))
+                .filter(r -> r.getUserId().equals(userId) && r.getStatus() == ReminderStatus.PENDING)
+                .filter(r -> r.getInvoice() != null && r.getInvoice().getStatus() != InvoiceStatus.PAID && r.getInvoice().getStatus() != InvoiceStatus.CANCELLED)
                 .map(ScheduledReminderDto::fromEntity)
                 .collect(Collectors.toList());
     }

@@ -29,6 +29,15 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const [isModalOpen, setIsModalOpen] = useState(false);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
+
+  // Full-screen processing overlay state
+  const [processingOverlay, setProcessingOverlay] = useState<{
+    isOpen: boolean;
+    isSuccess: boolean;
+    isError: boolean;
+    errorMessage?: string;
+  }>({ isOpen: false, isSuccess: false, isError: false });
+  const submittingRef = React.useRef(false);
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<Invoice | null>(null);
 
   // Search & Filter state
@@ -304,6 +313,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
     e.preventDefault();
     setFormError(null);
 
+    // Prevent duplicate submissions
+    if (submittingRef.current || isSubmitting) return;
+
     const trimmedName = clientName.trim();
     if (!trimmedName) {
       setFormError('Client name is required.');
@@ -324,7 +336,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
       (c) => c && c.name && c.name.toLowerCase() === trimmedName.toLowerCase()
     );
 
+    submittingRef.current = true;
     setIsSubmitting(true);
+    // Show full-screen processing overlay
+    setProcessingOverlay({ isOpen: true, isSuccess: false, isError: false });
+
     try {
       await onAddInvoice({
         invoiceNumber: finalInvoiceNumber || '',
@@ -347,21 +363,40 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         remindersSentCount: 0,
       });
 
-      // Clear and close modal ONLY upon successful database save
-      setIsModalOpen(false);
-      setClientName('');
-      setClientEmail('');
-      setAmount('');
-      setInvoiceNumber('');
-      setDueDate('');
-      setDescription('');
-      setFormError(null);
+      // Show success in the full-screen overlay
+      setProcessingOverlay({ isOpen: true, isSuccess: true, isError: false });
+
+      // Auto-close overlay and form after success
+      setTimeout(() => {
+        setProcessingOverlay({ isOpen: false, isSuccess: false, isError: false });
+        setIsModalOpen(false);
+        setClientName('');
+        setClientEmail('');
+        setAmount('');
+        setInvoiceNumber('');
+        setDueDate('');
+        setDescription('');
+        setFormError(null);
+      }, 1800);
     } catch (err: any) {
       console.error('Invoice creation failed:', err);
-      setFormError(err?.message || 'Could not save invoice to database. Please check required fields.');
+      const errorMsg = err?.message || 'Could not save invoice to database. Please check required fields.';
+      setFormError(errorMsg);
+      // Show error in the full-screen overlay — keep form data for retry
+      setProcessingOverlay({ isOpen: true, isSuccess: false, isError: true, errorMessage: errorMsg });
     } finally {
       setIsSubmitting(false);
+      submittingRef.current = false;
     }
+  };
+
+  const handleProcessingRetry = () => {
+    setProcessingOverlay({ isOpen: false, isSuccess: false, isError: false });
+    // Form data is preserved — user can re-submit
+  };
+
+  const handleProcessingClose = () => {
+    setProcessingOverlay({ isOpen: false, isSuccess: false, isError: false });
   };
 
   const handleDownloadPdf = async (inv: Invoice, e?: React.MouseEvent) => {
@@ -873,14 +908,11 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
               )}
             </div>
 
-            {/* If actively processing invoice creation, show the signature animated visual */}
+            {/* When submitting, show a brief inline loading indicator */}
             {isSubmitting ? (
-              <div className="py-8 flex flex-col items-center justify-center">
-                <InvoiceProcessingAnimation
-                  invoiceNumber={invoiceNumber || 'INV-DRAFT'}
-                  clientName={clientName}
-                  amount={amount ? `${getCurrencySymbol(currency)} ${amount}` : undefined}
-                />
+              <div className="py-12 flex flex-col items-center justify-center space-y-3">
+                <div className="w-8 h-8 border-2 border-[#15263c]/20 dark:border-white/20 border-t-[#15263c] dark:border-t-white rounded-full animate-spin" />
+                <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">Saving invoice…</p>
               </div>
             ) : (
               <form onSubmit={handleSubmit} className="space-y-4">
@@ -1396,6 +1428,19 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
           </div>
         </div>
       )}
+
+      {/* Full-screen invoice processing overlay */}
+      <InvoiceProcessingAnimation
+        isOpen={processingOverlay.isOpen}
+        isSuccess={processingOverlay.isSuccess}
+        isError={processingOverlay.isError}
+        errorMessage={processingOverlay.errorMessage}
+        invoiceNumber={invoiceNumber || 'INV-DRAFT'}
+        clientName={clientName}
+        amount={amount ? `${getCurrencySymbol(currency)} ${amount}` : undefined}
+        onRetry={handleProcessingRetry}
+        onClose={handleProcessingClose}
+      />
     </div>
   );
 };

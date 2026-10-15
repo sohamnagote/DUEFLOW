@@ -47,4 +47,8 @@ public interface ScheduledReminderRepository extends JpaRepository<ScheduledRemi
 
     @Query("SELECT r FROM ScheduledReminder r WHERE r.userId = :userId AND r.status = 'PENDING' ORDER BY r.scheduledAt ASC")
     List<ScheduledReminder> findUpcomingForUser(@Param("userId") String userId, Pageable pageable);
+
+    @Modifying
+    @Query("DELETE FROM ScheduledReminder r WHERE r.userId = :userId")
+    int deleteByUserId(@Param("userId") String userId);
 }
