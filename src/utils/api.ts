@@ -393,6 +393,7 @@ export const dueflowApi = {
       const rawStatus = (inv.status || inv.operational_status || 'UNPAID').toLowerCase();
       const status: InvoiceStatus =
         rawStatus === 'paid' ? 'paid' :
+        rawStatus === 'cancelled' ? 'cancelled' :
         rawStatus === 'overdue' ? 'overdue' :
         rawStatus === 'draft' ? 'draft' : 'pending';
 
@@ -488,6 +489,7 @@ export const dueflowApi = {
     const rawStatus = (inv.status || inv.operational_status || 'UNPAID').toLowerCase();
     const status: InvoiceStatus =
       rawStatus === 'paid' ? 'paid' :
+      rawStatus === 'cancelled' ? 'cancelled' :
       rawStatus === 'overdue' ? 'overdue' :
       rawStatus === 'draft' ? 'draft' : 'pending';
 
@@ -539,6 +541,7 @@ export const dueflowApi = {
     const rawStatus = (inv.status || inv.operational_status || 'UNPAID').toLowerCase();
     const status: InvoiceStatus =
       rawStatus === 'paid' ? 'paid' :
+      rawStatus === 'cancelled' ? 'cancelled' :
       rawStatus === 'overdue' ? 'overdue' :
       rawStatus === 'draft' ? 'draft' : 'pending';
 
