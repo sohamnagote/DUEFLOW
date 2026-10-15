@@ -30,6 +30,12 @@ public class GmailIntegration {
     @Column(name = "connection_status", length = 30, nullable = false)
     private String connectionStatus = "CONNECTED"; // CONNECTED, DISCONNECTED, ERROR
 
+    @Column(name = "last_history_id", length = 100)
+    private String lastHistoryId;
+
+    @Column(name = "last_sync_at")
+    private Instant lastSyncAt;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -104,6 +110,22 @@ public class GmailIntegration {
 
     public void setConnectionStatus(String connectionStatus) {
         this.connectionStatus = connectionStatus;
+    }
+
+    public String getLastHistoryId() {
+        return lastHistoryId;
+    }
+
+    public void setLastHistoryId(String lastHistoryId) {
+        this.lastHistoryId = lastHistoryId;
+    }
+
+    public Instant getLastSyncAt() {
+        return lastSyncAt;
+    }
+
+    public void setLastSyncAt(Instant lastSyncAt) {
+        this.lastSyncAt = lastSyncAt;
     }
 
     public Instant getCreatedAt() {

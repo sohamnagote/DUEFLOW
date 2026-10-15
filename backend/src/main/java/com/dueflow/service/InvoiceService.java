@@ -428,6 +428,33 @@ public class InvoiceService {
         return result;
     }
 
+    @Transactional
+    public InvoiceDto pauseFollowUp(String id, String userId) {
+        Invoice invoice = invoiceRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with id: " + id));
+
+        invoice.setFollowUpStatus("PAUSED_BY_USER");
+        reminderScheduleCalculator.cancelFutureRemindersForInvoice(invoice.getId());
+        Invoice saved = invoiceRepository.save(invoice);
+        return InvoiceDto.fromEntity(saved);
+    }
+
+    @Transactional
+    public InvoiceDto resumeFollowUp(String id, String userId) {
+        Invoice invoice = invoiceRepository.findByIdAndUserId(id, userId)
+                .orElseThrow(() -> new ResourceNotFoundException("Invoice not found with id: " + id));
+
+        invoice.setFollowUpStatus("ACTIVE");
+        Invoice saved = invoiceRepository.save(invoice);
+
+        // Recalculate and reschedule future reminders if eligible
+        if (saved.getStatus() != InvoiceStatus.PAID && saved.getStatus() != InvoiceStatus.CANCELLED) {
+            reminderScheduleCalculator.scheduleRemindersForInvoice(saved);
+        }
+
+        return InvoiceDto.fromEntity(saved);
+    }
+
     private LocalDate parseDate(String dateStr, LocalDate fallback) {
         if (dateStr == null || dateStr.isBlank()) return fallback;
         dateStr = dateStr.trim();

@@ -77,6 +77,16 @@ public class ClientService {
         client.setBillingAddress(dto.getBillingAddress() != null ? dto.getBillingAddress().trim() : null);
         client.setTaxIdentifier(dto.getTaxIdentifier() != null ? dto.getTaxIdentifier().trim() : null);
         client.setInternalNotes(dto.getInternalNotes() != null ? dto.getInternalNotes().trim() : null);
+        if (dto.getReminderTone() != null) client.setReminderTone(dto.getReminderTone());
+        if (dto.getPreferredChannel() != null) client.setPreferredChannel(dto.getPreferredChannel());
+        if (dto.getTimezone() != null) client.setTimezone(dto.getTimezone());
+        if (dto.getAllowedDays() != null) client.setAllowedDays(dto.getAllowedDays());
+        if (dto.getCommunicationWindowStart() != null) client.setCommunicationWindowStart(dto.getCommunicationWindowStart());
+        if (dto.getCommunicationWindowEnd() != null) client.setCommunicationWindowEnd(dto.getCommunicationWindowEnd());
+        if (dto.getQuietHoursStart() != null) client.setQuietHoursStart(dto.getQuietHoursStart());
+        if (dto.getQuietHoursEnd() != null) client.setQuietHoursEnd(dto.getQuietHoursEnd());
+        client.setAutomatedRemindersEnabled(dto.isAutomatedRemindersEnabled());
+        if (dto.getCommunicationNotes() != null) client.setCommunicationNotes(dto.getCommunicationNotes().trim());
 
         Client saved = clientRepository.save(client);
         return enrichClientStats(saved, userId);
@@ -105,10 +115,39 @@ public class ClientService {
         if (dto.getInternalNotes() != null) {
             client.setInternalNotes(dto.getInternalNotes().trim());
         }
+        if (dto.getReminderTone() != null) {
+            client.setReminderTone(dto.getReminderTone());
+        }
+        if (dto.getPreferredChannel() != null) {
+            client.setPreferredChannel(dto.getPreferredChannel());
+        }
+        if (dto.getTimezone() != null) {
+            client.setTimezone(dto.getTimezone());
+        }
+        if (dto.getAllowedDays() != null) {
+            client.setAllowedDays(dto.getAllowedDays());
+        }
+        if (dto.getCommunicationWindowStart() != null) {
+            client.setCommunicationWindowStart(dto.getCommunicationWindowStart());
+        }
+        if (dto.getCommunicationWindowEnd() != null) {
+            client.setCommunicationWindowEnd(dto.getCommunicationWindowEnd());
+        }
+        if (dto.getQuietHoursStart() != null) {
+            client.setQuietHoursStart(dto.getQuietHoursStart());
+        }
+        if (dto.getQuietHoursEnd() != null) {
+            client.setQuietHoursEnd(dto.getQuietHoursEnd());
+        }
+        client.setAutomatedRemindersEnabled(dto.isAutomatedRemindersEnabled());
+        if (dto.getCommunicationNotes() != null) {
+            client.setCommunicationNotes(dto.getCommunicationNotes().trim());
+        }
 
         Client updated = clientRepository.save(client);
         return enrichClientStats(updated, userId);
     }
+
 
     @Transactional
     public void deleteClient(String id, String userId) {

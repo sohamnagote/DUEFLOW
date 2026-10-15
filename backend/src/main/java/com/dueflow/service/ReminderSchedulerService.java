@@ -133,6 +133,29 @@ public class ReminderSchedulerService {
             return false;
         }
 
+        // If follow-up sequence is paused due to client reply or user hold
+        String followUpStatus = invoice.getFollowUpStatus();
+        if (followUpStatus != null && (
+                "PAUSED_FOR_REVIEW".equalsIgnoreCase(followUpStatus) ||
+                "PAUSED_BY_USER".equalsIgnoreCase(followUpStatus) ||
+                "CLIENT_REPLIED".equalsIgnoreCase(followUpStatus))) {
+            reminder.setStatus(ReminderStatus.CANCELLED);
+            scheduledReminderRepository.save(reminder);
+            log.info("Cancelled reminder {} because invoice {} has active follow-up hold ({})",
+                    reminder.getId(), invoice.getInvoiceNumber(), followUpStatus);
+            return false;
+        }
+
+        // If client communication preferences have automated reminders disabled
+        if (invoice.getClient() != null && !invoice.getClient().isAutomatedRemindersEnabled()) {
+            reminder.setStatus(ReminderStatus.CANCELLED);
+            scheduledReminderRepository.save(reminder);
+            log.info("Cancelled reminder {} because client {} has automated reminders disabled",
+                    reminder.getId(), invoice.getClient().getName());
+            return false;
+        }
+
+
         // Claim reminder
         reminder.setStatus(ReminderStatus.PROCESSING);
         reminder.setAttemptCount(reminder.getAttemptCount() + 1);

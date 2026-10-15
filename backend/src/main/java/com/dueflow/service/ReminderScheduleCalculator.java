@@ -36,6 +36,16 @@ public class ReminderScheduleCalculator {
             return;
         }
 
+        // Check reply / review holds
+        String followUpStatus = invoice.getFollowUpStatus();
+        if (followUpStatus != null && (
+                "PAUSED_FOR_REVIEW".equalsIgnoreCase(followUpStatus) ||
+                "PAUSED_BY_USER".equalsIgnoreCase(followUpStatus) ||
+                "CLIENT_REPLIED".equalsIgnoreCase(followUpStatus))) {
+            log.info("Follow-up hold active ({}) for invoice {}. Skipping reminder scheduling.", followUpStatus, invoice.getInvoiceNumber());
+            return;
+        }
+
         String userId = invoice.getUserId();
         UserProfile profile = userProfileRepository.findById(userId).orElse(null);
         if (profile != null && !profile.isAutomatedRemindersEnabled()) {
@@ -43,7 +53,16 @@ public class ReminderScheduleCalculator {
             return;
         }
 
-        String timezoneStr = (profile != null && profile.getTimezone() != null) ? profile.getTimezone() : "Asia/Kolkata";
+        Client client = invoice.getClient();
+        if (client != null && !client.isAutomatedRemindersEnabled()) {
+            log.info("Automated reminders disabled for client {} on invoice: {}", client.getName(), invoice.getInvoiceNumber());
+            return;
+        }
+
+        // Determine timezone: Client preference takes precedence, then profile, then Asia/Kolkata
+        String timezoneStr = (client != null && client.getTimezone() != null && !client.getTimezone().isBlank())
+                ? client.getTimezone().trim()
+                : (profile != null && profile.getTimezone() != null ? profile.getTimezone().trim() : "Asia/Kolkata");
         ZoneId zoneId;
         try {
             zoneId = ZoneId.of(timezoneStr);
@@ -53,11 +72,7 @@ public class ReminderScheduleCalculator {
 
         List<ReminderRule> rules = ruleRepository.findByUserIdAndEnabledTrue(userId);
         if (rules.isEmpty()) {
-            // If no user-defined rules, use standard default schedule:
-            // 1. 3 days before due date (friendly)
-            // 2. On due date (professional)
-            // 3. 5 days overdue (firm)
-            createDefaultReminders(invoice, zoneId);
+            createDefaultReminders(invoice, client, zoneId);
             return;
         }
 
@@ -76,15 +91,15 @@ public class ReminderScheduleCalculator {
             }
 
             LocalDate targetDate = calculateTargetDate(invoice.getDueDate(), rule.getTiming(), rule.getDaysOffset());
-            LocalTime time = parseLocalTime(rule.getSendTime());
-            ZonedDateTime zdt = ZonedDateTime.of(targetDate, time, ruleZone);
+            LocalTime desiredTime = parseLocalTime(rule.getSendTime());
+
+            ZonedDateTime zdt = adjustToAllowedWindowAndDays(targetDate, desiredTime, client, ruleZone);
             Instant scheduledAt = zdt.toInstant();
 
             // Unique idempotency key to prevent duplicates
-            String idempotencyKey = String.format("rem-%s-%s-%s", invoice.getId(), rule.getId(), targetDate);
+            String idempotencyKey = String.format("rem-%s-%s-%s", invoice.getId(), rule.getId(), zdt.toLocalDate());
 
             if (!scheduledReminderRepository.existsByIdempotencyKey(idempotencyKey)) {
-                // If scheduled in the future or within the last hour (for immediate catch-up)
                 if (scheduledAt.isAfter(now.minus(Duration.ofHours(1)))) {
                     ScheduledReminder reminder = new ScheduledReminder(
                             invoice,
@@ -94,7 +109,7 @@ public class ReminderScheduleCalculator {
                             idempotencyKey
                     );
                     scheduledReminderRepository.save(reminder);
-                    log.info("Scheduled reminder for invoice {} at {} (UTC)", invoice.getInvoiceNumber(), scheduledAt);
+                    log.info("Scheduled reminder for invoice {} at {} ({})", invoice.getInvoiceNumber(), scheduledAt, ruleZone);
                 }
             }
         }
@@ -109,23 +124,23 @@ public class ReminderScheduleCalculator {
         }
     }
 
-    private void createDefaultReminders(Invoice invoice, ZoneId zoneId) {
+    private void createDefaultReminders(Invoice invoice, Client client, ZoneId zoneId) {
         Instant now = Instant.now();
         LocalDate dueDate = invoice.getDueDate();
         LocalTime defaultTime = LocalTime.of(9, 0);
 
         // 1. 3 days before
-        scheduleOccurrence(invoice, dueDate.minusDays(3), defaultTime, zoneId, "default-before-3", now);
+        scheduleOccurrence(invoice, client, dueDate.minusDays(3), defaultTime, zoneId, "default-before-3", now);
         // 2. On due date
-        scheduleOccurrence(invoice, dueDate, defaultTime, zoneId, "default-on-due", now);
+        scheduleOccurrence(invoice, client, dueDate, defaultTime, zoneId, "default-on-due", now);
         // 3. 5 days overdue
-        scheduleOccurrence(invoice, dueDate.plusDays(5), defaultTime, zoneId, "default-overdue-5", now);
+        scheduleOccurrence(invoice, client, dueDate.plusDays(5), defaultTime, zoneId, "default-overdue-5", now);
     }
 
-    private void scheduleOccurrence(Invoice invoice, LocalDate date, LocalTime time, ZoneId zoneId, String suffix, Instant now) {
-        ZonedDateTime zdt = ZonedDateTime.of(date, time, zoneId);
+    private void scheduleOccurrence(Invoice invoice, Client client, LocalDate date, LocalTime time, ZoneId zoneId, String suffix, Instant now) {
+        ZonedDateTime zdt = adjustToAllowedWindowAndDays(date, time, client, zoneId);
         Instant scheduledAt = zdt.toInstant();
-        String idempotencyKey = String.format("rem-%s-%s-%s", invoice.getId(), suffix, date);
+        String idempotencyKey = String.format("rem-%s-%s-%s", invoice.getId(), suffix, zdt.toLocalDate());
 
         if (!scheduledReminderRepository.existsByIdempotencyKey(idempotencyKey)) {
             if (scheduledAt.isAfter(now.minus(Duration.ofHours(1)))) {
@@ -141,7 +156,66 @@ public class ReminderScheduleCalculator {
         }
     }
 
+    /**
+     * Adjust target dispatch date and time according to client communication window,
+     * quiet hours, and allowed communication days. Defer, never silently drop!
+     */
+    public ZonedDateTime adjustToAllowedWindowAndDays(LocalDate targetDate, LocalTime targetTime, Client client, ZoneId zoneId) {
+        LocalTime windowStart = LocalTime.of(9, 0);
+        LocalTime windowEnd = LocalTime.of(18, 0);
+        LocalTime quietStart = LocalTime.of(21, 0);
+        LocalTime quietEnd = LocalTime.of(8, 0);
+        String allowedDaysStr = "MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY";
+
+        if (client != null) {
+            if (client.getCommunicationWindowStart() != null) windowStart = parseLocalTime(client.getCommunicationWindowStart());
+            if (client.getCommunicationWindowEnd() != null) windowEnd = parseLocalTime(client.getCommunicationWindowEnd());
+            if (client.getQuietHoursStart() != null) quietStart = parseLocalTime(client.getQuietHoursStart());
+            if (client.getQuietHoursEnd() != null) quietEnd = parseLocalTime(client.getQuietHoursEnd());
+            if (client.getAllowedDays() != null && !client.getAllowedDays().isBlank()) allowedDaysStr = client.getAllowedDays();
+        }
+
+        LocalDate adjustedDate = targetDate;
+        LocalTime adjustedTime = targetTime;
+
+        // Check if targetTime is inside quiet hours or outside communication window
+        boolean isInQuietHours = isTimeInQuietHours(adjustedTime, quietStart, quietEnd);
+        boolean isOutsideWindow = adjustedTime.isBefore(windowStart) || adjustedTime.isAfter(windowEnd);
+
+        if (isInQuietHours || isOutsideWindow) {
+            if (adjustedTime.isBefore(windowStart)) {
+                adjustedTime = windowStart;
+            } else {
+                // If after window end or in quiet evening hours, defer to next day window start
+                adjustedDate = adjustedDate.plusDays(1);
+                adjustedTime = windowStart;
+            }
+        }
+
+        // Adjust day if not permitted
+        List<String> allowedDays = List.of(allowedDaysStr.toUpperCase().split(","));
+        int attempts = 0;
+        while (!allowedDays.contains(adjustedDate.getDayOfWeek().name()) && attempts < 14) {
+            adjustedDate = adjustedDate.plusDays(1);
+            adjustedTime = windowStart;
+            attempts++;
+        }
+
+        return ZonedDateTime.of(adjustedDate, adjustedTime, zoneId);
+    }
+
+    private boolean isTimeInQuietHours(LocalTime time, LocalTime quietStart, LocalTime quietEnd) {
+        if (quietStart.isBefore(quietEnd)) {
+            // e.g. 01:00 to 07:00
+            return !time.isBefore(quietStart) && time.isBefore(quietEnd);
+        } else {
+            // Crosses midnight, e.g. 21:00 to 08:00
+            return !time.isBefore(quietStart) || time.isBefore(quietEnd);
+        }
+    }
+
     private LocalDate calculateTargetDate(LocalDate dueDate, String timing, int daysOffset) {
+
         if ("BEFORE".equalsIgnoreCase(timing)) {
             return dueDate.minusDays(Math.abs(daysOffset));
         } else if ("AFTER".equalsIgnoreCase(timing)) {

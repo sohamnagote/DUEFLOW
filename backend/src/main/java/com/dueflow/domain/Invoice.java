@@ -66,6 +66,27 @@ public class Invoice {
     @Column(name = "reminders_sent_count", nullable = false)
     private int remindersSentCount = 0;
 
+    @Column(name = "follow_up_status", length = 50)
+    private String followUpStatus = "ACTIVE"; // ACTIVE, AWAITING_REPLY, CLIENT_REPLIED, PAUSED_FOR_REVIEW, PAUSED_BY_USER, COMPLETED
+
+    @Column(name = "last_reply_snippet", columnDefinition = "TEXT")
+    private String lastReplySnippet;
+
+    @Column(name = "last_reply_classification", length = 100)
+    private String lastReplyClassification;
+
+    @Column(name = "last_reply_at")
+    private Instant lastReplyAt;
+
+    @Column(name = "gmail_thread_id")
+    private String gmailThreadId;
+
+    @Column(name = "response_token")
+    private String responseToken;
+
+    @Column(name = "response_token_expiry")
+    private Instant responseTokenExpiry;
+
     @OneToMany(mappedBy = "invoice", cascade = CascadeType.ALL, orphanRemoval = true, fetch = FetchType.EAGER)
     private List<InvoiceItem> items = new ArrayList<>();
 
@@ -76,6 +97,14 @@ public class Invoice {
     private Instant updatedAt = Instant.now();
 
     public Invoice() {
+    }
+
+    @PrePersist
+    public void onPrePersist() {
+        if (this.responseToken == null || this.responseToken.isBlank()) {
+            this.responseToken = UUID.randomUUID().toString().replace("-", "") + UUID.randomUUID().toString().replace("-", "");
+            this.responseTokenExpiry = Instant.now().plus(60, java.time.temporal.ChronoUnit.DAYS);
+        }
     }
 
     @PreUpdate
@@ -272,4 +301,61 @@ public class Invoice {
     public void setUpdatedAt(Instant updatedAt) {
         this.updatedAt = updatedAt;
     }
+
+    public String getFollowUpStatus() {
+        return followUpStatus;
+    }
+
+    public void setFollowUpStatus(String followUpStatus) {
+        this.followUpStatus = followUpStatus;
+    }
+
+    public String getLastReplySnippet() {
+        return lastReplySnippet;
+    }
+
+    public void setLastReplySnippet(String lastReplySnippet) {
+        this.lastReplySnippet = lastReplySnippet;
+    }
+
+    public String getLastReplyClassification() {
+        return lastReplyClassification;
+    }
+
+    public void setLastReplyClassification(String lastReplyClassification) {
+        this.lastReplyClassification = lastReplyClassification;
+    }
+
+    public Instant getLastReplyAt() {
+        return lastReplyAt;
+    }
+
+    public void setLastReplyAt(Instant lastReplyAt) {
+        this.lastReplyAt = lastReplyAt;
+    }
+
+    public String getGmailThreadId() {
+        return gmailThreadId;
+    }
+
+    public void setGmailThreadId(String gmailThreadId) {
+        this.gmailThreadId = gmailThreadId;
+    }
+
+    public String getResponseToken() {
+        return responseToken;
+    }
+
+    public void setResponseToken(String responseToken) {
+        this.responseToken = responseToken;
+    }
+
+    public Instant getResponseTokenExpiry() {
+        return responseTokenExpiry;
+    }
+
+    public void setResponseTokenExpiry(Instant responseTokenExpiry) {
+        this.responseTokenExpiry = responseTokenExpiry;
+    }
 }
+

@@ -15,6 +15,7 @@ import { LandingView } from './components/LandingView';
 import { SignInView } from './components/SignInView';
 import { PrivacyView } from './components/PrivacyView';
 import { TermsView } from './components/TermsView';
+import { ClientResponseView } from './components/ClientResponseView';
 import { OverviewView } from './components/OverviewView';
 import { InvoicesView } from './components/InvoicesView';
 import { ClientsView } from './components/ClientsView';
@@ -35,10 +36,11 @@ export default function App() {
     return 'overview';
   };
 
-  // Determine initial page from URL path to support direct opens/refreshes of /dashboard, /privacy, /terms, etc.
-  const getInitialPageMode = (): 'landing' | 'signin' | 'app' | 'privacy' | 'terms' => {
+  // Determine initial page from URL path to support direct opens/refreshes of /dashboard, /privacy, /terms, /respond, etc.
+  const getInitialPageMode = (): 'landing' | 'signin' | 'app' | 'privacy' | 'terms' | 'respond' => {
     if (typeof window === 'undefined') return 'landing';
     const path = window.location.pathname.toLowerCase();
+    if (path === '/respond' || path.startsWith('/respond')) return 'respond';
     const hasAuthCode = window.location.search.includes('code=') || window.location.hash.includes('access_token=');
     if (path === '/privacy') return 'privacy';
     if (path === '/terms') return 'terms';
@@ -58,9 +60,10 @@ export default function App() {
     return 'landing';
   };
 
-  const [pageMode, setPageMode] = useState<'landing' | 'signin' | 'app' | 'privacy' | 'terms'>(
+  const [pageMode, setPageMode] = useState<'landing' | 'signin' | 'app' | 'privacy' | 'terms' | 'respond'>(
     getInitialPageMode
   );
+
 
   // Authentication session check state
   const [isAuthenticated, setIsAuthenticated] = useState<boolean | null>(null);
@@ -454,6 +457,19 @@ export default function App() {
     }
   };
 
+  const handleUpdateClient = async (id: string, patch: Partial<Client>): Promise<boolean> => {
+    try {
+      const updated = await dueflowApi.updateClient(id, patch);
+      setClients((prev) =>
+        (Array.isArray(prev) ? prev : []).map((c) => (c && c.id === id ? { ...c, ...updated } : c))
+      );
+      return true;
+    } catch (err: any) {
+      console.error('Client update failed on backend:', err);
+      throw err;
+    }
+  };
+
   // Screen: Privacy Policy Route (/privacy)
   if (pageMode === 'privacy') {
     return <PrivacyView onBackToLanding={navigateToLanding} />;
@@ -486,8 +502,14 @@ export default function App() {
     );
   }
 
+  // Screen 0: Public One-Click Client Response Page (No Account Needed)
+  if (pageMode === 'respond') {
+    return <ClientResponseView />;
+  }
+
   // Screen 1: Public Landing Page
   if (pageMode === 'landing') {
+
     return (
       <LandingView
         onSignInClick={navigateToSignIn}
@@ -585,6 +607,7 @@ export default function App() {
                 <ClientsView
                   clients={clients}
                   onAddClient={handleAddClient}
+                  onUpdateClient={handleUpdateClient}
                   onDeleteClient={handleDeleteClient}
                 />
               )}

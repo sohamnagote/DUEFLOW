@@ -59,8 +59,11 @@ public class SecurityConfig {
                     "/api/integrations/gmail/oauth/callback",
                     "/integrations/gmail/oauth/callback",
                     "/api/integrations/email/google/callback",
-                    "/integrations/email/google/callback"
+                    "/integrations/email/google/callback",
+                    "/api/public/**",
+                    "/public/**"
                 ).permitAll()
+
                 .requestMatchers("/error").permitAll()
                 .requestMatchers("/api/**", "/settings/**", "/integrations/**", "/user/**", "/profile/**", "/clients/**", "/invoices/**", "/reminders/**", "/notifications/**", "/dashboard/**", "/search/**").authenticated()
                 .anyRequest().permitAll()

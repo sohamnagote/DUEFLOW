@@ -33,6 +33,9 @@ public class ReminderHistory {
     @Column(name = "provider_message_id")
     private String providerMessageId;
 
+    @Column(name = "provider_thread_id")
+    private String providerThreadId;
+
     @Column(name = "error_category", length = 100)
     private String errorCategory;
 
@@ -120,6 +123,14 @@ public class ReminderHistory {
 
     public void setProviderMessageId(String providerMessageId) {
         this.providerMessageId = providerMessageId;
+    }
+
+    public String getProviderThreadId() {
+        return providerThreadId;
+    }
+
+    public void setProviderThreadId(String providerThreadId) {
+        this.providerThreadId = providerThreadId;
     }
 
     public String getErrorCategory() {

@@ -30,6 +30,12 @@ public interface InvoiceRepository extends JpaRepository<Invoice, String> {
 
     boolean existsByClientId(String clientId);
 
+    Optional<Invoice> findByResponseToken(String responseToken);
+
+    List<Invoice> findByUserIdAndGmailThreadId(String userId, String gmailThreadId);
+
+    Optional<Invoice> findFirstByUserIdAndGmailThreadId(String userId, String gmailThreadId);
+
     List<Invoice> findByUserIdAndClientId(String userId, String clientId);
 
     List<Invoice> findByUserIdAndStatus(String userId, InvoiceStatus status);

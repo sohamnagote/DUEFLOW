@@ -14,6 +14,18 @@ export interface Invoice {
   description: string;
   items?: { description: string; quantity: number; rate: number }[];
   remindersSentCount?: number;
+  followUpStatus?: string;
+  follow_up_status?: string;
+  lastReplySnippet?: string;
+  last_reply_snippet?: string;
+  lastReplyClassification?: string;
+  last_reply_classification?: string;
+  lastReplyAt?: string;
+  last_reply_at?: string;
+  gmailThreadId?: string;
+  gmail_thread_id?: string;
+  responseToken?: string;
+  response_token?: string;
 }
 
 export interface Client {
@@ -27,7 +39,56 @@ export interface Client {
   totalOutstanding: number;
   invoicesCount: number;
   createdAt: string;
+  preferredTone?: 'FRIENDLY' | 'PROFESSIONAL' | 'FIRM' | 'friendly' | 'professional' | 'firm' | string;
+  preferred_tone?: string;
+  reminderTone?: 'FRIENDLY' | 'PROFESSIONAL' | 'FIRM' | string;
+  reminder_tone?: string;
+  preferredChannel?: 'EMAIL' | 'email' | string;
+  preferred_channel?: string;
+  timezone?: string;
+  allowedDays?: string[] | string;
+  allowed_days?: string[] | string;
+  communicationWindowStart?: string;
+  communication_window_start?: string;
+  communicationWindowEnd?: string;
+  communication_window_end?: string;
+  quietHoursStart?: string;
+  quiet_hours_start?: string;
+  quietHoursEnd?: string;
+  quiet_hours_end?: string;
+  automatedRemindersEnabled?: boolean;
+  automated_reminders_enabled?: boolean;
+  communicationNotes?: string;
+  communication_notes?: string;
 }
+
+export interface ClientResponse {
+  id: string;
+  invoiceId: string;
+  userId: string;
+  clientId?: string;
+  responseType: 'PAYMENT_REPORTED' | 'NEED_MORE_TIME' | 'QUESTION' | 'CORRECTION_REQUESTED' | string;
+  responseText?: string;
+  proposedPaymentDate?: string;
+  reviewStatus: 'PENDING_REVIEW' | 'RESOLVED' | 'DISMISSED' | string;
+  clientEmail?: string;
+  createdAt: string;
+  reviewedAt?: string;
+}
+
+export interface PublicInvoiceView {
+  invoiceNumber: string;
+  businessName: string;
+  clientName: string;
+  totalAmount: number;
+  currency: string;
+  dueDate: string;
+  issueDate: string;
+  paymentInstructions?: string;
+  status: string;
+  followUpStatus?: string;
+}
+
 
 export interface ReminderScheduleRule {
   id: string;

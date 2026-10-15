@@ -2,7 +2,8 @@ import React, { useState, useEffect } from 'react';
 import { Invoice, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, UserProfile } from '../types';
 import { formatCurrency } from '../utils/currency';
 import { dueflowApi } from '../utils/api';
-import { ReminderSendingAnimation } from './animations/ReminderSendingAnimation';
+import { InkDrawReminderAnimation } from './animations/InkDrawReminderAnimation';
+
 
 interface RemindersViewProps {
   onRefineWithGemini?: (text: string) => Promise<string>;
@@ -1139,38 +1140,22 @@ export const RemindersView: React.FC<RemindersViewProps> = ({
         </div>
       )}
 
-      {/* Signature Reminder Sending Micro-interaction Modal */}
+      {/* Premium Ink Draw Manual Reminder Animation */}
       {sendingState?.isOpen && (
-        <div
-          className="fixed inset-0 z-50 bg-[#001126]/60 dark:bg-black/70 backdrop-blur-xs flex items-center justify-center p-4 animate-fade-in"
-          onClick={() => {
-            if (sendingState.status !== 'sending') {
-              setSendingState(null);
+        <InkDrawReminderAnimation
+          status={sendingState.status}
+          errorMessage={sendingState.errorMessage}
+          recipientName={sendingState.recipientName}
+          invoiceNumber={sendingState.invoiceNumber}
+          onRetry={() => {
+            if (sendingState.targetId) {
+              handleRemindNow(sendingState.targetId, sendingState.invoiceNumber, sendingState.recipientName);
             }
           }}
-          role="dialog"
-          aria-modal="true"
-        >
-          <div
-            className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl max-w-sm w-full p-6 shadow-2xl border border-[#001126]/10 dark:border-white/10"
-            onClick={(e) => e.stopPropagation()}
-          >
-            <ReminderSendingAnimation
-              isSuccess={sendingState.status === 'success'}
-              isError={sendingState.status === 'error'}
-              errorMessage={sendingState.errorMessage}
-              recipientName={sendingState.recipientName}
-              invoiceNumber={sendingState.invoiceNumber}
-              onRetry={() => {
-                if (sendingState.targetId) {
-                  handleRemindNow(sendingState.targetId, sendingState.invoiceNumber, sendingState.recipientName);
-                }
-              }}
-              onClose={() => setSendingState(null)}
-            />
-          </div>
-        </div>
+          onClose={() => setSendingState(null)}
+        />
       )}
     </div>
   );
 };
+

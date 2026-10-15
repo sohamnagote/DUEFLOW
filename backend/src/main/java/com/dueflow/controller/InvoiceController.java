@@ -21,11 +21,16 @@ public class InvoiceController {
 
     private final InvoiceService invoiceService;
     private final PdfGenerationService pdfGenerationService;
+    private final com.dueflow.service.ClientResponseService clientResponseService;
 
-    public InvoiceController(InvoiceService invoiceService, PdfGenerationService pdfGenerationService) {
+    public InvoiceController(InvoiceService invoiceService,
+                             PdfGenerationService pdfGenerationService,
+                             com.dueflow.service.ClientResponseService clientResponseService) {
         this.invoiceService = invoiceService;
         this.pdfGenerationService = pdfGenerationService;
+        this.clientResponseService = clientResponseService;
     }
+
 
     @GetMapping
     public ResponseEntity<List<InvoiceDto>> getInvoices(@RequestParam(value = "search", required = false) String search) {
@@ -91,4 +96,32 @@ public class InvoiceController {
         com.dueflow.dto.InvoiceImportResultDto result = invoiceService.importInvoices(userId, rows);
         return ResponseEntity.ok(result);
     }
+
+    @PostMapping("/{id}/pause-followup")
+    public ResponseEntity<InvoiceDto> pauseFollowUp(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(invoiceService.pauseFollowUp(id, userId));
+    }
+
+    @PostMapping("/{id}/resume-followup")
+    public ResponseEntity<InvoiceDto> resumeFollowUp(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(invoiceService.resumeFollowUp(id, userId));
+    }
+
+    @GetMapping("/{id}/responses")
+    public ResponseEntity<List<com.dueflow.dto.ClientResponseDto>> getResponsesForInvoice(@PathVariable String id) {
+        String userId = SecurityUtils.getRequiredUserId();
+        return ResponseEntity.ok(clientResponseService.getResponsesForInvoice(id, userId));
+    }
+
+    @PostMapping("/responses/{responseId}/resolve")
+    public ResponseEntity<com.dueflow.dto.ClientResponseDto> resolveResponse(
+            @PathVariable String responseId,
+            @RequestBody(required = false) Map<String, String> body) {
+        String userId = SecurityUtils.getRequiredUserId();
+        String resolution = body != null && body.containsKey("resolution") ? body.get("resolution") : "RESOLVED";
+        return ResponseEntity.ok(clientResponseService.resolveResponse(responseId, userId, resolution));
+    }
 }
+

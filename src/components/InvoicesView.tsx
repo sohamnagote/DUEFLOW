@@ -4,6 +4,7 @@ import { formatCurrency, getCurrencySymbol, SupportedCurrency } from '../utils/c
 import { formatDisplayDate } from '../utils/date';
 import { dueflowApi } from '../utils/api';
 import { InvoiceProcessingAnimation } from './animations/InvoiceProcessingAnimation';
+import { ClientReplyReviewModal } from './ClientReplyReviewModal';
 
 interface InvoicesViewProps {
   invoices: Invoice[];
@@ -30,6 +31,9 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [formError, setFormError] = useState<string | null>(null);
 
+  // Client Reply Review Modal state
+  const [replyReviewInvoice, setReplyReviewInvoice] = useState<Invoice | null>(null);
+
   // Full-screen processing overlay state
   const [processingOverlay, setProcessingOverlay] = useState<{
     isOpen: boolean;
@@ -39,6 +43,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
   }>({ isOpen: false, isSuccess: false, isError: false });
   const submittingRef = React.useRef(false);
   const [selectedInvoiceForDetails, setSelectedInvoiceForDetails] = useState<Invoice | null>(null);
+
 
   // Search & Filter state
   const [filterStatus, setFilterStatus] = useState<'all' | 'unpaid' | 'overdue' | 'paid'>('all');
@@ -713,20 +718,59 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                               {formatCurrency(inv.amount, inv.currency)}
                             </td>
                             <td className="py-3.5 px-4 text-center">
-                              <span
-                                className={`font-['Space_Mono'] text-[9px] uppercase px-2.5 py-0.5 rounded-full font-semibold ${
-                                  inv.status === 'paid'
-                                    ? 'bg-[#bfebe6] dark:bg-teal-950/60 text-[#00201e] dark:text-[#5eead4]'
-                                    : inv.status === 'overdue'
-                                    ? 'bg-[#ffdad6] dark:bg-red-950/60 text-[#ba1a1a] dark:text-[#f87171]'
-                                    : 'bg-[#15263c]/8 dark:bg-blue-950/60 text-[#15263c] dark:text-[#93c5fd]'
-                                }`}
-                              >
-                                {inv.status === 'pending' ? 'Unpaid' : inv.status}
-                              </span>
+                              <div className="flex flex-col items-center gap-1">
+                                <span
+                                  className={`font-['Space_Mono'] text-[9px] uppercase px-2.5 py-0.5 rounded-full font-semibold ${
+                                    inv.status === 'paid'
+                                      ? 'bg-[#bfebe6] dark:bg-teal-950/60 text-[#00201e] dark:text-[#5eead4]'
+                                      : inv.status === 'overdue'
+                                      ? 'bg-[#ffdad6] dark:bg-red-950/60 text-[#ba1a1a] dark:text-[#f87171]'
+                                      : 'bg-[#15263c]/8 dark:bg-blue-950/60 text-[#15263c] dark:text-[#93c5fd]'
+                                  }`}
+                                >
+                                  {inv.status === 'pending' ? 'Unpaid' : inv.status}
+                                </span>
+                                {(inv.followUpStatus === 'PAUSED_FOR_REVIEW' || inv.follow_up_status === 'PAUSED_FOR_REVIEW' || inv.lastReplyClassification || inv.last_reply_classification) && (
+                                  <button
+                                    type="button"
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReplyReviewInvoice(inv);
+                                    }}
+                                    className="px-2 py-0.5 text-[9px] font-semibold rounded-full bg-cyan-100 dark:bg-cyan-950/60 text-cyan-800 dark:text-cyan-300 border border-cyan-200 dark:border-cyan-800 hover:bg-cyan-200 transition-colors flex items-center gap-1 cursor-pointer"
+                                    title="Client replied — click to review"
+                                  >
+                                    <span className="w-1.5 h-1.5 rounded-full bg-cyan-500 animate-pulse" />
+                                    {inv.lastReplyClassification === 'PAYMENT_REPORTED'
+                                      ? 'Paid Reported'
+                                      : inv.lastReplyClassification === 'NEED_MORE_TIME'
+                                      ? 'Time Requested'
+                                      : inv.lastReplyClassification === 'CORRECTION_REQUESTED'
+                                      ? 'Correction'
+                                      : inv.lastReplyClassification === 'QUESTION'
+                                      ? 'Question'
+                                      : 'Client Replied'}
+                                  </button>
+                                )}
+                              </div>
                             </td>
                             <td className="py-3.5 px-4 text-right" onClick={(e) => e.stopPropagation()}>
                               <div className="flex items-center justify-end gap-1.5">
+                                {/* Review Reply button if client has responded */}
+                                {(inv.followUpStatus === 'PAUSED_FOR_REVIEW' || inv.follow_up_status === 'PAUSED_FOR_REVIEW' || inv.lastReplySnippet || inv.last_reply_snippet) && (
+                                  <button
+                                    onClick={(e) => {
+                                      e.stopPropagation();
+                                      setReplyReviewInvoice(inv);
+                                    }}
+                                    className="px-2.5 py-1 bg-cyan-600/10 dark:bg-cyan-950/50 text-cyan-700 dark:text-cyan-300 hover:bg-cyan-600/20 rounded-lg text-[11px] font-semibold transition-all active:scale-[0.97] cursor-pointer flex items-center gap-1"
+                                    title="Review Client Reply"
+                                  >
+                                    <span className="material-symbols-outlined text-[13px]">forum</span>
+                                    <span>Reply</span>
+                                  </button>
+                                )}
+
                                 {/* View button */}
                                 <button
                                   onClick={() => setSelectedInvoiceForDetails(inv)}
@@ -735,6 +779,7 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
                                 >
                                   View
                                 </button>
+
 
                                 {/* Authenticated Download PDF button */}
                                 <button
@@ -1441,6 +1486,23 @@ export const InvoicesView: React.FC<InvoicesViewProps> = ({
         onRetry={handleProcessingRetry}
         onClose={handleProcessingClose}
       />
+
+      {/* Client Reply Review Modal */}
+      <ClientReplyReviewModal
+        isOpen={!!replyReviewInvoice}
+        invoice={replyReviewInvoice}
+        onClose={() => setReplyReviewInvoice(null)}
+        onInvoiceUpdated={(updated) => {
+          if (onInvoiceImported) {
+            onInvoiceImported();
+          }
+          setReplyReviewInvoice(updated);
+        }}
+        onMarkPaid={(id) => {
+          onUpdateStatus(id, 'paid');
+        }}
+      />
     </div>
   );
 };
+

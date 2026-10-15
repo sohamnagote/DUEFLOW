@@ -33,6 +33,36 @@ public class Client {
     @Column(name = "internal_notes", columnDefinition = "TEXT")
     private String internalNotes;
 
+    @Column(name = "reminder_tone", length = 30)
+    private String reminderTone = "PROFESSIONAL";
+
+    @Column(name = "preferred_channel", length = 30)
+    private String preferredChannel = "EMAIL";
+
+    @Column(name = "timezone", length = 100)
+    private String timezone = "Asia/Kolkata";
+
+    @Column(name = "allowed_days")
+    private String allowedDays = "MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY";
+
+    @Column(name = "communication_window_start", length = 10)
+    private String communicationWindowStart = "09:00";
+
+    @Column(name = "communication_window_end", length = 10)
+    private String communicationWindowEnd = "18:00";
+
+    @Column(name = "quiet_hours_start", length = 10)
+    private String quietHoursStart = "21:00";
+
+    @Column(name = "quiet_hours_end", length = 10)
+    private String quietHoursEnd = "08:00";
+
+    @Column(name = "automated_reminders_enabled", nullable = false)
+    private boolean automatedRemindersEnabled = true;
+
+    @Column(name = "communication_notes", columnDefinition = "TEXT")
+    private String communicationNotes;
+
     @Column(name = "created_at", nullable = false, updatable = false)
     private Instant createdAt = Instant.now();
 
@@ -115,6 +145,86 @@ public class Client {
 
     public void setInternalNotes(String internalNotes) {
         this.internalNotes = internalNotes;
+    }
+
+    public String getReminderTone() {
+        return reminderTone != null ? reminderTone : "PROFESSIONAL";
+    }
+
+    public void setReminderTone(String reminderTone) {
+        this.reminderTone = reminderTone;
+    }
+
+    public String getPreferredChannel() {
+        return preferredChannel != null ? preferredChannel : "EMAIL";
+    }
+
+    public void setPreferredChannel(String preferredChannel) {
+        this.preferredChannel = preferredChannel;
+    }
+
+    public String getTimezone() {
+        return timezone != null ? timezone : "Asia/Kolkata";
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    public String getAllowedDays() {
+        return allowedDays != null ? allowedDays : "MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY";
+    }
+
+    public void setAllowedDays(String allowedDays) {
+        this.allowedDays = allowedDays;
+    }
+
+    public String getCommunicationWindowStart() {
+        return communicationWindowStart != null ? communicationWindowStart : "09:00";
+    }
+
+    public void setCommunicationWindowStart(String communicationWindowStart) {
+        this.communicationWindowStart = communicationWindowStart;
+    }
+
+    public String getCommunicationWindowEnd() {
+        return communicationWindowEnd != null ? communicationWindowEnd : "18:00";
+    }
+
+    public void setCommunicationWindowEnd(String communicationWindowEnd) {
+        this.communicationWindowEnd = communicationWindowEnd;
+    }
+
+    public String getQuietHoursStart() {
+        return quietHoursStart != null ? quietHoursStart : "21:00";
+    }
+
+    public void setQuietHoursStart(String quietHoursStart) {
+        this.quietHoursStart = quietHoursStart;
+    }
+
+    public String getQuietHoursEnd() {
+        return quietHoursEnd != null ? quietHoursEnd : "08:00";
+    }
+
+    public void setQuietHoursEnd(String quietHoursEnd) {
+        this.quietHoursEnd = quietHoursEnd;
+    }
+
+    public boolean isAutomatedRemindersEnabled() {
+        return automatedRemindersEnabled;
+    }
+
+    public void setAutomatedRemindersEnabled(boolean automatedRemindersEnabled) {
+        this.automatedRemindersEnabled = automatedRemindersEnabled;
+    }
+
+    public String getCommunicationNotes() {
+        return communicationNotes;
+    }
+
+    public void setCommunicationNotes(String communicationNotes) {
+        this.communicationNotes = communicationNotes;
     }
 
     public Instant getCreatedAt() {

@@ -7,6 +7,8 @@ public class GmailStatusDto {
     private String email;
     private String status;
     private Instant tokenExpiry;
+    private boolean hasReplyDetectionScope;
+    private Instant lastSyncAt;
 
     public GmailStatusDto() {
     }
@@ -17,6 +19,16 @@ public class GmailStatusDto {
         this.status = status;
         this.tokenExpiry = tokenExpiry;
     }
+
+    public GmailStatusDto(boolean connected, String email, String status, Instant tokenExpiry, boolean hasReplyDetectionScope, Instant lastSyncAt) {
+        this.connected = connected;
+        this.email = email;
+        this.status = status;
+        this.tokenExpiry = tokenExpiry;
+        this.hasReplyDetectionScope = hasReplyDetectionScope;
+        this.lastSyncAt = lastSyncAt;
+    }
+
 
     public boolean isConnected() {
         return connected;
@@ -49,4 +61,21 @@ public class GmailStatusDto {
     public void setTokenExpiry(Instant tokenExpiry) {
         this.tokenExpiry = tokenExpiry;
     }
+
+    public boolean isHasReplyDetectionScope() {
+        return hasReplyDetectionScope;
+    }
+
+    public void setHasReplyDetectionScope(boolean hasReplyDetectionScope) {
+        this.hasReplyDetectionScope = hasReplyDetectionScope;
+    }
+
+    public Instant getLastSyncAt() {
+        return lastSyncAt;
+    }
+
+    public void setLastSyncAt(Instant lastSyncAt) {
+        this.lastSyncAt = lastSyncAt;
+    }
 }
+

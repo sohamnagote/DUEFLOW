@@ -63,6 +63,10 @@ public class GmailOAuthService {
      * Generates the Google OAuth authorization URL for offline access (refresh token).
      */
     public String getAuthorizationUrl(String userId) {
+        return getAuthorizationUrl(userId, true);
+    }
+
+    public String getAuthorizationUrl(String userId, boolean enableReplyDetection) {
         if (clientId == null || clientId.isBlank()) {
             throw new ValidationException("Google OAuth Client ID is not configured on the backend. Please configure GOOGLE_OAUTH_CLIENT_ID.");
         }
@@ -77,17 +81,23 @@ public class GmailOAuthService {
         String state = java.util.UUID.randomUUID().toString();
         stateStore.put(state, new OAuthState(userId, now.plusSeconds(600))); // 10 minutes TTL
 
+        String requestedScopes = SCOPES;
+        if (enableReplyDetection) {
+            requestedScopes = SCOPES + " https://www.googleapis.com/auth/gmail.readonly";
+        }
+
         return UriComponentsBuilder.fromHttpUrl(GOOGLE_AUTH_URL)
                 .queryParam("client_id", clientId)
                 .queryParam("redirect_uri", redirectUri)
                 .queryParam("response_type", "code")
-                .queryParam("scope", SCOPES)
+                .queryParam("scope", requestedScopes)
                 .queryParam("access_type", "offline")
                 .queryParam("prompt", "consent")
                 .queryParam("state", state)
                 .build()
                 .toUriString();
     }
+
 
     /**
      * Exchanges auth code for tokens and saves encrypted refresh token.
@@ -163,15 +173,19 @@ public class GmailOAuthService {
                     boolean hasToken = i.getEncryptedRefreshToken() != null && !i.getEncryptedRefreshToken().isBlank();
                     boolean isConnected = "CONNECTED".equalsIgnoreCase(i.getConnectionStatus()) && hasToken;
                     String status = isConnected ? "CONNECTED" : (i.getConnectionStatus() != null ? i.getConnectionStatus() : "DISCONNECTED");
+                    boolean hasReplyScope = i.getGrantedScopes() != null && i.getGrantedScopes().contains("gmail.readonly");
                     return new GmailStatusDto(
                             isConnected,
                             i.getGmailEmail(),
                             status,
-                            i.getTokenExpiry()
+                            i.getTokenExpiry(),
+                            hasReplyScope,
+                            i.getLastSyncAt()
                     );
                 })
-                .orElse(new GmailStatusDto(false, null, "DISCONNECTED", null));
+                .orElse(new GmailStatusDto(false, null, "DISCONNECTED", null, false, null));
     }
+
 
     @Transactional
     public void disconnect(String userId) {

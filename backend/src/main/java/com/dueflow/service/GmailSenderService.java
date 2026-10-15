@@ -27,6 +27,7 @@ import org.springframework.stereotype.Service;
 import java.io.ByteArrayOutputStream;
 import java.io.IOException;
 import java.security.GeneralSecurityException;
+import java.time.Instant;
 import java.util.Base64;
 import java.util.Properties;
 
@@ -37,25 +38,32 @@ public class GmailSenderService {
 
     private final String clientId;
     private final String clientSecret;
+    private final String frontendBaseUrl;
     private final GmailOAuthService gmailOAuthService;
     private final PdfGenerationService pdfGenerationService;
     private final UserProfileRepository userProfileRepository;
     private final PaymentSettingsRepository paymentSettingsRepository;
+    private final com.dueflow.repository.InvoiceRepository invoiceRepository;
 
     public GmailSenderService(
             @Value("${dueflow.google.client-id:}") String clientId,
             @Value("${dueflow.google.client-secret:}") String clientSecret,
+            @Value("${dueflow.frontend.base-url:https://dueflow-kappa.vercel.app}") String frontendBaseUrl,
             GmailOAuthService gmailOAuthService,
             PdfGenerationService pdfGenerationService,
             UserProfileRepository userProfileRepository,
-            PaymentSettingsRepository paymentSettingsRepository) {
+            PaymentSettingsRepository paymentSettingsRepository,
+            com.dueflow.repository.InvoiceRepository invoiceRepository) {
         this.clientId = clientId;
         this.clientSecret = clientSecret;
+        this.frontendBaseUrl = frontendBaseUrl != null ? frontendBaseUrl.replaceAll("/+$", "") : "https://dueflow-kappa.vercel.app";
         this.gmailOAuthService = gmailOAuthService;
         this.pdfGenerationService = pdfGenerationService;
         this.userProfileRepository = userProfileRepository;
         this.paymentSettingsRepository = paymentSettingsRepository;
+        this.invoiceRepository = invoiceRepository;
     }
+
 
     /**
      * Sends an email reminder with PDF attachment using the user's connected Gmail account.
@@ -83,6 +91,12 @@ public class GmailSenderService {
             throw new ValidationException("Client does not have a valid email address");
         }
 
+        // Ensure invoice has a response token for one-click responses
+        if (invoice.getResponseToken() == null || invoice.getResponseToken().isBlank()) {
+            invoice.setResponseToken(java.util.UUID.randomUUID().toString().replace("-", "") + java.util.UUID.randomUUID().toString().replace("-", ""));
+            invoice.setResponseTokenExpiry(Instant.now().plus(60, java.time.temporal.ChronoUnit.DAYS));
+        }
+
         try {
             Gmail gmail = buildGmailClient(refreshToken);
             byte[] pdfBytes = pdfGenerationService.generateInvoicePdf(invoice);
@@ -107,10 +121,17 @@ public class GmailSenderService {
             message.setRaw(encodedEmail);
 
             Message sentMessage = gmail.users().messages().send("me", message).execute();
-            log.info("Successfully sent reminder for invoice {} via Gmail. Message ID: {}", invoice.getInvoiceNumber(), sentMessage.getId());
+            if (sentMessage.getThreadId() != null) {
+                invoice.setGmailThreadId(sentMessage.getThreadId());
+            }
+            if (invoiceRepository != null) {
+                invoiceRepository.save(invoice);
+            }
+            log.info("Successfully sent reminder for invoice {} via Gmail. Message ID: {}, Thread ID: {}", invoice.getInvoiceNumber(), sentMessage.getId(), sentMessage.getThreadId());
             return sentMessage.getId();
         } catch (GeneralSecurityException | IOException | MessagingException e) {
             log.error("Failed to dispatch invoice reminder email: {}", e.getMessage(), e);
+
             throw new RuntimeException("Gmail dispatch failed: " + e.getMessage(), e);
         }
     }
@@ -229,10 +250,21 @@ public class GmailSenderService {
             sb.append("</div>");
         }
 
+        // One-Click Client Response Button
+        if (invoice.getResponseToken() != null && !invoice.getResponseToken().isBlank()) {
+            String responseUrl = frontendBaseUrl + "/respond?token=" + invoice.getResponseToken();
+            sb.append("<div style=\"margin: 24px 0; padding: 18px; background-color: #f8fafc; border: 1px solid #e2e8f0; border-radius: 8px; text-align: center;\">");
+            sb.append("<p style=\"margin: 0 0 8px; font-weight: 600; color: #1e293b; font-size: 15px;\">Need to update payment status or request changes?</p>");
+            sb.append("<p style=\"margin: 0 0 14px; color: #64748b; font-size: 13px;\">Respond securely with one click &mdash; no login required.</p>");
+            sb.append("<a href=\"").append(responseUrl).append("\" style=\"display: inline-block; background-color: #0284c7; color: #ffffff; text-decoration: none; font-weight: 600; font-size: 14px; padding: 10px 22px; border-radius: 6px;\">Respond to Invoice #").append(invoice.getInvoiceNumber()).append("</a>");
+            sb.append("</div>");
+        }
+
         sb.append("<p style=\"margin-top: 24px; font-size: 14px; color: #64748b;\">Please find the official PDF invoice attached to this email.</p>");
         sb.append("<p style=\"font-size: 14px; color: #64748b;\">Thank you for your business!</p>");
         sb.append("<p style=\"font-size: 13px; color: #94a3b8; border-top: 1px solid #f1f5f9; padding-top: 12px;\">Automated by DueFlow Invoicing</p>");
         sb.append("</body></html>");
+
 
         return sb.toString();
     }

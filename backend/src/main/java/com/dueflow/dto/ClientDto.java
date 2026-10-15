@@ -43,6 +43,35 @@ public class ClientDto {
     @JsonAlias({"created_at", "createdAt"})
     private Instant createdAt;
 
+    @JsonAlias({"reminder_tone", "reminderTone"})
+    private String reminderTone = "PROFESSIONAL";
+
+    @JsonAlias({"preferred_channel", "preferredChannel"})
+    private String preferredChannel = "EMAIL";
+
+    private String timezone = "Asia/Kolkata";
+
+    @JsonAlias({"allowed_days", "allowedDays"})
+    private String allowedDays = "MONDAY,TUESDAY,WEDNESDAY,THURSDAY,FRIDAY";
+
+    @JsonAlias({"communication_window_start", "communicationWindowStart"})
+    private String communicationWindowStart = "09:00";
+
+    @JsonAlias({"communication_window_end", "communicationWindowEnd"})
+    private String communicationWindowEnd = "18:00";
+
+    @JsonAlias({"quiet_hours_start", "quietHoursStart"})
+    private String quietHoursStart = "21:00";
+
+    @JsonAlias({"quiet_hours_end", "quietHoursEnd"})
+    private String quietHoursEnd = "08:00";
+
+    @JsonAlias({"automated_reminders_enabled", "automatedRemindersEnabled"})
+    private boolean automatedRemindersEnabled = true;
+
+    @JsonAlias({"communication_notes", "communicationNotes"})
+    private String communicationNotes;
+
     public ClientDto() {
     }
 
@@ -57,8 +86,20 @@ public class ClientDto {
         dto.setTaxIdentifier(c.getTaxIdentifier());
         dto.setInternalNotes(c.getInternalNotes());
         dto.setCreatedAt(c.getCreatedAt());
+
+        dto.setReminderTone(c.getReminderTone());
+        dto.setPreferredChannel(c.getPreferredChannel());
+        dto.setTimezone(c.getTimezone());
+        dto.setAllowedDays(c.getAllowedDays());
+        dto.setCommunicationWindowStart(c.getCommunicationWindowStart());
+        dto.setCommunicationWindowEnd(c.getCommunicationWindowEnd());
+        dto.setQuietHoursStart(c.getQuietHoursStart());
+        dto.setQuietHoursEnd(c.getQuietHoursEnd());
+        dto.setAutomatedRemindersEnabled(c.isAutomatedRemindersEnabled());
+        dto.setCommunicationNotes(c.getCommunicationNotes());
         return dto;
     }
+
 
     public String getId() {
         return id;
@@ -147,4 +188,85 @@ public class ClientDto {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    public String getReminderTone() {
+        return reminderTone;
+    }
+
+    public void setReminderTone(String reminderTone) {
+        this.reminderTone = reminderTone;
+    }
+
+    public String getPreferredChannel() {
+        return preferredChannel;
+    }
+
+    public void setPreferredChannel(String preferredChannel) {
+        this.preferredChannel = preferredChannel;
+    }
+
+    public String getTimezone() {
+        return timezone;
+    }
+
+    public void setTimezone(String timezone) {
+        this.timezone = timezone;
+    }
+
+    public String getAllowedDays() {
+        return allowedDays;
+    }
+
+    public void setAllowedDays(String allowedDays) {
+        this.allowedDays = allowedDays;
+    }
+
+    public String getCommunicationWindowStart() {
+        return communicationWindowStart;
+    }
+
+    public void setCommunicationWindowStart(String communicationWindowStart) {
+        this.communicationWindowStart = communicationWindowStart;
+    }
+
+    public String getCommunicationWindowEnd() {
+        return communicationWindowEnd;
+    }
+
+    public void setCommunicationWindowEnd(String communicationWindowEnd) {
+        this.communicationWindowEnd = communicationWindowEnd;
+    }
+
+    public String getQuietHoursStart() {
+        return quietHoursStart;
+    }
+
+    public void setQuietHoursStart(String quietHoursStart) {
+        this.quietHoursStart = quietHoursStart;
+    }
+
+    public String getQuietHoursEnd() {
+        return quietHoursEnd;
+    }
+
+    public void setQuietHoursEnd(String quietHoursEnd) {
+        this.quietHoursEnd = quietHoursEnd;
+    }
+
+    public boolean isAutomatedRemindersEnabled() {
+        return automatedRemindersEnabled;
+    }
+
+    public void setAutomatedRemindersEnabled(boolean automatedRemindersEnabled) {
+        this.automatedRemindersEnabled = automatedRemindersEnabled;
+    }
+
+    public String getCommunicationNotes() {
+        return communicationNotes;
+    }
+
+    public void setCommunicationNotes(String communicationNotes) {
+        this.communicationNotes = communicationNotes;
+    }
 }
+

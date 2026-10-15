@@ -60,6 +60,24 @@ public class InvoiceDto {
     @JsonAlias({"reminders_sent_count", "remindersSentCount"})
     private int remindersSentCount = 0;
 
+    @JsonAlias({"follow_up_status", "followUpStatus"})
+    private String followUpStatus = "ACTIVE";
+
+    @JsonAlias({"last_reply_snippet", "lastReplySnippet"})
+    private String lastReplySnippet;
+
+    @JsonAlias({"last_reply_classification", "lastReplyClassification"})
+    private String lastReplyClassification;
+
+    @JsonAlias({"last_reply_at", "lastReplyAt"})
+    private Instant lastReplyAt;
+
+    @JsonAlias({"gmail_thread_id", "gmailThreadId"})
+    private String gmailThreadId;
+
+    @JsonAlias({"response_token", "responseToken"})
+    private String responseToken;
+
     @Valid
     private List<InvoiceItemDto> items = new ArrayList<>();
 
@@ -94,11 +112,19 @@ public class InvoiceDto {
         dto.setRemindersSentCount(inv.getRemindersSentCount());
         dto.setCreatedAt(inv.getCreatedAt());
 
+        dto.setFollowUpStatus(inv.getFollowUpStatus() != null ? inv.getFollowUpStatus() : "ACTIVE");
+        dto.setLastReplySnippet(inv.getLastReplySnippet());
+        dto.setLastReplyClassification(inv.getLastReplyClassification());
+        dto.setLastReplyAt(inv.getLastReplyAt());
+        dto.setGmailThreadId(inv.getGmailThreadId());
+        dto.setResponseToken(inv.getResponseToken());
+
         if (inv.getItems() != null) {
             dto.setItems(inv.getItems().stream().map(InvoiceItemDto::fromEntity).toList());
         }
         return dto;
     }
+
 
     public String getId() {
         return id;
@@ -267,4 +293,53 @@ public class InvoiceDto {
     public void setCreatedAt(Instant createdAt) {
         this.createdAt = createdAt;
     }
+
+    public String getFollowUpStatus() {
+        return followUpStatus;
+    }
+
+    public void setFollowUpStatus(String followUpStatus) {
+        this.followUpStatus = followUpStatus;
+    }
+
+    public String getLastReplySnippet() {
+        return lastReplySnippet;
+    }
+
+    public void setLastReplySnippet(String lastReplySnippet) {
+        this.lastReplySnippet = lastReplySnippet;
+    }
+
+    public String getLastReplyClassification() {
+        return lastReplyClassification;
+    }
+
+    public void setLastReplyClassification(String lastReplyClassification) {
+        this.lastReplyClassification = lastReplyClassification;
+    }
+
+    public Instant getLastReplyAt() {
+        return lastReplyAt;
+    }
+
+    public void setLastReplyAt(Instant lastReplyAt) {
+        this.lastReplyAt = lastReplyAt;
+    }
+
+    public String getGmailThreadId() {
+        return gmailThreadId;
+    }
+
+    public void setGmailThreadId(String gmailThreadId) {
+        this.gmailThreadId = gmailThreadId;
+    }
+
+    public String getResponseToken() {
+        return responseToken;
+    }
+
+    public void setResponseToken(String responseToken) {
+        this.responseToken = responseToken;
+    }
 }
+

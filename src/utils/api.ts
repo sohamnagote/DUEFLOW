@@ -1,5 +1,6 @@
 import { supabase } from './supabase';
-import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, DashboardSummary, InvoiceCsvRow, InvoiceImportResult } from '../types';
+import { Invoice, InvoiceStatus, Client, UserProfile, ReminderScheduleRule, ReminderQueueItem, ReminderHistoryItem, DashboardSummary, InvoiceCsvRow, InvoiceImportResult, ClientResponse, PublicInvoiceView } from '../types';
+
 
 const rawApiUrl = (import.meta.env.VITE_API_BASE_URL || import.meta.env.VITE_API_URL || '').trim();
 const cleanRawUrl = rawApiUrl ? rawApiUrl.replace(/\/+$/, '') : '';
@@ -310,6 +311,16 @@ export const dueflowApi = {
       totalOutstanding: Number(c.totalOutstanding ?? c.total_outstanding ?? c.pending_balance ?? 0),
       invoicesCount: Number(c.invoicesCount ?? c.invoices_count ?? 0),
       createdAt: c.createdAt || c.created_at || new Date().toISOString(),
+      preferredTone: c.preferredTone || c.preferred_tone || 'professional',
+      preferredChannel: c.preferredChannel || c.preferred_channel || 'email',
+      timezone: c.timezone || 'Asia/Kolkata',
+      allowedDays: Array.isArray(c.allowedDays) ? c.allowedDays : Array.isArray(c.allowed_days) ? c.allowed_days : ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+      communicationWindowStart: c.communicationWindowStart || c.communication_window_start || '09:00',
+      communicationWindowEnd: c.communicationWindowEnd || c.communication_window_end || '18:00',
+      quietHoursStart: c.quietHoursStart || c.quiet_hours_start,
+      quietHoursEnd: c.quietHoursEnd || c.quiet_hours_end,
+      automatedRemindersEnabled: c.automatedRemindersEnabled !== undefined ? c.automatedRemindersEnabled : (c.automated_reminders_enabled !== undefined ? c.automated_reminders_enabled : true),
+      communicationNotes: c.communicationNotes || c.communication_notes,
     }));
   },
 
@@ -324,6 +335,16 @@ export const dueflowApi = {
       internalNotes: client.internalNotes?.trim() || undefined,
       internal_notes: client.internalNotes?.trim() || undefined,
       notes: client.internalNotes?.trim() || undefined,
+      preferredTone: client.preferredTone,
+      preferredChannel: client.preferredChannel || 'email',
+      timezone: client.timezone,
+      allowedDays: client.allowedDays,
+      communicationWindowStart: client.communicationWindowStart,
+      communicationWindowEnd: client.communicationWindowEnd,
+      quietHoursStart: client.quietHoursStart,
+      quietHoursEnd: client.quietHoursEnd,
+      automatedRemindersEnabled: client.automatedRemindersEnabled,
+      communicationNotes: client.communicationNotes,
     };
     const raw = await request<any>('/clients', {
       method: 'POST',
@@ -341,6 +362,16 @@ export const dueflowApi = {
       totalOutstanding: Number(c.totalOutstanding ?? c.total_outstanding ?? c.pending_balance ?? 0),
       invoicesCount: Number(c.invoicesCount ?? c.invoices_count ?? 0),
       createdAt: c.createdAt || c.created_at || new Date().toISOString(),
+      preferredTone: c.preferredTone || client.preferredTone || 'professional',
+      preferredChannel: c.preferredChannel || client.preferredChannel || 'email',
+      timezone: c.timezone || client.timezone || 'Asia/Kolkata',
+      allowedDays: c.allowedDays || client.allowedDays || ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+      communicationWindowStart: c.communicationWindowStart || client.communicationWindowStart || '09:00',
+      communicationWindowEnd: c.communicationWindowEnd || client.communicationWindowEnd || '18:00',
+      quietHoursStart: c.quietHoursStart || client.quietHoursStart,
+      quietHoursEnd: c.quietHoursEnd || client.quietHoursEnd,
+      automatedRemindersEnabled: c.automatedRemindersEnabled !== undefined ? c.automatedRemindersEnabled : (client.automatedRemindersEnabled !== undefined ? client.automatedRemindersEnabled : true),
+      communicationNotes: c.communicationNotes || client.communicationNotes,
     };
   },
 
@@ -355,6 +386,16 @@ export const dueflowApi = {
       internalNotes: client.internalNotes?.trim() || undefined,
       internal_notes: client.internalNotes?.trim() || undefined,
       notes: client.internalNotes?.trim() || undefined,
+      preferredTone: client.preferredTone,
+      preferredChannel: client.preferredChannel,
+      timezone: client.timezone,
+      allowedDays: client.allowedDays,
+      communicationWindowStart: client.communicationWindowStart,
+      communicationWindowEnd: client.communicationWindowEnd,
+      quietHoursStart: client.quietHoursStart,
+      quietHoursEnd: client.quietHoursEnd,
+      automatedRemindersEnabled: client.automatedRemindersEnabled,
+      communicationNotes: client.communicationNotes,
     };
     const raw = await request<any>(`/clients/${id}`, {
       method: 'PUT',
@@ -372,6 +413,16 @@ export const dueflowApi = {
       totalOutstanding: Number(c.totalOutstanding ?? c.total_outstanding ?? c.pending_balance ?? 0),
       invoicesCount: Number(c.invoicesCount ?? c.invoices_count ?? 0),
       createdAt: c.createdAt || c.created_at || new Date().toISOString(),
+      preferredTone: c.preferredTone || client.preferredTone || 'professional',
+      preferredChannel: c.preferredChannel || client.preferredChannel || 'email',
+      timezone: c.timezone || client.timezone || 'Asia/Kolkata',
+      allowedDays: c.allowedDays || client.allowedDays || ['MONDAY', 'TUESDAY', 'WEDNESDAY', 'THURSDAY', 'FRIDAY'],
+      communicationWindowStart: c.communicationWindowStart || client.communicationWindowStart || '09:00',
+      communicationWindowEnd: c.communicationWindowEnd || client.communicationWindowEnd || '18:00',
+      quietHoursStart: c.quietHoursStart || client.quietHoursStart,
+      quietHoursEnd: c.quietHoursEnd || client.quietHoursEnd,
+      automatedRemindersEnabled: c.automatedRemindersEnabled !== undefined ? c.automatedRemindersEnabled : (client.automatedRemindersEnabled !== undefined ? client.automatedRemindersEnabled : true),
+      communicationNotes: c.communicationNotes || client.communicationNotes,
     };
   },
 
@@ -795,12 +846,25 @@ export const dueflowApi = {
   },
 
   // --- Gmail Integration ---
-  async getGmailStatus(): Promise<{ connected: boolean; email?: string }> {
-    return request<{ connected: boolean; email?: string }>('/integrations/gmail/status');
+  async getGmailStatus(): Promise<{
+    connected: boolean;
+    email?: string;
+    scopes?: string;
+    hasReplyDetectionScope?: boolean;
+    lastSyncAt?: string;
+  }> {
+    return request<{
+      connected: boolean;
+      email?: string;
+      scopes?: string;
+      hasReplyDetectionScope?: boolean;
+      lastSyncAt?: string;
+    }>('/integrations/gmail/status');
   },
 
-  async getGmailAuthUrl(): Promise<{ url: string }> {
-    return request<{ url: string }>('/integrations/gmail/oauth/url');
+  async getGmailAuthUrl(enableReplyDetection?: boolean): Promise<{ url: string }> {
+    const query = enableReplyDetection ? '?enableReplyDetection=true' : '';
+    return request<{ url: string }>(`/integrations/gmail/oauth/url${query}`);
   },
 
   async disconnectGmail(): Promise<void> {
@@ -894,5 +958,72 @@ export const dueflowApi = {
       { method: 'POST' }
     );
   },
+
+  // --- Follow-Up Intelligence & Autopilot ---
+  async pauseFollowUp(invoiceId: string): Promise<Invoice> {
+    return request<Invoice>(`/invoices/${invoiceId}/pause-followup`, {
+      method: 'POST',
+    });
+  },
+
+  async resumeFollowUp(invoiceId: string): Promise<Invoice> {
+    return request<Invoice>(`/invoices/${invoiceId}/resume-followup`, {
+      method: 'POST',
+    });
+  },
+
+  async getInvoiceResponses(invoiceId: string): Promise<ClientResponse[]> {
+    return request<ClientResponse[]>(`/invoices/${invoiceId}/responses`);
+  },
+
+  async resolveClientResponse(responseId: string, resolution: string = 'RESOLVED'): Promise<ClientResponse> {
+    return request<ClientResponse>(`/invoices/responses/${responseId}/resolve`, {
+      method: 'POST',
+      body: JSON.stringify({ resolution }),
+    });
+  },
+
+  async syncGmailReplies(): Promise<{ success: boolean; repliesDetected: number; message: string }> {
+    return request<{ success: boolean; repliesDetected: number; message: string }>('/integrations/gmail/sync-replies', {
+      method: 'POST',
+    });
+  },
+
+  // --- Public One-Click Client Response Portal ---
+  async getPublicInvoice(token: string): Promise<PublicInvoiceView> {
+    const cleanEndpoint = `/public/invoices/respond?token=${encodeURIComponent(token)}`;
+    const res = await fetch(`${API_BASE}${cleanEndpoint}`);
+    if (!res.ok) {
+      let msg = 'Failed to load invoice details';
+      try {
+        const j = await res.json();
+        msg = j.message || j.error || msg;
+      } catch (_) {}
+      throw new Error(msg);
+    }
+    return res.json();
+  },
+
+  async submitPublicClientResponse(
+    token: string,
+    payload: { responseType: string; responseText?: string; proposedPaymentDate?: string; clientEmail?: string; idempotencyKey?: string }
+  ): Promise<ClientResponse> {
+    const cleanEndpoint = `/public/invoices/respond?token=${encodeURIComponent(token)}`;
+    const res = await fetch(`${API_BASE}${cleanEndpoint}`, {
+      method: 'POST',
+      headers: { 'Content-Type': 'application/json' },
+      body: JSON.stringify(payload),
+    });
+    if (!res.ok) {
+      let msg = 'Failed to submit response';
+      try {
+        const j = await res.json();
+        msg = j.message || j.error || msg;
+      } catch (_) {}
+      throw new Error(msg);
+    }
+    return res.json();
+  },
 };
+
 

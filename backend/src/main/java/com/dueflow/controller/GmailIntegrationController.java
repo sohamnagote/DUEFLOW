@@ -24,13 +24,20 @@ public class GmailIntegrationController {
     private static final Logger log = LoggerFactory.getLogger(GmailIntegrationController.class);
 
     private final GmailOAuthService gmailOAuthService;
+    private final com.dueflow.service.GmailReplySyncService gmailReplySyncService;
     private final String frontendBaseUrl;
 
     public GmailIntegrationController(
             GmailOAuthService gmailOAuthService,
+            com.dueflow.service.GmailReplySyncService gmailReplySyncService,
             @Value("${dueflow.frontend.base-url:http://localhost:3000}") String frontendBaseUrl) {
         this.gmailOAuthService = gmailOAuthService;
+        this.gmailReplySyncService = gmailReplySyncService;
         this.frontendBaseUrl = frontendBaseUrl != null ? frontendBaseUrl.replaceAll("/+$", "") : "http://localhost:3000";
+    }
+
+    public GmailIntegrationController(GmailOAuthService gmailOAuthService, String frontendBaseUrl) {
+        this(gmailOAuthService, null, frontendBaseUrl);
     }
 
     @GetMapping("/status")
@@ -39,20 +46,51 @@ public class GmailIntegrationController {
         return ResponseEntity.ok(gmailOAuthService.getConnectionStatus(userId));
     }
 
+    public ResponseEntity<Map<String, String>> getAuthUrl() {
+        String userId = SecurityUtils.getRequiredUserId();
+        String authUrl = gmailOAuthService.getAuthorizationUrl(userId);
+        Map<String, String> body = new java.util.HashMap<>();
+        if (authUrl != null) {
+            body.put("url", authUrl);
+            body.put("authUrl", authUrl);
+        }
+        body.put("mode", "oauth2");
+        return ResponseEntity.ok(body);
+    }
+
     @RequestMapping(value = {
             "/oauth/url",
             "/api/integrations/email/google/start",
             "/integrations/email/google/start"
     }, method = {RequestMethod.GET, RequestMethod.POST})
-    public ResponseEntity<Map<String, String>> getAuthUrl() {
+    public ResponseEntity<Map<String, String>> getAuthUrl(
+            @RequestParam(value = "replyDetection", defaultValue = "true") boolean replyDetection) {
         String userId = SecurityUtils.getRequiredUserId();
-        String authUrl = gmailOAuthService.getAuthorizationUrl(userId);
+        String authUrl = replyDetection 
+                ? gmailOAuthService.getAuthorizationUrl(userId, true)
+                : gmailOAuthService.getAuthorizationUrl(userId);
+        Map<String, String> body = new java.util.HashMap<>();
+        if (authUrl != null) {
+            body.put("url", authUrl);
+            body.put("authUrl", authUrl);
+        }
+        body.put("mode", "oauth2");
+        return ResponseEntity.ok(body);
+    }
+
+
+
+    @PostMapping("/sync-replies")
+    public ResponseEntity<Map<String, Object>> syncReplies() {
+        String userId = SecurityUtils.getRequiredUserId();
+        int count = gmailReplySyncService.syncRepliesForUser(userId);
         return ResponseEntity.ok(Map.of(
-                "url", authUrl,
-                "authUrl", authUrl,
-                "mode", "oauth2"
+                "success", true,
+                "repliesDetected", count,
+                "message", count > 0 ? "Detected " + count + " new reply(s)" : "Synchronization complete. No new replies."
         ));
     }
+
 
     @GetMapping({
             "/oauth/callback",

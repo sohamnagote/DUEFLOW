@@ -72,6 +72,13 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
   const [gmailError, setGmailError] = useState<string | null>(null);
   const [gmailSuccess, setGmailSuccess] = useState<string | null>(null);
 
+  // Reply-Aware Autopilot states
+  const [hasReplyDetectionScope, setHasReplyDetectionScope] = useState(false);
+  const [lastSyncAt, setLastSyncAt] = useState<string | null>(null);
+  const [isSyncingReplies, setIsSyncingReplies] = useState(false);
+  const [syncResult, setSyncResult] = useState<string | null>(null);
+  const [showUpgradeModal, setShowUpgradeModal] = useState(false);
+
   // Reminder preferences state (Phase 3)
   const [automatedReminders, setAutomatedReminders] = useState(
     userProfile?.automatedRemindersEnabled ?? true
@@ -193,6 +200,8 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           const mappedStatus = gStatus.connected ? 'connected' : 'disconnected';
           setGmailStatus(mappedStatus);
           if (gStatus.email) setConnectedGmailEmail(gStatus.email);
+          setHasReplyDetectionScope(Boolean(gStatus.hasReplyDetectionScope));
+          if (gStatus.lastSyncAt) setLastSyncAt(gStatus.lastSyncAt);
 
           if (onUpdateProfile && userProfile) {
             onUpdateProfile({
@@ -442,6 +451,44 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
         setIsGmailLoading(false);
         setGmailError(err?.message || 'Failed to initialize Gmail OAuth. Please ensure Google OAuth credentials are configured on the backend.');
       }
+    }
+  };
+
+  const handleUpgradeReplyDetection = async () => {
+    setIsGmailLoading(true);
+    setGmailError(null);
+    try {
+      const { url } = await dueflowApi.getGmailAuthUrl(true);
+      if (url) {
+        window.location.href = url;
+      } else {
+        throw new Error('Google OAuth upgrade URL was not returned by server');
+      }
+    } catch (err: any) {
+      setIsGmailLoading(false);
+      setGmailError(err?.message || 'Failed to start Gmail permissions upgrade.');
+    }
+  };
+
+  const handleSyncReplies = async () => {
+    if (isSyncingReplies) return;
+    setIsSyncingReplies(true);
+    setSyncResult(null);
+    setGmailError(null);
+    try {
+      const res = await dueflowApi.syncGmailReplies();
+      const count = res.repliesDetected || 0;
+      setSyncResult(
+        count > 0
+          ? `Detected and processed ${count} client response${count === 1 ? '' : 's'}.`
+          : 'Inbox synced. No new client responses detected.'
+      );
+      setLastSyncAt(new Date().toISOString());
+      setTimeout(() => setSyncResult(null), 6000);
+    } catch (err: any) {
+      setGmailError(err?.message || 'Failed to sync replies from Gmail. Please verify your connection.');
+    } finally {
+      setIsSyncingReplies(false);
     }
   };
 
@@ -1255,6 +1302,76 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </button>
         </div>
 
+        {/* Reply Autopilot Sub-section when Gmail is connected */}
+        {gmailConnected && (
+          <div className="pt-4 border-t border-[#001126]/8 dark:border-white/10 space-y-3">
+            <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-3">
+              <div className="flex items-center gap-2.5">
+                <div className="w-8 h-8 rounded-lg bg-[#3d6562]/10 dark:bg-teal-950/60 flex items-center justify-center text-[#3d6562] dark:text-[#5eead4]">
+                  <span className="material-symbols-outlined text-[18px]">mark_email_read</span>
+                </div>
+                <div>
+                  <h4 className="text-xs font-bold text-[#001126] dark:text-[#f3f6fa] flex items-center gap-2">
+                    <span>Reply-Aware Autopilot</span>
+                    {hasReplyDetectionScope ? (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-[#3d6562]/15 dark:bg-teal-950/60 text-[#3d6562] dark:text-[#5eead4]">
+                        Active
+                      </span>
+                    ) : (
+                      <span className="px-2 py-0.5 rounded-full text-[10px] font-semibold bg-amber-500/10 text-amber-700 dark:text-amber-300">
+                        Send Only
+                      </span>
+                    )}
+                  </h4>
+                  <p className="text-[11px] text-[#44474d] dark:text-[#94a3b8]">
+                    {hasReplyDetectionScope
+                      ? 'DueFlow detects client responses to reminder threads and automatically pauses follow-up sequences.'
+                      : 'Grant read access to reminder threads so DueFlow can automatically pause follow-ups when clients reply.'}
+                  </p>
+                </div>
+              </div>
+
+              <div className="flex items-center gap-2 shrink-0">
+                {hasReplyDetectionScope ? (
+                  <button
+                    type="button"
+                    onClick={handleSyncReplies}
+                    disabled={isSyncingReplies}
+                    className="btn-action-secondary px-3 py-1.5 text-xs font-medium rounded-lg flex items-center gap-1.5 cursor-pointer disabled:opacity-50"
+                  >
+                    <span className={`material-symbols-outlined text-[16px] ${isSyncingReplies ? 'animate-spin' : ''}`}>
+                      sync
+                    </span>
+                    <span>{isSyncingReplies ? 'Checking...' : 'Sync Replies'}</span>
+                  </button>
+                ) : (
+                  <button
+                    type="button"
+                    onClick={() => setShowUpgradeModal(true)}
+                    className="btn-action-primary px-3 py-1.5 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
+                  >
+                    <span className="material-symbols-outlined text-[16px]">upgrade</span>
+                    <span>Enable Reply Autopilot</span>
+                  </button>
+                )}
+              </div>
+            </div>
+
+            {lastSyncAt && (
+              <p className="text-[10px] text-[#74777d] dark:text-[#64748b] font-mono">
+                Last synchronized: {new Date(lastSyncAt).toLocaleString()}
+              </p>
+            )}
+
+            {syncResult && (
+              <div className="p-2.5 rounded-lg bg-[#3d6562]/10 dark:bg-teal-950/40 border border-[#3d6562]/20 text-[#3d6562] dark:text-[#5eead4] text-xs flex items-center gap-2 animate-fade-in">
+                <span className="material-symbols-outlined text-[16px]">done_all</span>
+                <span>{syncResult}</span>
+              </div>
+            )}
+          </div>
+        )}
+
         {gmailSuccess && (
           <div className="p-3 bg-[#3d6562]/10 dark:bg-[#3d6562]/30 border border-[#3d6562]/20 rounded-lg text-xs text-[#3d6562] dark:text-[#68b5ad] font-semibold flex items-center gap-2 animate-fade-in">
             <span className="material-symbols-outlined text-[16px]">check_circle</span>
@@ -1268,6 +1385,66 @@ export const SettingsView: React.FC<SettingsViewProps> = ({
           </div>
         )}
       </div>
+
+      {/* Upgrade Modal for Reply Detection Consent */}
+      {showUpgradeModal && (
+        <div
+          className="fixed inset-0 z-50 bg-black/60 dark:bg-black/75 backdrop-blur-xs flex items-center justify-center p-4 animate-in fade-in duration-150"
+          onClick={() => setShowUpgradeModal(false)}
+        >
+          <div
+            className="bg-[#ffffff] dark:bg-[#141f2e] text-[#1b1c19] dark:text-[#f3f6fa] rounded-2xl max-w-md w-full p-6 space-y-4 shadow-2xl border border-[#001126]/15 dark:border-white/10"
+            onClick={(e) => e.stopPropagation()}
+          >
+            <div className="flex items-center gap-3">
+              <div className="w-10 h-10 rounded-xl bg-[#3d6562]/10 dark:bg-teal-950/60 flex items-center justify-center text-[#3d6562] dark:text-[#5eead4]">
+                <span className="material-symbols-outlined text-[22px]">mark_email_read</span>
+              </div>
+              <div>
+                <h3 className="text-base font-bold text-[#001126] dark:text-[#f3f6fa]">
+                  Enable Reply-Aware Autopilot
+                </h3>
+                <p className="text-xs text-[#74777d] dark:text-[#94a3b8]">Read access for reminder threads</p>
+              </div>
+            </div>
+
+            <p className="text-xs text-[#44474d] dark:text-[#94a3b8] leading-relaxed">
+              DueFlow will request permission to read replies to emails sent by DueFlow. This allows the system to detect client questions, payment reports, and extension requests so follow-ups can be paused automatically.
+            </p>
+
+            <div className="p-3 rounded-xl bg-[#fbf9f4] dark:bg-[#0c131d] border border-[#001126]/8 dark:border-white/10 text-[11px] text-[#44474d] dark:text-[#94a3b8] space-y-1">
+              <div className="flex items-center gap-1.5 font-semibold text-[#001126] dark:text-[#f3f6fa]">
+                <span className="material-symbols-outlined text-[14px] text-[#3d6562] dark:text-[#5eead4]">verified_user</span>
+                <span>Privacy & Security Guarantee</span>
+              </div>
+              <p>
+                DueFlow strictly inspects replies linked to invoices sent through DueFlow. Your personal emails, unrelated contacts, and private communications are never analyzed, stored, or processed.
+              </p>
+            </div>
+
+            <div className="pt-2 flex justify-end gap-2.5 border-t border-[#001126]/10 dark:border-white/10">
+              <button
+                type="button"
+                onClick={() => setShowUpgradeModal(false)}
+                className="btn-action-secondary px-4 py-2 text-xs font-semibold rounded-lg cursor-pointer"
+              >
+                Cancel
+              </button>
+              <button
+                type="button"
+                onClick={() => {
+                  setShowUpgradeModal(false);
+                  handleUpgradeReplyDetection();
+                }}
+                className="btn-action-primary px-4 py-2 text-xs font-semibold rounded-lg flex items-center gap-1.5 cursor-pointer"
+              >
+                <span>Continue to Google</span>
+                <span className="material-symbols-outlined text-[14px]">arrow_forward</span>
+              </button>
+            </div>
+          </div>
+        </div>
+      )}
 
       {/* Card 5: Reminder preferences (Phase 3) */}
       <div className="bg-[#ffffff] dark:bg-[#141f2e] rounded-2xl border border-[#001126]/5 dark:border-white/10 p-6 sm:p-8 space-y-4 shadow-2xs">
